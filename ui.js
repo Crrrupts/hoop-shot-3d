@@ -10,6 +10,7 @@ const streakDisplay = document.getElementById('streak-display');
 const timeDisplay = document.getElementById('time-display');
 const spotDisplay = document.getElementById('spot-display');
 const cameraDisplay = document.getElementById('camera-display');
+const powerMeter = document.getElementById('power-bar-bg');
 const powerBarFill = document.getElementById('power-bar-fill');
 
 // Difficulty Mapping
@@ -23,6 +24,7 @@ const difficultyNames = {
 difficultySlider.addEventListener('input', (e) => {
     const val = e.target.value;
     diffLabel.textContent = difficultyNames[val];
+    difficultySlider.setAttribute('aria-valuetext', difficultyNames[val]);
 });
 
 // Hide the menu when the game starts
@@ -65,6 +67,7 @@ function updatePowerMeter(percentage) {
     // Ensures the fill stays within 0% and 100%
     const fill = Math.max(0, Math.min(percentage, 100));
     powerBarFill.style.height = `${fill}%`;
+    powerMeter.setAttribute('aria-valuenow', fill);
 }
 
 // --- TESTING ---

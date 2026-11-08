@@ -30,7 +30,7 @@
 
         <div id="power-meter-container">
             <div id="power-label">Power</div>
-            <div id="power-bar-bg">
+            <div id="power-bar-bg" role="meter" aria-labelledby="power-label" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
                 <div id="power-bar-fill"></div>
             </div>
         </div>
@@ -39,7 +39,7 @@
     <!-- Controls below canvas -->
     <div id="controls-bar">
         <label for="difficulty-slider">Difficulty</label>
-        <input type="range" id="difficulty-slider" min="1" max="3" value="2">
+        <input type="range" id="difficulty-slider" min="1" max="3" value="2" aria-valuetext="Medium">
         <span id="diff-label">Medium</span>
 
         <button id="start-btn">Start</button>
