@@ -7,7 +7,7 @@ Aim with the mouse, hold Space to charge, release to shoot. Score as many basket
 - Justin Leddo — gameplay and physics
 - Isaiah Millien — rendering
 - Amit Gurung — interaction and testing
-- Bom Chhetri — UI, art and audio
+- Bom Chhetri — UI, art, and audio
 
 ## Tech
 Plain WebGL with our own GLSL shaders and MV.js (no 3D engine).

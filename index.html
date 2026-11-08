@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Hoop Shot 3D</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/howler/2.2.3/howler.min.js"></script>
+</head>
+
+<body>
+    <!-- The WebGL Game -->
+    <canvas id="game-canvas" width="800" height="600"></canvas>
+
+    <!-- UI Overlay -->
+    <div id="ui-layer">
+        <div id="top-left" class="hud-box">
+            <div id="score-display">SCORE 0</div>
+            <div id="streak-display">Streak x0</div>
+        </div>
+
+        <div id="top-center">
+            <div id="camera-display">Camera: Shooter (C to switch)</div>
+        </div>
+
+        <div id="top-right" class="hud-box">
+            <div id="time-display">TIME 1:00</div>
+            <div id="spot-display">Spot 1 of 5</div>
+        </div>
+
+        <div id="power-meter-container">
+            <div id="power-label">Power</div>
+            <div id="power-bar-bg" role="meter" aria-labelledby="power-label" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+                <div id="power-bar-fill"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Controls below canvas -->
+    <div id="controls-bar">
+        <label for="difficulty-slider">Difficulty</label>
+        <input type="range" id="difficulty-slider" min="1" max="3" value="2" aria-valuetext="Medium">
+        <span id="diff-label">Medium</span>
+
+        <button id="start-btn">Start</button>
+    </div>
+
+    <!-- Start/Game Over Menu -->
+    <div id="menu-overlay">
+        <h1 id="menu-title">Hoop Shot 3D</h1>
+        <p id="menu-subtitle">Mouse: aim | Hold Space: power | A/D: spot | R: restart</p>
+        <button id="play-btn">Play Game</button>
+    </div>
+
+    <!-- Your JS files will go here later -->
+    <script src="ui.js"></script>
+</body>
+
+</html>
