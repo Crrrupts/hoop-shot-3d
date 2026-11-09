@@ -16,6 +16,7 @@ Keep this file throughout the project and submit the updated log with GA2 and GA
 
 | Date | Tool / model if known | Prompt or accurate summary | What output was used | What we changed and how we checked it | Member |
 |---|---|---|---|---|---|
+| 2026-11-09 | Claude (Anthropic) | Asked Claude to read the team repo and start Justin's part (gameplay and physics) so it works with Bom's UI and Amit's input code. | Drafted physics.js (gravity, fixed time step, floor/backboard/pole/rim collisions, basket detection), game.js (states, timer, scoring, streaks, moving hoop), camera.js (3 views), main.js (frame loop and renderScene hook), a temporary ?debug wireframe view, node tests, and a 1-line onShoot hook in input.js. | Tuned shot speed (6–9 m/s) with the tests so every spot has a fair power window; ran tests (all pass) and played it in a headless browser (shots, scoring, spot/camera switch, game over, restart). Justin still needs to review and understand the code before GA2. | Justin |
 | YYYY-MM-DD | | | | | |
 
 ## Current disclosure

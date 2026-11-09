@@ -55,6 +55,8 @@ document.addEventListener('keyup', (e) => {
     if (e.code === 'Space') {
         charging = false;
         console.log('Shot power:', Math.round(power), 'aimX:', aimX.toFixed(2), 'aimY:', aimY.toFixed(2), 'spot:', currentSpot, 'camera:', CAMERAS[currentCamera], 'difficulty:', getDifficultySettings().name);
+        // Hand the shot to the game code (game.js)
+        if (typeof window.onShoot === 'function') window.onShoot(power, aimX, aimY);
         power = 0;
         updatePowerMeter(power);
     }
