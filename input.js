@@ -15,8 +15,23 @@ let currentSpot = 1;
 const CAMERAS = ['Shooter', 'Ball Follow', 'Orbit'];
 let currentCamera = 0;
 
-const CHARGE_SPEED = 80; // percent per second
+// Difficulty (1 = Easy, 2 = Medium, 3 = Hard)
+// These numbers are starting values, we tune them later.
+const DIFFICULTY_SETTINGS = {
+    1: { name: 'Easy',   chargeSpeed: 60,  aimWobble: 0.00, movingHoop: false },
+    2: { name: 'Medium', chargeSpeed: 80,  aimWobble: 0.02, movingHoop: false },
+    3: { name: 'Hard',   chargeSpeed: 110, aimWobble: 0.05, movingHoop: true  }
+};
+let difficulty = 2;
+
+const GAME_SECONDS = 60;
 const gameCanvas = document.getElementById('game-canvas');
+const diffSlider = document.getElementById('difficulty-slider');
+
+// Game code can call this to read the current settings
+function getDifficultySettings() {
+    return DIFFICULTY_SETTINGS[difficulty];
+}
 
 // ---------- Keyboard ----------
 document.addEventListener('keydown', (e) => {
@@ -31,12 +46,15 @@ document.addEventListener('keydown', (e) => {
 
     // C = next camera
     if (!e.repeat && e.code === 'KeyC') switchCamera();
+
+    // R = restart
+    if (!e.repeat && e.code === 'KeyR') restartGame();
 });
 
 document.addEventListener('keyup', (e) => {
     if (e.code === 'Space') {
         charging = false;
-        console.log('Shot power:', Math.round(power), 'aimX:', aimX.toFixed(2), 'aimY:', aimY.toFixed(2), 'spot:', currentSpot, 'camera:', CAMERAS[currentCamera]);
+        console.log('Shot power:', Math.round(power), 'aimX:', aimX.toFixed(2), 'aimY:', aimY.toFixed(2), 'spot:', currentSpot, 'camera:', CAMERAS[currentCamera], 'difficulty:', getDifficultySettings().name);
         power = 0;
         updatePowerMeter(power);
     }
@@ -56,6 +74,35 @@ function switchCamera() {
     updateCamera(CAMERAS[currentCamera]);
 }
 
+// ---------- Difficulty ----------
+diffSlider.addEventListener('input', (e) => {
+    difficulty = Number(e.target.value);
+    console.log('Difficulty set to', getDifficultySettings().name, getDifficultySettings());
+    diffSlider.blur(); // so Space and A/D keep working after using the slider
+});
+
+// ---------- Restart ----------
+function restartGame() {
+    // Input state
+    charging = false;
+    power = 0;
+    currentSpot = 1;
+    currentCamera = 0;
+
+    // HUD
+    updateScore(0);
+    updateStreak(0);
+    updateTime(GAME_SECONDS);
+    updateSpot(currentSpot, TOTAL_SPOTS);
+    updateCamera(CAMERAS[currentCamera]);
+    updatePowerMeter(0);
+
+    // Let the game code (Justin's) reset ball, score and timer too
+    if (typeof window.onRestart === 'function') window.onRestart();
+
+    console.log('Game restarted');
+}
+
 // ---------- Mouse: aim ----------
 gameCanvas.addEventListener('mousemove', (e) => {
     const rect = gameCanvas.getBoundingClientRect();
@@ -69,7 +116,7 @@ function inputLoop(time) {
     lastTime = time;
 
     if (charging) {
-        power = Math.min(100, power + CHARGE_SPEED * dt);
+        power = Math.min(100, power + getDifficultySettings().chargeSpeed * dt);
         updatePowerMeter(power);
     }
     requestAnimationFrame(inputLoop);
