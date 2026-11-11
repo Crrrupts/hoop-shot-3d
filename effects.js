@@ -230,6 +230,7 @@ const Effects = (function () {
     // one of your shots is dropping toward the rim.
     function timeScale() {
         const s = Game.state;
+        if (window.sandboxSlowMotion) return 0.4;       // sandbox practice tool
         if (s.mode !== 'playing' || !s.buzzer) return 1;
         for (const ball of Game.player.balls) {
             if (ball.resolved || ball.vel[1] > 0) continue;
@@ -246,7 +247,13 @@ const Effects = (function () {
         getCheer: function () { return cheer; },
         getShake: function () { return shake; },
         // multiplies the picture's colors: white normally, red-orange in Inferno
-        getTint: function () { return [1 + 0.12 * tint, 1 - 0.18 * tint, 1 - 0.3 * tint]; },
+        getTint: function () {
+            // Neon Arcade boss: the lights flicker in the last minute
+            const s = Game.state;
+            const flicker = s.mode === 'playing' && s.twist === 'flicker' && s.timeLeft <= 60 &&
+                Math.sin(performance.now() / 90) + Math.sin(performance.now() / 37) > 0.9 ? 0.3 : 1;
+            return [(1 + 0.12 * tint) * flicker, (1 - 0.18 * tint) * flicker, (1 - 0.3 * tint) * flicker];
+        },
         getBoardFlash: function (hoop) { return boardFlash.get(hoop) || 0; },
         // 1 while a shooter is in Inferno: their rim glows
         rimGlow: function (hoop) {

@@ -93,6 +93,7 @@ const Game = (function () {
             effects: {},                // active power-ups (see powerups.js)
             hoopClock: 0,
             cooldown: 0,
+            spotStats: SPOTS.map(() => ({ made: 0, attempts: 0 })),     // makes and attempts at each spot
             ai: null                    // rival only: { accuracy, pace, maxRarity, timer }
         };
     }
@@ -114,6 +115,9 @@ const Game = (function () {
         wind: [0, 0, 0],                // sideways push on balls in the air right now (m/s^2)
         moneyRackAt: 0,                 // when the Money Rack bonus round starts (seconds played)
         moneyRack: 0,                   // seconds of Money Rack left (0 = not running)
+        practice: false,                // true = no clock, no rival, no picks (tutorial and sandbox)
+        twist: null,                    // a campaign boss's special rule (see campaign.js)
+        options: {},                    // what the current match was started with (R restarts it)
         followBall: null,               // your newest ball (for the Ball Follow camera)
         shotDir: [0, 0, -1],            // which way it was thrown
         player: player,
@@ -149,6 +153,11 @@ const Game = (function () {
         return (typeof currentSpot !== 'undefined') ? currentSpot : player.spot;
     }
     function randomBetween(a, b) { return a + Math.random() * (b - a); }
+    // What your gear cards do (cards.js). No gear in the node tests.
+    function gear() {
+        if (typeof Cards !== 'undefined') return Cards.gearBonus();
+        return { wobbleScale: 1, rimScale: 1, freeMissChance: 0 };
+    }
 
     // ---------- Shot math ----------
     // Where a shooter stands for a spot (their hoop's position + the spot's arc)
@@ -239,6 +248,7 @@ const Game = (function () {
         const shooter = ball.owner;
         ball.resolved = true;
         shooter.made++;
+        if (ball.spot) shooter.spotStats[ball.spot - 1].made++;
         setStreak(shooter, shooter.streak + 1);
         const points = pointsFor(shooter, ball.points, info);
         PU.useOne(shooter, 'golden');
@@ -256,6 +266,13 @@ const Game = (function () {
         ball.resolved = true;
         if (ball.bonus) return;                     // Double Ball's extra ball can only help
         if (shooter.streak > 0 && PU.useOne(shooter, 'second')) return;     // Second Chance
+        // Wristband gear: once a game, a miss may keep your streak
+        if (shooter === player && tierFor(player.streak) && !player.freeMissUsed &&
+            Math.random() < gear().freeMissChance) {
+            player.freeMissUsed = true;
+            hud('showToast', 'Wristband saved your streak!', 'buff');
+            return;
+        }
         const lostTier = tierFor(shooter.streak);
         shooter.streak = 0;
         showScores();
@@ -302,7 +319,9 @@ const Game = (function () {
         if (PU.useOne(shooter, 'double')) {
             shooter.pending.push({ delay: 0.18, pos: pos, vel: vel, points: points });
         }
+        ball.spot = shooter.spot;
         shooter.attempts++;
+        shooter.spotStats[shooter.spot - 1].attempts++;
         shooter.cooldown = SETTINGS.shotCooldown;
         // effects that last "for the next N shots" lose one shot
         for (const id of ['sweet', 'guide', 'fast', 'shaky', 'heckler']) PU.useOne(shooter, id);
@@ -322,8 +341,10 @@ const Game = (function () {
         if (!canShoot(player)) return;
         player.spot = inputSpot();
         // aim error: difficulty + Shaky Hands + a wet ball in the rain
-        const wobble = difficulty().aimWobble + (PU.has(player, 'shaky') ? SHAKY_WOBBLE : 0) +
-            state.court.rules.slip;
+        // (the Rooftop boss makes the rain heavier as it scores; the Headband gear steadies you)
+        const rain = state.court.rules.slip * (state.twist === 'heavierRain' ? 1 + rival.score / 40 : 1);
+        const wobble = (difficulty().aimWobble + (PU.has(player, 'shaky') ? SHAKY_WOBBLE : 0) + rain) *
+            gear().wobbleScale;
         throwBall(player, power, aimX, aimY, wobble);
     }
 
@@ -346,7 +367,7 @@ const Game = (function () {
     }
 
     function updateRival(dt) {
-        if (!rival.ai || !canShoot(rival)) return;
+        if (!rival.ai || state.practice || !canShoot(rival)) return;
         rival.ai.timer -= dt;
         if (rival.ai.timer > 0) return;
         rival.ai.timer = rival.ai.pace * randomBetween(0.8, 1.2);
@@ -413,9 +434,11 @@ const Game = (function () {
         if (state.mode !== 'picking') return;
         const row = state.pick.row;
         applyCard(state.pick[side], player);
+        if (side === 'sabotage') player.sabotagesUsed++;    // campaign: a star for winning without sabotage
         // the rival picks a card at the same time
         if (rival.ai && rival.ai.maxRarity) {
-            const rivalSide = Math.random() < 0.5 ? 'buff' : 'sabotage';
+            // the final boss uses a sabotage every pick
+            const rivalSide = state.twist === 'sabotageEveryPick' || Math.random() < 0.5 ? 'sabotage' : 'buff';
             const card = PU.rollCard(rivalSide, row, rival.ai.maxRarity);
             applyCard(card, rival);
             hud('showToast', rival.name + ' picked ' + card.name + (card.side === 'sabotage' ? ' on you!' : ''), card.side);
@@ -444,7 +467,7 @@ const Game = (function () {
     // Turn a shooter's active effects into changes to their hoop
     function updateHoop(shooter, dt) {
         const hoop = shooter.hoop;
-        hoop.rimScale = state.court.rules.rimScale *
+        hoop.rimScale = state.court.rules.rimScale * (shooter === player ? gear().rimScale : 1) *
             (PU.has(shooter, 'wide') ? 1.2 : 1) * (PU.has(shooter, 'tiny') ? 0.85 : 1);
         hoop.slippery = PU.has(shooter, 'slippery');
         let target = 0;
@@ -490,10 +513,19 @@ const Game = (function () {
     }
 
     // options (all optional): { rival: { name, accuracy, pace, maxRarity }, length, court }
+    //   practice: true = no clock, rival or picks (tutorial, sandbox); twist = a boss rule;
+    //   mode = 'quick', 'campaign', 'tutorial' or 'sandbox' (menus.js uses it); stage = campaign stage number
+    // With no options, the last match starts again (the R key).
     function start(options) {
-        options = options || {};
+        options = options || state.options;
+        state.options = options;
+        state.practice = !!options.practice;
+        state.twist = options.twist || null;
         if (options.court && options.court !== state.court.id) setCourt(options.court);
+        player.sabotagesUsed = 0;
+        player.freeMissUsed = false;
         for (const s of [player, rival]) {
+            s.spotStats = SPOTS.map(() => ({ made: 0, attempts: 0 }));
             s.score = 0; s.streak = 0; s.bestStreak = 0; s.made = 0; s.attempts = 0;
             s.balls = []; s.pending = []; s.effects = {};
             s.hoopClock = 0; s.cooldown = 0;
@@ -522,7 +554,8 @@ const Game = (function () {
         state.followBall = null;
         // one surprise Money Rack per game, somewhere in the middle
         // (not in very short test games)
-        state.moneyRackAt = state.timeLeft >= 60 ? state.timeLeft * randomBetween(0.35, 0.75) : 0;
+        state.moneyRackAt = state.timeLeft >= 60 && !state.practice ? state.timeLeft * randomBetween(0.35, 0.75) : 0;
+        if (state.twist === 'heatingStart') rival.streak = 2;      // Home Gym boss starts already Heating Up
         state.moneyRack = 0;
 
         // ?test=... cards (they last 10 minutes so there is time to look at them)
@@ -539,7 +572,7 @@ const Game = (function () {
         hud('hidePick');
         hud('showCourt', state.court);
         showWind();
-        showMenu(false);
+        hud('hideMenus');
         emit('start');
     }
 
@@ -587,24 +620,14 @@ const Game = (function () {
         state.result = player.score > rival.score ? 'win' : player.score < rival.score ? 'lose' : 'tie';
         hud('updateEffects', []);
         emit('gameover', { result: state.result });
-        showMenu(true);
+        hud('showGameOver');            // menus.js shows the result screen
     }
 
-    function showMenu(show) {
-        if (typeof document === 'undefined') return;
-        const overlay = document.getElementById('menu-overlay');
-        if (!overlay) return;
-        overlay.style.display = show ? 'flex' : 'none';
-        if (show && state.mode === 'gameover') {
-            const pct = player.attempts ? Math.round(100 * player.made / player.attempts) : 0;
-            const titles = { win: 'You Win!', lose: 'You Lose', tie: 'Tie Game' };
-            document.getElementById('menu-title').textContent = titles[state.result];
-            document.getElementById('menu-subtitle').textContent =
-                `You ${player.score} - ${rival.score} ${rival.name} | ` +
-                `${player.made}/${player.attempts} shots (${pct}%) | best streak ${player.bestStreak}`;
-            document.getElementById('play-btn').textContent = 'Play Again';
-        }
-    }
+    // Sandbox and tutorial helpers
+    function forcePick() { if (state.mode === 'playing') startPick(); }
+    function clearBalls() { player.balls = []; player.pending = []; }
+    // Leave the match and go back to the menus
+    function quit() { state.mode = 'menu'; player.balls = []; rival.balls = []; hud('updateEffects', []); }
 
     // Called every frame by main.js
     function update(dt) {
@@ -622,7 +645,7 @@ const Game = (function () {
         PU.tick(player, dt);
         PU.tick(rival, dt);
 
-        if (!state.buzzer && !frozen) {
+        if (!state.buzzer && !frozen && !state.practice) {
             const before = Math.ceil(state.timeLeft);
             state.timeLeft = Math.max(0, state.timeLeft - dt);
             state.elapsed += dt;
@@ -647,6 +670,9 @@ const Game = (function () {
 
         // the wind changes slowly through the match
         state.wind[0] = CourtList.windAt(state.court.rules, state.elapsed);
+        // boss twists (campaign.js)
+        if (state.twist === 'risingWind') state.wind[0] *= 1 + state.elapsed / SETTINGS.gameLength;
+        if (state.twist === 'heckle') player.effects.heckler = { level: 1, left: 99 };     // heckled on every shot
 
         player.cooldown -= dt;
         rival.cooldown -= dt;
@@ -668,7 +694,7 @@ const Game = (function () {
 
         if (state.buzzer) {
             if (ballsInPlay() === 0) endOfClock();
-        } else if (!frozen) {
+        } else if (!frozen && !state.practice) {
             // the first pick comes early if you already made 2 shots
             const early = state.pickNumber === 0 && player.made >= SETTINGS.earlyPickMakes &&
                 state.elapsed < SETTINGS.pickGapMin;
@@ -681,19 +707,13 @@ const Game = (function () {
         window.onShoot = shoot;                 // input.js calls this on Space release
         window.onRestart = function () { start(); };    // input.js calls this on R
         window.gameInstance = { start, setCourt };
-        if (typeof document !== 'undefined') {
-            ['play-btn', 'start-btn'].forEach((id) => {
-                const b = document.getElementById(id);
-                if (b) b.addEventListener('click', () => { start(); b.blur(); });
-            });
-        }
     }
 
     return {
         state, player, rival, SPOTS, SETTINGS, TIERS, RIVALS,
         start, shoot, update, on,
         spotPosition, shotVelocity, makeWindow, tierFor, pointsFor,
-        throwBall, applyCard, choosePick, opponentOf, setCourt
+        throwBall, applyCard, choosePick, opponentOf, setCourt, forcePick, clearBalls, quit
     };
 })();
 

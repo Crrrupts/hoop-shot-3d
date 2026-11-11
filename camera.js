@@ -65,7 +65,8 @@ const Camera = (function () {
             at[i] += (target.at[i] - at[i]) * k;
         }
         // Heckler power-up: a loud fan shakes your camera
-        if (Game.state.mode === 'playing' && PowerUps.has(Game.player, 'heckler')) {
+        // (only while you are charging a shot)
+        if (Game.state.mode === 'playing' && PowerUps.has(Game.player, 'heckler') && typeof charging !== 'undefined' && charging) {
             for (let i = 0; i < 3; i++) at[i] += (Math.random() - 0.5) * 0.12;
         }
         // tiny shake when you score (effects.js)

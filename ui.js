@@ -1,7 +1,7 @@
+// ui.js — the HUD: score, streak, time, power meter, power-up pick screen,
+// court picker and small effects. The menus are in menus.js.
+
 // DOM Elements
-const menuOverlay = document.getElementById('menu-overlay');
-const playBtn = document.getElementById('play-btn');
-const startBtn = document.getElementById('start-btn');
 const difficultySlider = document.getElementById('difficulty-slider');
 const diffLabel = document.getElementById('diff-label');
 
@@ -26,17 +26,6 @@ difficultySlider.addEventListener('input', (e) => {
     diffLabel.textContent = difficultyNames[val];
     difficultySlider.setAttribute('aria-valuetext', difficultyNames[val]);
 });
-
-// Hide the menu when the game starts
-playBtn.addEventListener('click', startGame);
-startBtn.addEventListener('click', startGame);
-
-function startGame() {
-    menuOverlay.style.display = 'none';
-
-    // Note: Once the WebGL logic is ready, I will trigger the game loop here.
-    // e.g., window.gameInstance.start();
-}
 
 // API Functions for the Game Loop
 // Justin and Amit call these functions to update the UI when the ball scores or time passes.
@@ -229,6 +218,14 @@ function showCourt(court) {
     courtSelect.value = court.id;
     courtBlurb.textContent = court.blurb;
     document.getElementById('court-display').textContent = court.name;
+    // style the scoreboard to match the court (see SCOREBOARDS in courts.js)
+    const layer = document.getElementById('ui-layer'), board = court.look.scoreboard;
+    layer.style.setProperty('--sb-bg', board.bg);
+    layer.style.setProperty('--sb-text', board.text);
+    layer.style.setProperty('--sb-accent', board.accent);
+    layer.style.setProperty('--sb-border', board.border);
+    layer.style.setProperty('--sb-font', board.font);
+    layer.style.setProperty('--sb-glow', board.glow);
 }
 showCourt(Courts.LIST[0]);          // the first court is the default
 courtSelect.addEventListener('change', () => {

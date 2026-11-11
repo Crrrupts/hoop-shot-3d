@@ -300,6 +300,35 @@ check('a 50% rival still makes 35-56% in gusting wind', windyRate > 0.35 && wind
     `${rival.made}/${rival.attempts} = ${(windyRate * 100).toFixed(0)}%`);
 Game.setCourt('home');
 
+// ---------- Practice mode and boss twists ----------
+Game.start({ rival: { name: 'Bot', accuracy: 0.9, pace: 0.5, maxRarity: 'rare' }, practice: true, length: 30 });
+playerShot(true); playerShot(true); playerShot(true);
+run(60);
+check('practice (tutorial, sandbox): no clock, no rival shots, no picks, score still counts',
+    state.timeLeft === 30 && rival.attempts === 0 && state.pickNumber === 0 && state.mode === 'playing' &&
+    player.score > 0 && Game.tierFor(player.streak) !== null);
+check('makes and attempts are counted per spot', player.spotStats[2].made === 3 && player.spotStats[2].attempts === 3);
+Game.forcePick();
+check('a pick can be forced (tutorial)', state.mode === 'picking');
+Game.choosePick('sabotage');
+check('sabotage picks are counted (campaign star)', player.sabotagesUsed === 1);
+Game.start();
+check('starting with no options restarts the same match', state.practice === true && state.timeLeft === 30 && player.score === 0);
+
+Game.start({ rival: noCards, twist: 'heatingStart', length: 60 });
+check('Home Gym boss starts already Heating Up', rival.streak === 2);
+Game.start({ rival: noCards, twist: 'risingWind', court: 'boardwalk', length: 100000 });
+state.nextPickAt = Infinity; state.pickNumber = 99;
+run(1); const earlyWind = Math.abs(state.wind[0]);
+run(170); const lateWind = Math.abs(state.wind[0]);
+check('Boardwalk boss: the wind gets stronger over time', lateWind > earlyWind * 1.3, `${earlyWind.toFixed(2)} -> ${lateWind.toFixed(2)}`);
+Game.start({ rival: { name: 'Boss', accuracy: 0, pace: 999, maxRarity: 'legendary' }, twist: 'sabotageEveryPick', court: 'home', length: 600 });
+let bossSabotages = 0;
+Game.on((name, data) => { if (name === 'powerup' && data.user === rival && data.card.side === 'sabotage') bossSabotages++; });
+for (let i = 0; i < 6; i++) { Game.forcePick(); Game.choosePick('buff'); }
+check('final boss uses a sabotage every pick', bossSabotages === 6, bossSabotages + ' of 6');
+Game.setCourt('home');
+
 // A whole 3-minute match against the Medium rival, with picks
 Game.start({ rival: Game.RIVALS.Medium, length: 180 });
 let shotTimer = 0, guard = 0;

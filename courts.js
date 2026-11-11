@@ -172,6 +172,20 @@ const Courts = (function () {
         }
     ];
 
+    // The scoreboard (score and time boxes) is styled to match each court.
+    // ui.js copies these into CSS: background, text color, accent color (rival
+    // score and small text), border, font and glow.
+    const SCOREBOARDS = {
+        ymca:      { bg: 'rgba(255,255,255,0.9)', text: '#17456e', accent: '#2369a5', border: '2px solid #2369a5', font: 'Arial, sans-serif', glow: 'none' },                       // clean community-center board
+        home:      { bg: '#170c0a', text: '#ff4a3d', accent: '#ffb020', border: '4px solid #6b4a2a', font: '"Courier New", monospace', glow: '0 0 6px #ff4a3d' },               // old red-bulb scoreboard in a wood frame
+        neon:      { bg: 'rgba(10,6,24,0.85)', text: '#35e8ff', accent: '#ff3cbe', border: '2px solid #ff3cbe', font: '"Courier New", monospace', glow: '0 0 8px #35e8ff' },    // neon sign
+        arena:     { bg: 'rgba(6,8,16,0.92)', text: '#ffffff', accent: '#ffc93d', border: '2px solid #c9ccd6', font: 'Impact, "Arial Narrow", sans-serif', glow: '0 0 4px rgba(255,255,255,0.6)' },   // jumbotron
+        boardwalk: { bg: '#8a5a33', text: '#fff4d6', accent: '#ffe08a', border: '4px solid #5a3a1e', font: 'Georgia, serif', glow: 'none' },                                    // painted wooden sign
+        rooftop:   { bg: 'rgba(28,28,34,0.88)', text: '#f2f2e8', accent: '#ff8a3c', border: '2px dashed #d9d4c2', font: '"Courier New", monospace', glow: 'none' },             // chalk on a dark wall
+        lake:      { bg: 'rgba(214,234,247,0.9)', text: '#17325c', accent: '#3d6fb8', border: '2px solid #ffffff', font: 'Arial, sans-serif', glow: '0 0 6px #ffffff' }        // block of ice
+    };
+    LIST.forEach((court) => { court.look.scoreboard = SCOREBOARDS[court.id]; });
+
     function byId(id) {
         return LIST.find((c) => c.id === id) || LIST[0];
     }

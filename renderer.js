@@ -97,17 +97,31 @@
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, wrap);
         return t;
     }
-    // The ball texture never changes; the rest are rebuilt for each court
-    const textures = { ball: makeTexture(Textures.ball(), true), court: null, backboard: null, wall: null, sky: null };
+    // These are rebuilt for each court
+    const textures = { court: null, backboard: null, wall: null, sky: null };
 
     // ---------- Materials ----------
     // color: base color (multiplied by the texture if there is one)
     // specular + shininess: the shiny highlight (0 specular = matte)
     // unlit: flat color, no lighting (lines, sky, glowing things)
     const MATERIALS = {
-        ball: { color: [1, 1, 1], specular: [0.25, 0.22, 0.2], shininess: 18, texture: textures.ball }
         // court, board, rim, pole, wall, ceiling, sky and ground are set by loadCourt()
     };
+
+    // Ball skins (the ball cards in cards.js). Each skin's texture is painted
+    // the first time it is needed, then kept.
+    const ballMaterials = {};
+    function ballMaterial(id) {
+        if (!ballMaterials[id]) {
+            const lookOfBall = Cards.byId(id).look;
+            const shine = lookOfBall.shine;         // 0 = dull rubber, 1 = mirror or polished gold
+            ballMaterials[id] = {
+                color: [1, 1, 1], specular: [shine, shine, shine], shininess: 12 + shine * 70,
+                texture: makeTexture(Textures.ball(lookOfBall), true)
+            };
+        }
+        return ballMaterials[id];
+    }
 
     function setMaterial(m) {
         gl.uniform3fv(uniform.uColor, m.color);
@@ -408,6 +422,7 @@
     }
 
     // ---------- Ball ----------
+    let ballSkin = 'classic';                   // set from the scene each frame
     // Each ball keeps its own rotation matrix so its spin adds up smoothly.
     const ballSpin = new WeakMap();
     function drawBall(ball) {
@@ -425,7 +440,9 @@
         transform(scalem(1 + squash * 0.5, 1 - squash, 1 + squash * 0.5));          // squash (flatter and wider)
         transform(spin.matrix);                                                      // spin it
         transform(scalem(r, r, r));
-        setMaterial(MATERIALS.ball);
+        // your balls use your equipped ball card; the rival uses the Classic ball
+        const mine = ball.mine || ball.owner === Game.player;
+        setMaterial(ballMaterial(mine ? ballSkin : 'classic'));
         drawMesh(meshes.sphere);
         popMatrix();
     }
@@ -627,6 +644,7 @@
         pointScale = (rect.height / 2) / Math.tan(radians(cam.fov) / 2);
 
         modelMatrix = mat4();
+        ballSkin = scene.ballSkin;
         const wind = scene.state.wind[0];
 
         // 1. solid objects

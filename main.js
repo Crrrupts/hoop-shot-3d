@@ -11,13 +11,14 @@
 //   scene.fog        true while the Fog Machine power-up is on you
 //   scene.blackout   true while the Blackout power-up is on you
 //   scene.tint       [r, g, b] multiplies the picture's colors (Inferno turns it red-orange)
+//   scene.ballSkin   id of the ball card to draw for your balls (cards.js)
 //   scene.state      Game.state (mode, player, rival, ...)
 
 (function () {
     let last = performance.now();
 
     // The balls waiting in each shooter's hands (drawn, but not in the physics yet)
-    const playerHand = { pos: [0, 0, 0], spinAxis: [1, 0, 0], spinAngle: 0 };
+    const playerHand = { pos: [0, 0, 0], spinAxis: [1, 0, 0], spinAngle: 0, mine: true };
     const rivalHand = { pos: [0, 0, 0], spinAxis: [1, 0, 0], spinAngle: 0 };
 
     // The aim arc shows on Easy, or while the Guide Line power-up is active
@@ -75,6 +76,7 @@
                 fog: PowerUps.has(player, 'fog'),
                 blackout: PowerUps.has(player, 'blackout'),
                 tint: Effects.getTint(),
+                ballSkin: Cards.activeBall(),
                 state: Game.state
             });
         }

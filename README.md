@@ -21,6 +21,12 @@ Open index.html with a local web server (e.g. VS Code Live Server).
 ## Controls
 Mouse: aim | hold Space: charge power, release to shoot | A/D: change spot | C: change camera | R: restart | slider: difficulty. In the Orbit camera, drag the mouse to spin the view. On a power-up pick: click a card, or Left arrow / 1 for the left card and Right arrow / 2 for the right card.
 
+## Modes
+- **Campaign** (main mode): 7 stages, one per court, easiest to hardest. Each is a race against that court's boss, who has a twist (listed on the campaign screen). A win earns 1–3 stars (win, win by 10+, win without picking a sabotage), gold and a chest, and unlocks the next stage. The first stage starts with a 6-step tutorial and a 60-second practice race.
+- **Quick Match**: pick any court; the Difficulty slider sets the rival.
+- **Sandbox**: free shootaround with no clock and no rival. A panel under the game lets you change court and ball, switch any power-up or sabotage on yourself and set its level, show the aim arc and power zone, use slow motion, reset the balls, and see makes/attempts per spot.
+- **Cards**: chests give ball skins (looks only) and gear. Duplicates plus gold level a card up (max level 5). Gear: Headband (steadier aim), Shooting Sleeve (slightly bigger rim for you), Wristband (once a game a miss may keep your streak). Progress is saved in the browser on this computer.
+
 ## How a match works
 - **Live race.** You and the rival shoot at the same time at your own hoops. The small box on the left is a live camera on the rival's hoop.
 - **Shoot as fast as you want.** A new ball is ready as soon as the last one leaves your hands, so several balls can be in the air.
@@ -43,6 +49,8 @@ Pick a court on the menu. Rules and looks are in `courts.js`.
 | Boardwalk | Hard | Outdoor double rim (stiffer, thicker) and a sea wind that pushes the ball sideways |
 | Rooftop | Hard | Outdoor double rim and rain: a slippery ball (shakier aim) and a floor that bounces less |
 | Frozen Lake | Hardest | Outdoor double rim, gusting wind that changes direction, falling snow |
+
+The scoreboard (score and time boxes) is styled to match each court: red bulbs in a wood frame at the Home Gym, a neon sign at the Neon Arcade, a painted wooden sign on the Boardwalk, and so on (`SCOREBOARDS` in `courts.js`).
 
 The wind when you release is the wind that ball gets. The HUD shows it for the spot you are standing on (arrows = sideways push), and the aim arc bends with it.
 
@@ -76,12 +84,15 @@ The wind when you release is the wind that ball gets. The HUD shows it for the s
 | courts.js | Justin, Bom | The 7 courts: rules (rim, wind, rain) and looks (colors, lights, sky, weather) |
 | effects.js | Justin, Bom | Game feel: hype meter, confetti, fire, smoke, ball trails, floating text, slow motion, sound hooks |
 | crowd.js | Bom | Where the fans stand and how high each one jumps |
+| cards.js | Justin, Bom | Ball and gear cards, chests, upgrades, saved progress |
+| campaign.js | Justin | The 7 campaign stages (rival numbers, boss twists), stars and rewards |
+| menus.js | Bom | Menu screens, result and chest opening, tutorial steps, sandbox panel |
 | camera.js | Justin | Shooter, Ball Follow and Orbit views (eye/at/up for lookAt), plus the fixed rival camera |
 | main.js | Justin | Frame loop; calls `window.renderScene(scene)` every frame |
 | geometry.js | Isaiah | Builds every mesh in code (positions, normals, texture coordinates, triangles) |
 | textures.js | Isaiah, Bom | Placeholder textures painted on 2D canvases (swap in real art here) |
 | renderer.js | Isaiah | WebGL setup, materials, lights, matrix stack, draws the main view and the small rival view |
-| tests/ | Amit | `physics.test.js` and `rules.test.js`, run with node |
+| tests/ | Amit | `physics.test.js`, `rules.test.js` and `cards.test.js`, run with node |
 
 Units are meters, y is up, the rim is above x = 0, z = 0 and the shooter is on +z. Sizes shared by physics and drawing are in `Physics` (`RIM_HEIGHT`, `RIM_RADIUS`, `BOARD`, `POLE`, ...).
 
@@ -93,8 +104,9 @@ Units are meters, y is up, the rim is above x = 0, z = 0 and the shooter is on +
 ```
 node tests/physics.test.js
 node tests/rules.test.js
+node tests/cards.test.js
 ```
-The first checks that every spot can be scored, the collisions, and frame-rate independence. The second checks the match rules: streak tiers, rapid fire, power-up odds and effects, the rival's accuracy, the buzzer, overtime, the court rules (soft rim, double rim, rain, wind) and a whole simulated match.
+The first checks that every spot can be scored, the collisions, and frame-rate independence. The second checks the match rules: streak tiers, rapid fire, power-up odds and effects, the rival's accuracy, the buzzer, overtime, the court rules (soft rim, double rim, rain, wind), practice mode, boss twists and a whole simulated match. The third checks chests, upgrades, gear and campaign stars and unlocks.
 
 For testing in the browser, add to the page address: `?length=30` for a short game, or `?test=moving,fog` to start with those power-ups on you (ids are in `powerups.js`).
 

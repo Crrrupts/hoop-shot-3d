@@ -48,6 +48,12 @@
         <!-- Whole-screen flash and the glowing border for streak tiers -->
         <div id="flash"></div>
         <div id="glow"></div>
+        <!-- Tutorial instructions (menus.js) -->
+        <div id="tutorial-box">
+            <div id="tutorial-step"></div>
+            <div id="tutorial-text"></div>
+            <button id="tutorial-skip">Skip tutorial</button>
+        </div>
 
         <div id="power-meter-container">
             <div id="power-label">Power</div>
@@ -89,17 +95,72 @@
         <div id="pick-timer"><div id="pick-timer-fill"></div></div>
     </div>
 
-    <!-- Start/Game Over Menu -->
+    <!-- Menus: one overlay, one screen shown at a time (menus.js) -->
     <div id="menu-overlay">
-        <h1 id="menu-title">Hoop Shot 3D</h1>
-        <p id="menu-subtitle">Race the rival: most points in 3 minutes wins</p>
-        <p id="menu-controls">Mouse: aim | Hold Space: power | A/D: spot | C: camera | R: restart</p>
-        <div id="court-picker">
-            <label for="court-select">Court</label>
-            <select id="court-select"></select>
-            <p id="court-blurb"></p>
+        <div class="screen" id="screen-main">
+            <h1>Hoop Shot 3D</h1>
+            <p>Race a rival at your own hoops: most points in 3 minutes wins</p>
+            <p class="small">Mouse: aim | Hold Space: power | A/D: spot | C: camera | R: restart</p>
+            <button id="btn-campaign" class="big">Campaign</button>
+            <button id="btn-quick">Quick Match</button>
+            <button id="btn-sandbox">Sandbox</button>
+            <button id="btn-cards">Cards</button>
+            <p class="gold-line">Gold: <span class="gold-amount">0</span></p>
         </div>
-        <button id="play-btn">Play Game</button>
+
+        <div class="screen" id="screen-quick">
+            <h2>Quick Match</h2>
+            <div id="court-picker">
+                <label for="court-select">Court</label>
+                <select id="court-select"></select>
+                <p id="court-blurb"></p>
+            </div>
+            <p class="small">The Difficulty slider under the game sets the rival.</p>
+            <button id="play-btn" class="big">Play Game</button>
+            <button class="back-btn">Back</button>
+        </div>
+
+        <div class="screen" id="screen-campaign">
+            <h2>Campaign</h2>
+            <div id="stage-list"></div>
+            <button id="btn-tutorial">Replay tutorial</button>
+            <button class="back-btn">Back</button>
+        </div>
+
+        <div class="screen" id="screen-cards">
+            <h2>Cards</h2>
+            <p class="gold-line">Gold: <span class="gold-amount">0</span></p>
+            <div id="card-grid"></div>
+            <button class="back-btn">Back</button>
+        </div>
+
+        <div class="screen" id="screen-result">
+            <h1 id="result-title"></h1>
+            <p id="result-score"></p>
+            <p id="result-stars"></p>
+            <p id="result-reward"></p>
+            <div id="result-cards"></div>
+            <div id="result-buttons">
+                <button id="btn-next" class="big">Next stage</button>
+                <button id="btn-again">Play Again</button>
+                <button id="btn-menu">Menu</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sandbox tools: only shown in sandbox mode (menus.js) -->
+    <div id="sandbox-panel">
+        <div class="sandbox-row">
+            <label>Court <select id="sandbox-court"></select></label>
+            <label>Ball <select id="sandbox-ball"></select></label>
+            <label><input type="checkbox" id="sandbox-arc"> Aim arc</label>
+            <label><input type="checkbox" id="sandbox-zone"> Power zone</label>
+            <label><input type="checkbox" id="sandbox-slow"> Slow motion</label>
+            <button id="sandbox-reset">Reset balls</button>
+            <button id="sandbox-exit">Exit sandbox</button>
+        </div>
+        <div id="sandbox-powerups"></div>
+        <div id="sandbox-stats"></div>
     </div>
 
     <!-- GLSL shaders (our own). Phong shading: the lighting is worked out for every pixel. -->
@@ -213,6 +274,8 @@
     <script src="input.js"></script>
     <script src="physics.js"></script>
     <script src="powerups.js"></script>
+    <script src="cards.js"></script>
+    <script src="campaign.js"></script>
     <script src="game.js"></script>
     <script src="effects.js"></script>
     <script src="crowd.js"></script>
@@ -220,6 +283,7 @@
     <script src="geometry.js"></script>
     <script src="textures.js"></script>
     <script src="renderer.js"></script>
+    <script src="menus.js"></script>
     <script src="main.js"></script>
 </body>
 

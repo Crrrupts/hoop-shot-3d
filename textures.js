@@ -22,24 +22,75 @@ const Textures = (function () {
         };
     }
 
-    // ---------- Ball: orange leather with black seams ----------
+    // ---------- Ball skins ----------
     // The image wraps around the sphere: x = longitude, y = latitude.
-    function ball() {
+    // look comes from the ball cards in cards.js: { base, seam, pattern }
+    //   pattern = 'leather', 'scuffed', 'tricolor', 'stripes', 'tiles', 'cracks' or 'plain'
+    function ball(look) {
         const W = 1024, H = 512;
         const c = makeCanvas(W, H), g = c.getContext('2d');
         const rand = randomMaker(7);
 
-        g.fillStyle = '#d9722b';
+        g.fillStyle = look.base;
         g.fillRect(0, 0, W, H);
-        // leather pebbles: lots of tiny darker and lighter dots
-        for (let i = 0; i < 14000; i++) {
-            g.fillStyle = rand() < 0.5 ? 'rgba(90,40,10,0.22)' : 'rgba(255,190,120,0.16)';
-            g.beginPath();
-            g.arc(rand() * W, rand() * H, 1 + rand() * 1.5, 0, 2 * Math.PI);
-            g.fill();
+
+        if (look.pattern === 'tricolor') {
+            // red, white and blue panels around the ball
+            const colors = ['#c8322d', '#f2f2f2', '#2d55b8', '#f2f2f2'];
+            for (let i = 0; i < 8; i++) { g.fillStyle = colors[i % 4]; g.fillRect(i * W / 8, 0, W / 8, H); }
+        } else if (look.pattern === 'stripes') {
+            // watermelon: dark wavy stripes and seeds
+            g.fillStyle = look.seam;
+            for (let i = 0; i < 12; i++) {
+                g.beginPath();
+                for (let y = 0; y <= H; y += 8) g.lineTo(i * W / 12 + 18 + Math.sin(y / 30 + i) * 9, y);
+                for (let y = H; y >= 0; y -= 8) g.lineTo(i * W / 12 - 18 + Math.sin(y / 30 + i) * 9 + 36, y);
+                g.fill();
+            }
+            g.fillStyle = '#16210f';
+            for (let i = 0; i < 90; i++) { g.beginPath(); g.ellipse(rand() * W, rand() * H, 3, 6, 0, 0, 2 * Math.PI); g.fill(); }
+        } else if (look.pattern === 'tiles') {
+            // disco ball: small mirror tiles, each a slightly different brightness
+            const size = 32;
+            for (let y = 0; y < H; y += size) {
+                for (let x = 0; x < W; x += size) {
+                    const k = Math.round(150 + rand() * 105);
+                    g.fillStyle = `rgb(${k},${k + 4},${Math.min(255, k + 14)})`;
+                    g.fillRect(x + 1.5, y + 1.5, size - 3, size - 3);
+                }
+            }
+        } else if (look.pattern === 'cracks') {
+            // lava: jagged glowing cracks
+            g.strokeStyle = look.seam;
+            g.lineCap = 'round';
+            for (let i = 0; i < 26; i++) {
+                let x = rand() * W, y = rand() * H;
+                g.lineWidth = 3 + rand() * 5;
+                g.beginPath(); g.moveTo(x, y);
+                for (let k = 0; k < 7; k++) { x += (rand() - 0.5) * 120; y += (rand() - 0.5) * 90; g.lineTo(x, y); }
+                g.stroke();
+            }
+        }
+        if (look.pattern === 'leather' || look.pattern === 'scuffed') {
+            // pebbles: lots of tiny darker and lighter dots
+            for (let i = 0; i < 14000; i++) {
+                g.fillStyle = rand() < 0.5 ? 'rgba(60,30,10,0.2)' : 'rgba(255,220,180,0.16)';
+                g.beginPath();
+                g.arc(rand() * W, rand() * H, 1 + rand() * 1.5, 0, 2 * Math.PI);
+                g.fill();
+            }
+        }
+        if (look.pattern === 'scuffed') {
+            // worn, faded patches
+            for (let i = 0; i < 40; i++) {
+                g.fillStyle = 'rgba(230,215,200,0.14)';
+                g.beginPath(); g.ellipse(rand() * W, rand() * H, 20 + rand() * 60, 10 + rand() * 30, rand() * 3, 0, 2 * Math.PI); g.fill();
+            }
         }
 
-        g.strokeStyle = '#1a1210';
+        // seams (not on the disco, lava or watermelon balls)
+        if (['tiles', 'cracks', 'stripes'].includes(look.pattern)) return c;
+        g.strokeStyle = look.seam;
         g.lineWidth = 9;
         g.lineCap = 'round';
         function line(x0, y0, x1, y1) { g.beginPath(); g.moveTo(x0, y0); g.lineTo(x1, y1); g.stroke(); }
