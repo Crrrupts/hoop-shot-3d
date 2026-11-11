@@ -1,14 +1,15 @@
 // renderer.js — draws the game with plain WebGL, our own GLSL shaders and MV.js.
 //
 // main.js calls window.renderScene(scene) once per frame. This file:
-//   1. builds the meshes (geometry.js) and textures (textures.js) once at startup
-//   2. every frame, sets the camera (lookAt + perspective) and the lights
-//   3. draws the arena, both courts, both hoops, the balls, nets, aim arc and shadows
-//   4. draws everything a second time into a small box: a live view of the rival's hoop
+//   1. builds the meshes (geometry.js) once at startup
+//   2. builds the textures and lights for the chosen court (courts.js, textures.js)
+//   3. every frame, sets the camera (lookAt + perspective) and the lights
+//   4. draws the arena or sky, both courts, both hoops, the crowd, the balls,
+//      nets, aim arc, weather, effects and shadows
+//   5. draws everything a second time into a small box: a live view of the rival's hoop
 //
 // The shaders are in index.html (ids "vertex-shader" and "fragment-shader").
-// Lighting is Phong shading done per pixel: ambient + diffuse + specular,
-// with an overhead spotlight.
+// Lighting is Phong shading done per pixel: ambient + diffuse + specular.
 //
 // The hoop is a hierarchy drawn with a matrix stack:
 //   hoop root -> pole -> arm -> backboard -> rim -> net
@@ -32,10 +33,10 @@
         texcoord: gl.getAttribLocation(program, 'vTexCoord')
     };
     const uniformNames = [
-        'uModel', 'uView', 'uProjection', 'uNormalMatrix', 'uNormalSign', 'uTexScale',
+        'uModel', 'uView', 'uProjection', 'uNormalMatrix', 'uNormalSign', 'uTexScale', 'uPointSize',
         'uEye', 'uAmbientLight', 'uLightPosition', 'uLightColor', 'uSpotDirection', 'uSpotCone',
         'uColor', 'uSpecular', 'uShininess', 'uAlpha', 'uLit', 'uUseTexture', 'uTexture',
-        'uFogDensity', 'uFogColor'
+        'uFogDensity', 'uFogColor', 'uPointShape', 'uTint'
     ];
     const uniform = {};
     uniformNames.forEach((name) => { uniform[name] = gl.getUniformLocation(program, name); });
@@ -43,7 +44,6 @@
     gl.enable(gl.DEPTH_TEST);
     gl.enable(gl.CULL_FACE);                    // skip triangles that face away from the camera
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
-    gl.clearColor(0.03, 0.03, 0.05, 1);
 
     // ---------- Meshes ----------
     // Copy a mesh from geometry.js into WebGL buffers
@@ -67,6 +67,8 @@
     // at x = 0 and the rival's is one tile to the right. The arena box holds both.
     const COURT = { width: Game.SETTINGS.courtGap, z0: -5, z1: 17 };
     const ARENA = { x0: -COURT.width / 2, x1: COURT.width * 1.5, z0: COURT.z0, z1: COURT.z1, height: 10 };
+    const CENTER = [(ARENA.x0 + ARENA.x1) / 2, 0, (ARENA.z0 + ARENA.z1) / 2];     // middle of the floor
+    const SKY = { size: 100, height: 60 };      // the outdoor sky box
 
     const meshes = {
         sphere: makeMesh(Geometry.sphere(32, 20)),
@@ -76,16 +78,17 @@
         disc: makeMesh(Geometry.disc(28))
     };
 
-    // Line buffers that change every frame (net and aim arc)
+    // Buffers for things that change every frame (net, aim arc, weather, effects)
     const netBuffer = gl.createBuffer();
     const arcBuffer = gl.createBuffer();
+    const dynamicBuffer = gl.createBuffer();
 
     // ---------- Textures ----------
     function makeTexture(image, repeat) {
         const t = gl.createTexture();
         gl.bindTexture(gl.TEXTURE_2D, t);
         gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);       // image top = v of 1
-        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, image);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
         gl.generateMipmap(gl.TEXTURE_2D);                    // smaller copies for far-away pixels
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
@@ -94,24 +97,16 @@
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, wrap);
         return t;
     }
-    const textures = {
-        ball: makeTexture(Textures.ball(), true),
-        court: makeTexture(Textures.court(COURT.width, COURT.z0, COURT.z1), false),
-        backboard: makeTexture(Textures.backboard(), false),
-        wall: makeTexture(Textures.wall(), true)
-    };
+    // The ball texture never changes; the rest are rebuilt for each court
+    const textures = { ball: makeTexture(Textures.ball(), true), court: null, backboard: null, wall: null, sky: null };
 
     // ---------- Materials ----------
     // color: base color (multiplied by the texture if there is one)
     // specular + shininess: the shiny highlight (0 specular = matte)
+    // unlit: flat color, no lighting (lines, sky, glowing things)
     const MATERIALS = {
-        ball:     { color: [1, 1, 1], specular: [0.25, 0.22, 0.2], shininess: 18, texture: textures.ball },
-        court:    { color: [1, 1, 1], specular: [0.06, 0.06, 0.06], shininess: 8, texture: textures.court },   // matte
-        board:    { color: [1, 1, 1], specular: [0.3, 0.3, 0.3], shininess: 40, texture: textures.backboard },
-        rim:      { color: [0.95, 0.35, 0.08], specular: [1, 0.9, 0.8], shininess: 90 },                        // shiny metal
-        pole:     { color: [0.2, 0.22, 0.27], specular: [0.5, 0.5, 0.5], shininess: 50 },
-        wall:     { color: [0.8, 0.8, 0.8], specular: [0, 0, 0], shininess: 1, texture: textures.wall, texScale: [7, 1] },
-        ceiling:  { color: [0.12, 0.12, 0.14], specular: [0, 0, 0], shininess: 1 }
+        ball: { color: [1, 1, 1], specular: [0.25, 0.22, 0.2], shininess: 18, texture: textures.ball }
+        // court, board, rim, pole, wall, ceiling, sky and ground are set by loadCourt()
     };
 
     function setMaterial(m) {
@@ -121,6 +116,7 @@
         gl.uniform1f(uniform.uAlpha, m.alpha === undefined ? 1 : m.alpha);
         gl.uniform1i(uniform.uLit, m.unlit ? 0 : 1);
         gl.uniform2fv(uniform.uTexScale, m.texScale || [1, 1]);
+        gl.uniform1i(uniform.uPointShape, 0);
         if (m.texture) {
             gl.activeTexture(gl.TEXTURE0);
             gl.bindTexture(gl.TEXTURE_2D, m.texture);
@@ -131,21 +127,45 @@
         }
     }
 
+    // ---------- Court look ----------
+    // Rebuild the textures, materials and lights for a court from courts.js
+    let look = null;
+    let lighting = null;
+
+    // '#rrggbb' -> [r, g, b] from 0 to 1
+    function cssColor(hex) {
+        return [1, 3, 5].map((i) => parseInt(hex.substr(i, 2), 16) / 255);
+    }
+
+    function loadCourt(court) {
+        look = court.look;
+        for (const key of ['court', 'backboard', 'wall', 'sky']) {
+            if (textures[key]) { gl.deleteTexture(textures[key]); textures[key] = null; }
+        }
+        textures.court = makeTexture(Textures.court(COURT.width, COURT.z0, COURT.z1, look.floor), false);
+        textures.backboard = makeTexture(Textures.backboard(look.board), false);
+        if (look.outdoor) textures.sky = makeTexture(Textures.sky(look.sky), true);
+        else textures.wall = makeTexture(Textures.wall(look.wall), true);
+
+        const gloss = look.floor.gloss;         // 0 = matte floor, higher = shinier (ice, wet asphalt)
+        MATERIALS.court = { color: [1, 1, 1], specular: [gloss, gloss, gloss], shininess: 8 + gloss * 60, texture: textures.court };
+        MATERIALS.board = { color: [1, 1, 1], specular: [0.3, 0.3, 0.3], shininess: 40, texture: textures.backboard };
+        MATERIALS.rim = { color: look.rim, specular: [1, 0.9, 0.8], shininess: 90 };        // shiny metal
+        MATERIALS.pole = { color: look.pole, specular: [0.5, 0.5, 0.5], shininess: 50 };
+        MATERIALS.wall = { color: [0.8, 0.8, 0.8], texture: textures.wall, texScale: [7, 1] };
+        MATERIALS.ceiling = { color: look.ceiling || [0.1, 0.1, 0.1] };
+        MATERIALS.sky = { color: [1, 1, 1], unlit: true, texture: textures.sky };
+        MATERIALS.skyTop = { color: look.outdoor ? cssColor(look.sky.top) : [0, 0, 0], unlit: true };
+        MATERIALS.ground = { color: look.ground || [0.2, 0.2, 0.2] };
+
+        lighting = { ambient: look.ambient, lights: look.lights };
+        resetWeather(look.weather);
+    }
+
     // ---------- Lights ----------
     // Up to 3 lights. cone = [inner, outer] angle in degrees for a spotlight,
     // or null for a light that shines in every direction.
     const NO_LIGHT = { position: [0, 0, 0], color: [0, 0, 0], direction: [0, -1, 0], cone: null };
-    const mid = COURT.width / 2;                // halfway between the two hoops
-    const NORMAL_LIGHTING = {
-        ambient: [0.42, 0.42, 0.46],
-        lights: [
-            // overhead spotlight above each key, pointing straight down
-            { position: [0, 9.5, 2.5], color: [0.95, 0.92, 0.85], direction: [0, -1, 0], cone: [38, 62] },
-            { position: [COURT.width, 9.5, 2.5], color: [0.95, 0.92, 0.85], direction: [0, -1, 0], cone: [38, 62] },
-            // soft fill light behind the shooters so the hoops are not flat
-            { position: [mid, 6, 14], color: [0.22, 0.22, 0.25], direction: [0, -1, 0], cone: null }
-        ]
-    };
     // Blackout power-up: the lights go out except a narrow spotlight on your hoop
     const BLACKOUT_LIGHTING = {
         ambient: [0.035, 0.035, 0.05],
@@ -155,9 +175,9 @@
         ]
     };
 
-    function setLights(lighting, eye) {
+    function setLights(lights, eye) {
         const positions = [], colors = [], directions = [], cones = [];
-        for (const light of lighting.lights) {
+        for (const light of lights.lights) {
             positions.push(...light.position);
             colors.push(...light.color);
             directions.push(...light.direction);
@@ -171,7 +191,7 @@
         gl.uniform3fv(uniform.uLightColor, colors);
         gl.uniform3fv(uniform.uSpotDirection, directions);
         gl.uniform2fv(uniform.uSpotCone, cones);
-        gl.uniform3fv(uniform.uAmbientLight, lighting.ambient);
+        gl.uniform3fv(uniform.uAmbientLight, lights.ambient);
         gl.uniform3fv(uniform.uEye, eye);
     }
 
@@ -213,18 +233,35 @@
         popMatrix();
     }
 
-    // Draw line points [x, y, z, ...] in a flat color. mode is gl.LINES or gl.LINE_STRIP.
+    // Send loose points [x, y, z, ...] to the shader (lines and dots have no normals or texture)
+    function sendPoints(buffer, points) {
+        sendModelMatrix();
+        gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+        gl.bufferData(gl.ARRAY_BUFFER, points instanceof Float32Array ? points : new Float32Array(points), gl.DYNAMIC_DRAW);
+        gl.vertexAttribPointer(attrib.position, 3, gl.FLOAT, false, 0, 0);
+        gl.enableVertexAttribArray(attrib.position);
+        gl.disableVertexAttribArray(attrib.normal);
+        gl.disableVertexAttribArray(attrib.texcoord);
+    }
+
+    // Draw line points in a flat color. mode is gl.LINES or gl.LINE_STRIP.
     function drawLines(buffer, points, mode, color, alpha) {
         if (points.length < 6) return;
         setMaterial({ color: color, unlit: true, alpha: alpha });
-        sendModelMatrix();
-        gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(points), gl.DYNAMIC_DRAW);
-        gl.vertexAttribPointer(attrib.position, 3, gl.FLOAT, false, 0, 0);
-        gl.enableVertexAttribArray(attrib.position);
-        gl.disableVertexAttribArray(attrib.normal);         // lines have no normals or texture
-        gl.disableVertexAttribArray(attrib.texcoord);
+        sendPoints(buffer, points);
         gl.drawArrays(mode, 0, points.length / 3);
+    }
+
+    // Draw dots (gl.POINTS). size is in meters; shape 1 = soft round, 2 = square.
+    let pointScale = 1;                         // pixels per meter at 1 m away, set for each view
+    function drawDots(points, size, color, alpha, shape) {
+        if (points.length < 3) return;
+        setMaterial({ color: color, unlit: true, alpha: alpha });
+        gl.uniform1i(uniform.uPointShape, shape);
+        gl.uniform1f(uniform.uPointSize, size * pointScale);
+        sendPoints(dynamicBuffer, points);
+        gl.drawArrays(gl.POINTS, 0, points.length / 3);
+        gl.uniform1i(uniform.uPointShape, 0);
     }
 
     // ---------- Hoop animation (springs) ----------
@@ -251,11 +288,13 @@
         return hoopAnims.get(hoop);
     }
 
-    // game.js tells us when a ball hits something or goes in
+    // game.js tells us when a ball hits something or goes in, and when the court changes
     Game.on(function (name, data) {
+        if (name === 'court') loadCourt(data.court);
         if (name !== 'bounce' && name !== 'basket') return;
         const anim = animFor(data.ball.hoop);
         if (name === 'bounce' && data.surface === 'rim') {
+            // a very hard shot bends the rim down further before it springs back
             anim.rimTilt.speed -= Math.min(data.speed, 8) * 10;
             anim.boardTilt.speed -= Math.min(data.speed, 8) * 3;
             anim.netX.speed += (Math.random() - 0.5) * 0.6;
@@ -319,7 +358,7 @@
         transform(translate(0, Physics.RIM_HEIGHT - boardCenter[1], boardFront));
         transform(rotateX(hoopAnim.rimTilt.value));
         transform(translate(0, 0, -boardCenter[2] - boardFront));
-        setMaterial(MATERIALS.rim);
+        setMaterial(rimMaterial(hoop));
         // small plate that joins the rim to the board
         const plateLength = rimBack - B.max[2];
         pushMatrix();
@@ -330,15 +369,28 @@
         pushMatrix();
         transform(scalem(hoop.rimScale, 1, hoop.rimScale));
         drawMesh(meshes.torus);
+        if (hoop.rimThickness > 1.2) {
+            // outdoor double rim: a second ring just under the first
+            transform(translate(0, -0.024, 0));
+            drawMesh(meshes.torus);
+        }
         popMatrix();
 
         // NET (hangs from the rim, drawn as lines). It always sways a little.
         const idle = 0.012 * Math.sin(time * 1.3 + origin[0]);
         const net = Geometry.netLines(Physics.rimRadius(hoop), Physics.NET_DEPTH,
             hoopAnim.netX.value + idle, hoopAnim.netZ.value, Math.max(-0.3, hoopAnim.netStretch.value));
-        drawLines(netBuffer, net, gl.LINES, [0.96, 0.96, 0.96], 1);
+        drawLines(netBuffer, net, gl.LINES, look.net, 1);
 
         popMatrix();
+    }
+
+    // The rim's material. effects.js can make a rim glow (Inferno streak).
+    function rimMaterial(hoop) {
+        if (typeof Effects !== 'undefined' && Effects.rimGlow(hoop) > 0) {
+            return { color: [1, 0.45, 0.1], unlit: true };
+        }
+        return MATERIALS.rim;
     }
 
     // ---------- Ball ----------
@@ -352,10 +404,13 @@
         if (turned !== 0) {
             spin.matrix = mult(rotate(turned * 180 / Math.PI, ball.spinAxis), spin.matrix);
         }
+        const r = Physics.BALL_RADIUS;
+        const squash = ball.squash || 0;                    // 0 = round; effects.js flattens it on hard bounces
         pushMatrix();
-        transform(translate(ball.pos[0], ball.pos[1], ball.pos[2]));    // move to the ball's position
-        transform(spin.matrix);                                          // spin it
-        transform(scalem(Physics.BALL_RADIUS, Physics.BALL_RADIUS, Physics.BALL_RADIUS));
+        transform(translate(ball.pos[0], ball.pos[1] - r * squash, ball.pos[2]));   // move to the ball's position
+        transform(scalem(1 + squash * 0.5, 1 - squash, 1 + squash * 0.5));          // squash (flatter and wider)
+        transform(spin.matrix);                                                      // spin it
+        transform(scalem(r, r, r));
         setMaterial(MATERIALS.ball);
         drawMesh(meshes.sphere);
         popMatrix();
@@ -392,23 +447,44 @@
         }
     }
 
-    // ---------- Arena (inverted box) and floor ----------
+    // ---------- Arena or sky (inverted box) and floor ----------
     function drawArena() {
-        const w = ARENA.x1 - ARENA.x0, d = ARENA.z1 - ARENA.z0;
-        pushMatrix();
-        transform(translate((ARENA.x0 + ARENA.x1) / 2, ARENA.height / 2, (ARENA.z0 + ARENA.z1) / 2));
-        transform(scalem(w, ARENA.height, d));
-        // We are inside the cube, so draw its inner sides: flip the normals
+        // We are inside a cube, so draw its inner sides: flip the normals
         // and cull the front faces instead of the back faces.
         gl.cullFace(gl.FRONT);
         gl.uniform1f(uniform.uNormalSign, -1);
-        setMaterial(MATERIALS.wall);
-        drawMesh(meshes.cube, 24, 0);           // the 4 walls (first 4 faces of the cube)
-        setMaterial(MATERIALS.ceiling);
-        drawMesh(meshes.cube, 6, 24);           // the ceiling (5th face)
+        pushMatrix();
+        if (look.outdoor) {
+            // a big sky box; the horizon in the sky image lines up with the floor (y = 0)
+            const bottom = -Textures.HORIZON * SKY.height;
+            transform(translate(CENTER[0], bottom + SKY.height / 2, CENTER[2]));
+            transform(scalem(SKY.size, SKY.height, SKY.size));
+            setMaterial(MATERIALS.sky);
+            drawMesh(meshes.cube, 24, 0);           // the 4 sides (first 4 faces of the cube)
+            setMaterial(MATERIALS.skyTop);
+            drawMesh(meshes.cube, 6, 24);           // straight up (5th face)
+        } else {
+            // gym walls and ceiling around both courts
+            transform(translate(CENTER[0], ARENA.height / 2, CENTER[2]));
+            transform(scalem(ARENA.x1 - ARENA.x0, ARENA.height, ARENA.z1 - ARENA.z0));
+            setMaterial(MATERIALS.wall);
+            drawMesh(meshes.cube, 24, 0);
+            setMaterial(MATERIALS.ceiling);
+            drawMesh(meshes.cube, 6, 24);
+        }
+        popMatrix();
         gl.uniform1f(uniform.uNormalSign, 1);
         gl.cullFace(gl.BACK);
-        popMatrix();
+
+        if (look.outdoor) {
+            // wide ground around the courts (the top face of a flat cube)
+            pushMatrix();
+            transform(translate(CENTER[0], -0.03, CENTER[2]));
+            transform(scalem(SKY.size, 0.02, SKY.size));
+            setMaterial(MATERIALS.ground);
+            drawMesh(meshes.cube, 6, 24);
+            popMatrix();
+        }
 
         // The same floor tile is drawn twice: your court and the rival's
         setMaterial(MATERIALS.court);
@@ -420,10 +496,65 @@
         }
     }
 
+    // ---------- Weather: rain, snow and wind-blown dust ----------
+    // Simple particles that fall through a box over both courts and wrap around.
+    const WEATHER_BOX = { x0: ARENA.x0 - 2, x1: ARENA.x1 + 2, z0: ARENA.z0 - 1, z1: ARENA.z1 + 1, top: 11 };
+    const WEATHER = {
+        rain:   { count: 450, fall: 9,   drift: 0.6 },
+        snow:   { count: 380, fall: 1.1, drift: 0 },
+        breeze: { count: 110, fall: 0.25, drift: 0 }    // dust that shows which way the wind blows
+    };
+    let weatherKind = null;
+    let weatherPoints = new Float32Array(0);
+
+    function resetWeather(kind) {
+        weatherKind = kind;
+        const n = kind ? WEATHER[kind].count : 0;
+        weatherPoints = new Float32Array(n * 3);
+        for (let i = 0; i < n; i++) placeDrop(i, Math.random() * WEATHER_BOX.top);
+    }
+    function placeDrop(i, y) {
+        weatherPoints[i * 3] = WEATHER_BOX.x0 + Math.random() * (WEATHER_BOX.x1 - WEATHER_BOX.x0);
+        weatherPoints[i * 3 + 1] = y;
+        weatherPoints[i * 3 + 2] = WEATHER_BOX.z0 + Math.random() * (WEATHER_BOX.z1 - WEATHER_BOX.z0);
+    }
+    // wind is the sideways push from game.js (m/s^2); the particles show it as speed
+    function updateWeather(dt, wind, time) {
+        if (!weatherKind) return;
+        const w = WEATHER[weatherKind];
+        const sideways = w.drift + wind * 9;
+        for (let i = 0; i < weatherPoints.length / 3; i++) {
+            weatherPoints[i * 3 + 1] -= w.fall * dt;
+            weatherPoints[i * 3] += sideways * dt;
+            if (weatherKind === 'snow') weatherPoints[i * 3] += Math.sin(time * 1.5 + i) * 0.3 * dt;    // flutter
+            const x = weatherPoints[i * 3];
+            if (weatherPoints[i * 3 + 1] < 0) placeDrop(i, WEATHER_BOX.top);
+            else if (x > WEATHER_BOX.x1) weatherPoints[i * 3] = WEATHER_BOX.x0;
+            else if (x < WEATHER_BOX.x0) weatherPoints[i * 3] = WEATHER_BOX.x1;
+        }
+    }
+    function drawWeather(wind) {
+        if (!weatherKind) return;
+        if (weatherKind === 'rain') {
+            // each drop is a short slanted line
+            const lines = new Float32Array(weatherPoints.length * 2);
+            const slant = (WEATHER.rain.drift + wind * 9) * 0.04;
+            for (let i = 0; i < weatherPoints.length / 3; i++) {
+                const x = weatherPoints[i * 3], y = weatherPoints[i * 3 + 1], z = weatherPoints[i * 3 + 2];
+                lines.set([x, y, z, x - slant, y + 0.36, z], i * 6);
+            }
+            drawLines(dynamicBuffer, lines, gl.LINES, [0.75, 0.8, 0.9], 0.55);
+        } else if (weatherKind === 'snow') {
+            drawDots(weatherPoints, 0.05, [1, 1, 1], 0.9, 1);
+        } else {
+            drawDots(weatherPoints, 0.035, [0.95, 0.9, 0.75], 0.6, 1);
+        }
+    }
+
     // ---------- One view of the scene ----------
     // Draws everything from one camera into one rectangle of the canvas.
     // rect = { x, y, width, height } in canvas pixels (y measured from the bottom).
-    function drawView(scene, cam, rect, lighting, fogDensity, time) {
+    function drawView(scene, cam, rect, lights, fogDensity, time) {
         gl.viewport(rect.x, rect.y, rect.width, rect.height);
         gl.scissor(rect.x, rect.y, rect.width, rect.height);    // only clear and draw inside the rectangle
         const fogColor = [0.62, 0.64, 0.68];
@@ -439,9 +570,12 @@
         gl.uniform1f(uniform.uNormalSign, 1);
         gl.uniform1f(uniform.uFogDensity, fogDensity);
         gl.uniform3fv(uniform.uFogColor, fogColor);
-        setLights(lighting, cam.eye);
+        gl.uniform3fv(uniform.uTint, scene.tint || [1, 1, 1]);
+        setLights(lights, cam.eye);
+        pointScale = (rect.height / 2) / Math.tan(radians(cam.fov) / 2);
 
         modelMatrix = mat4();
+        const wind = scene.state.wind[0];
 
         // 1. solid objects
         drawArena();
@@ -459,6 +593,7 @@
         drawSpots(scene.state.player, [1, 0.85, 0.2]);
         drawSpots(scene.state.rival, [1, 0.35, 0.3]);
         for (const ball of scene.balls) drawShadow(ball);
+        drawWeather(wind);
         gl.depthMask(true);
         gl.disable(gl.BLEND);
     }
@@ -478,23 +613,26 @@
     let lastTime = performance.now();
     let fogAmount = 0;                  // fades in and out so the fog does not pop
 
+    loadCourt(Game.state.court);
+
     window.renderScene = function (scene) {
         const now = performance.now();
         const dt = Math.min((now - lastTime) / 1000, 0.05);
         lastTime = now;
+        const time = now / 1000;
         // animations pause with the game during a power-up pick
         if (scene.state.mode !== 'picking') {
             hoopAnims.forEach((anim) => { for (const key in anim) stepSpring(anim[key], dt); });
+            updateWeather(dt, scene.state.wind[0], time);
         }
         fogAmount += ((scene.fog ? 1 : 0) - fogAmount) * Math.min(1, dt * 3);
-        const time = now / 1000;
 
         gl.enable(gl.SCISSOR_TEST);
         // Main view: your camera, with the effects of power-ups used on you
         drawView(scene, scene.camera, { x: 0, y: 0, width: canvas.width, height: canvas.height },
-            scene.blackout ? BLACKOUT_LIGHTING : NORMAL_LIGHTING, fogAmount * 0.16, time);
+            scene.blackout ? BLACKOUT_LIGHTING : lighting, fogAmount * 0.16, time);
         // Inset view: a fixed camera on the rival's hoop
-        drawView(scene, scene.inset, insetRect(), NORMAL_LIGHTING, 0, time);
+        drawView(scene, scene.inset, insetRect(), lighting, 0, time);
         gl.disable(gl.SCISSOR_TEST);
     };
 })();

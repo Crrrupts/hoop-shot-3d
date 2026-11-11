@@ -26,7 +26,7 @@
         if (getDifficultySettings().name !== 'Easy' && !guide) return [];
         if (!charging || Game.state.mode !== 'playing') return [];
         const vel = Game.shotVelocity(player.spot, power, aimX, aimY, 0);
-        return Physics.predictPath(Game.spotPosition(player.spot, player), vel, 1.6, 40);
+        return Physics.predictPath(Game.spotPosition(player.spot, player), vel, 1.6, 40, Game.state.wind);
     }
 
     // Sweet Spot power-up: show the power range that scores from here.
@@ -38,10 +38,11 @@
             if (sweetKey !== '') { sweetKey = ''; setSweetZone(null); }
             return;
         }
-        const key = [player.spot, aimX.toFixed(1), aimY.toFixed(1), player.hoop.rimScale].join(',');
+        const wind = Game.state.wind;
+        const key = [player.spot, aimX.toFixed(1), aimY.toFixed(1), player.hoop.rimScale, wind[0].toFixed(1)].join(',');
         if (key === sweetKey) return;
         sweetKey = key;
-        setSweetZone(Game.makeWindow(player, player.spot, Number(aimX.toFixed(1)), Number(aimY.toFixed(1))));
+        setSweetZone(Game.makeWindow(player, player.spot, Number(aimX.toFixed(1)), Number(aimY.toFixed(1)), { wind: wind }));
     }
 
     function frame(now) {

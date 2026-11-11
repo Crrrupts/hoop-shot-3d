@@ -298,3 +298,41 @@ body {
     color: #bbb;
     font-size: 14px;
 }
+
+/* ---------- Courts ---------- */
+#court-display {
+    font-size: 13px;
+    color: #ccc;
+}
+
+#wind-display {
+    margin-top: 4px;
+    font-size: 16px;
+    font-weight: bold;
+    color: #9fdcff;
+    text-shadow: 0 1px 2px #000;
+    min-height: 20px;
+}
+
+#court-picker {
+    margin: 4px 0 18px;
+    text-align: center;
+}
+
+#court-select {
+    font-size: 15px;
+    padding: 3px 6px;
+    margin-left: 6px;
+}
+
+#court-blurb {
+    max-width: 520px;
+    font-size: 14px;
+    color: #ddd;
+    min-height: 34px;
+}
+
+/* keep the top text readable on bright outdoor courts */
+#top-center {
+    text-shadow: 0 1px 3px #000, 0 0 6px rgba(0, 0, 0, 0.8);
+}

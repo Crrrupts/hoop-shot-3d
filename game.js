@@ -12,6 +12,7 @@ const Game = (function () {
 
     // In the browser PowerUps is already loaded; the node tests load it here
     const PU = (typeof PowerUps !== 'undefined') ? PowerUps : require('./powerups.js');
+    const CourtList = (typeof Courts !== 'undefined') ? Courts : require('./courts.js');
 
     // ---------- Settings (starting values, easy to change) ----------
     const SETTINGS = {
@@ -108,6 +109,8 @@ const Game = (function () {
         nextPickAt: 0,
         pick: null,                     // during a pick: { buff, sabotage, timeLeft, row }
         result: null,                   // 'win', 'lose' or 'tie' when the game is over
+        court: CourtList.byId('ymca'),  // the court being played (see courts.js)
+        wind: [0, 0, 0],                // sideways push on balls in the air right now (m/s^2)
         followBall: null,               // your newest ball (for the Ball Follow camera)
         shotDir: [0, 0, -1],            // which way it was thrown
         player: player,
@@ -129,7 +132,8 @@ const Game = (function () {
     //   'bounce'   { ball, surface, speed }
     //   'tier'     { shooter, tier }            reached a new streak tier
     //   'powerup'  { user, card }
-    //   'buzzer', 'overtime', 'gameover'
+    //   'court'    { court }                    a court was chosen
+    //   'start', 'buzzer', 'overtime', 'gameover'
     const listeners = [];
     function on(fn) { listeners.push(fn); }
     function emit(name, data) { for (const fn of listeners) fn(name, data || {}); }
@@ -159,7 +163,8 @@ const Game = (function () {
         wobble = wobble || 0;
         // face the hoop's home position (a moving hoop is the challenge)
         let yaw = Math.atan2(-Math.sin(a), -Math.cos(a));
-        yaw += aimX * YAW_RANGE * Math.PI / 180 + (Math.random() * 2 - 1) * wobble;
+        // mouse right (aimX > 0) turns the shot to the shooter's right
+        yaw += -aimX * YAW_RANGE * Math.PI / 180 + (Math.random() * 2 - 1) * wobble;
         const pitch = (BASE_ARC + aimY * ARC_RANGE) * Math.PI / 180 + (Math.random() * 2 - 1) * wobble;
         const speed = MIN_SPEED + (Math.max(0, Math.min(power, 100)) / 100) * (MAX_SPEED - MIN_SPEED);
         const h = Math.cos(pitch) * speed;
@@ -169,12 +174,13 @@ const Game = (function () {
     // The widest range of power that scores from a spot with a given aim.
     // Returns { lo, hi, best } in percent, or null if nothing scores.
     // Used for the Sweet Spot zone on the meter and for the rival's aim.
-    function makeWindow(shooter, spotNumber, aimX, aimY, rimScale) {
+    // options (optional): { rimScale, wind } passed on to Physics.wouldScore.
+    function makeWindow(shooter, spotNumber, aimX, aimY, options) {
         const pos = spotPosition(spotNumber, shooter);
         let best = null, start = null;
         for (let p = 0; p <= 101; p++) {
             const scores = p <= 100 &&
-                Physics.wouldScore(shooter.hoop, pos, shotVelocity(spotNumber, p, aimX, aimY, 0), rimScale);
+                Physics.wouldScore(shooter.hoop, pos, shotVelocity(spotNumber, p, aimX, aimY, 0), options);
             if (scores && start === null) start = p;
             if (!scores && start !== null) {
                 if (!best || p - 1 - start > best.hi - best.lo) best = { lo: start, hi: p - 1 };
@@ -273,6 +279,7 @@ const Game = (function () {
         ball.points = points;
         ball.bonus = !!bonus;
         ball.resolved = false;          // becomes true once it counts as a make or a miss
+        ball.wind = state.wind.slice(); // the wind at the moment of release stays with the ball
         Physics.launch(ball, pos, vel);
         shooter.balls.push(ball);
         return ball;
@@ -308,7 +315,9 @@ const Game = (function () {
         if (state.mode === 'playing' && PU.has(rival, 'freeze')) hud('showToast', 'Frozen by Time Freeze!', 'sabotage');
         if (!canShoot(player)) return;
         player.spot = inputSpot();
-        const wobble = difficulty().aimWobble + (PU.has(player, 'shaky') ? SHAKY_WOBBLE : 0);
+        // aim error: difficulty + Shaky Hands + a wet ball in the rain
+        const wobble = difficulty().aimWobble + (PU.has(player, 'shaky') ? SHAKY_WOBBLE : 0) +
+            state.court.rules.slip;
         throwBall(player, power, aimX, aimY, wobble);
     }
 
@@ -326,6 +335,7 @@ const Game = (function () {
         if (PU.has(rival, 'heckler')) chance -= 0.10;
         if (PU.has(rival, 'fog')) chance -= 0.15;
         if (PU.has(rival, 'blackout')) chance -= 0.25;
+        if (state.court.rules.slip) chance -= 0.05;         // wet ball
         return Math.max(0.03, Math.min(0.95, chance));
     }
 
@@ -337,25 +347,39 @@ const Game = (function () {
 
         // walk to a new spot now and then
         if (Math.random() < 0.3) rival.spot = 1 + Math.floor(Math.random() * SPOTS.length);
-        if (!rivalAim[rival.spot]) rivalAim[rival.spot] = makeWindow(rival, rival.spot, 0, 0, 1);
+        // the power range that scores on this court's normal rim with no wind
+        const normalRim = { rimScale: state.court.rules.rimScale };
+        if (!rivalAim[rival.spot]) rivalAim[rival.spot] = makeWindow(rival, rival.spot, 0, 0, normalRim);
         const aim = rivalAim[rival.spot];
 
+        // In wind the rival has to aim off to the side, like you do. Estimate
+        // how far the wind will carry the ball and turn the shot against it.
+        const spot = SPOTS[rival.spot - 1];
+        const a = spot.angle * Math.PI / 180;
+        const right = [Math.cos(a), 0, -Math.sin(a)];       // the shooter's right-hand side
+        const drift = 0.5 * (state.wind[0] * right[0] + state.wind[2] * right[2]) * 1.2 * 1.2;   // about 1.2 s in the air
+        const windAim = -drift / (spot.dist * YAW_RANGE * Math.PI / 180);
+        const windy = Math.abs(state.wind[0]) > 0.01;
+
         // Decide if this shot should go in, then find a throw that does that
-        // on a normal hoop. Tiny Rim, Moving Hoop and Slippery Ball still
-        // change the real result because the real throw uses the real hoop.
+        // on a normal rim in the current wind. Tiny Rim, Moving Hoop and
+        // Slippery Ball still change the real result because the real throw
+        // uses the real hoop.
         const wantMake = Math.random() < rivalMakeChance();
         const pos = spotPosition(rival.spot, rival);
-        let power = aim.best, aimX = 0;
-        for (let tries = 0; tries < 8; tries++) {
+        const test = { rimScale: normalRim.rimScale, wind: state.wind };
+        let power = aim.best, aimX = windAim;
+        for (let tries = 0; tries < 12; tries++) {
             if (wantMake) {
-                power = randomBetween(aim.lo, aim.hi);
-                aimX = 0;
+                const spread = windy ? 5 : 0;
+                power = randomBetween(aim.lo - spread, aim.hi + spread);
+                aimX = windAim + (windy ? randomBetween(-0.2, 0.2) : 0);
             } else {
                 const off = (aim.hi - aim.lo) / 2 + randomBetween(3, 12);
                 power = aim.best + (Math.random() < 0.5 ? -off : off);
-                aimX = randomBetween(-0.4, 0.4);
+                aimX = windAim + randomBetween(-0.4, 0.4);
             }
-            const scores = Physics.wouldScore(rival.hoop, pos, shotVelocity(rival.spot, power, aimX, 0, 0), 1);
+            const scores = Physics.wouldScore(rival.hoop, pos, shotVelocity(rival.spot, power, aimX, 0, 0), test);
             if (scores === wantMake) break;
         }
         throwBall(rival, power, aimX, 0, 0);
@@ -414,7 +438,8 @@ const Game = (function () {
     // Turn a shooter's active effects into changes to their hoop
     function updateHoop(shooter, dt) {
         const hoop = shooter.hoop;
-        hoop.rimScale = (PU.has(shooter, 'wide') ? 1.2 : 1) * (PU.has(shooter, 'tiny') ? 0.85 : 1);
+        hoop.rimScale = state.court.rules.rimScale *
+            (PU.has(shooter, 'wide') ? 1.2 : 1) * (PU.has(shooter, 'tiny') ? 0.85 : 1);
         hoop.slippery = PU.has(shooter, 'slippery');
         let target = 0;
         if (PU.has(shooter, 'moving')) {
@@ -428,15 +453,48 @@ const Game = (function () {
     }
 
     // ---------- Game flow ----------
-    // options (all optional): { rival: { name, accuracy, pace, maxRarity }, length }
+    // Choose the court for the next match (id from courts.js)
+    function setCourt(id) {
+        state.court = CourtList.byId(id);
+        applyCourtRules();
+        hud('showCourt', state.court);
+        emit('court', { court: state.court });
+    }
+
+    // Tell the HUD how the wind pushes a shot from your current spot
+    function showWind() {
+        const a = SPOTS[player.spot - 1].angle * Math.PI / 180;
+        const right = [Math.cos(a), -Math.sin(a)];          // your right-hand side (x, z)
+        const forward = [-Math.sin(a), -Math.cos(a)];       // toward the hoop
+        hud('updateWind',
+            state.wind[0] * right[0] + state.wind[2] * right[1],
+            state.wind[0] * forward[0] + state.wind[2] * forward[1]);
+    }
+
+    // Copy the court's rules onto both hoops
+    function applyCourtRules() {
+        const rules = state.court.rules;
+        for (const s of [player, rival]) {
+            s.hoop.rimScale = rules.rimScale;
+            s.hoop.rimBounce = rules.rimBounce;
+            s.hoop.rimThickness = rules.rimThickness;
+            s.hoop.floorBounce = rules.floorBounce;
+        }
+        for (const spot in rivalAim) delete rivalAim[spot];     // the rival re-learns its aim
+    }
+
+    // options (all optional): { rival: { name, accuracy, pace, maxRarity }, length, court }
     function start(options) {
         options = options || {};
+        if (options.court && options.court !== state.court.id) setCourt(options.court);
         for (const s of [player, rival]) {
             s.score = 0; s.streak = 0; s.bestStreak = 0; s.made = 0; s.attempts = 0;
             s.balls = []; s.pending = []; s.effects = {};
             s.hoopClock = 0; s.cooldown = 0;
-            s.hoop.offset[0] = 0; s.hoop.rimScale = 1; s.hoop.slippery = false;
+            s.hoop.offset[0] = 0; s.hoop.slippery = false;
         }
+        applyCourtRules();
+        state.wind[0] = CourtList.windAt(state.court.rules, 0);
         const preset = options.rival || RIVALS[difficulty().name] || RIVALS.Medium;
         rival.name = preset.name || 'Rival';
         rival.spot = 3;
@@ -469,6 +527,8 @@ const Game = (function () {
         hud('updateTime', Math.ceil(state.timeLeft), false);
         hud('updateEffects', []);
         hud('hidePick');
+        hud('showCourt', state.court);
+        showWind();
         showMenu(false);
         emit('start');
     }
@@ -565,6 +625,9 @@ const Game = (function () {
             }
         }
 
+        // the wind changes slowly through the match
+        state.wind[0] = CourtList.windAt(state.court.rules, state.elapsed);
+
         player.cooldown -= dt;
         rival.cooldown -= dt;
         player.spot = inputSpot();              // follow A/D spot changes
@@ -579,6 +642,7 @@ const Game = (function () {
             window.chargeSpeedScale = Math.pow(0.8, PU.level(player, 'steady')) * (PU.has(player, 'fast') ? 1.3 : 1);
         }
         hud('updateEffects', PU.describe(player));
+        showWind();
 
         if (state.buzzer) {
             if (ballsInPlay() === 0) endOfClock();
@@ -594,7 +658,7 @@ const Game = (function () {
     if (typeof window !== 'undefined') {
         window.onShoot = shoot;                 // input.js calls this on Space release
         window.onRestart = function () { start(); };    // input.js calls this on R
-        window.gameInstance = { start };
+        window.gameInstance = { start, setCourt };
         if (typeof document !== 'undefined') {
             ['play-btn', 'start-btn'].forEach((id) => {
                 const b = document.getElementById(id);
@@ -607,7 +671,7 @@ const Game = (function () {
         state, player, rival, SPOTS, SETTINGS, TIERS, RIVALS,
         start, shoot, update, on,
         spotPosition, shotVelocity, makeWindow, tierFor, pointsFor,
-        throwBall, applyCard, choosePick, opponentOf
+        throwBall, applyCard, choosePick, opponentOf, setCourt
     };
 })();
 

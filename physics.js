@@ -39,7 +39,11 @@ const Physics = (function () {
             base: [x, 0, z],            // where the hoop normally stands
             offset: [0, 0, 0],          // Moving Hoop power-up slides the whole hoop by this
             rimScale: 1,                // Wide Rim / Tiny Rim power-ups change the rim size
-            slippery: false             // Slippery Ball power-up: wild bounces off the rim
+            slippery: false,            // Slippery Ball power-up: wild bounces off the rim
+            // Court rules (see courts.js):
+            rimBounce: RESTITUTION.rim, // lower = a soft, forgiving rim; higher = a stiff rim
+            rimThickness: 1,            // outdoor double rims are thicker
+            floorBounce: RESTITUTION.floor  // a wet floor bounces less
         };
     }
 
@@ -59,6 +63,7 @@ const Physics = (function () {
             scored: false,
             touchedRim: false,
             touchedBoard: false,
+            wind: [0, 0, 0],            // sideways push while flying (m/s^2), set when thrown
             accumulator: 0,             // left-over time for the fixed time step
             silent: false               // true for test throws that should not make sounds or score
         };
@@ -97,7 +102,7 @@ const Physics = (function () {
         if (ball.pos[1] >= BALL_RADIUS) return;
         ball.pos[1] = BALL_RADIUS;
         const wasFalling = ball.vel[1] < 0;
-        reflect(ball, [0, 1, 0], RESTITUTION.floor, 'floor');
+        reflect(ball, [0, 1, 0], ball.hoop.floorBounce, 'floor');
         if (wasFalling) {
             ball.vel[0] *= FLOOR_FRICTION;
             ball.vel[2] *= FLOOR_FRICTION;
@@ -143,7 +148,7 @@ const Physics = (function () {
         else ring = [R, 0, 0];
         const n = sub(q, ring);
         const dist = len(n);
-        const minDist = RIM_TUBE + BALL_RADIUS;
+        const minDist = RIM_TUBE * ball.hoop.rimThickness + BALL_RADIUS;
         if (dist >= minDist || dist < 1e-6) return false;
         for (let i = 0; i < 3; i++) n[i] /= dist;
         const push = minDist - dist;
@@ -154,7 +159,7 @@ const Physics = (function () {
             ball.vel[0] += (Math.random() - 0.5) * 2.5;
             ball.vel[2] += (Math.random() - 0.5) * 2.5;
         } else {
-            reflect(ball, n, RESTITUTION.rim, 'rim');
+            reflect(ball, n, ball.hoop.rimBounce, 'rim');
         }
         return true;
     }
@@ -196,6 +201,10 @@ const Physics = (function () {
         const prevY = ball.pos[1];
 
         ball.vel[1] -= G * dt;
+        if (!ball.touchedFloor) {       // wind only pushes a ball that is in the air
+            ball.vel[0] += ball.wind[0] * dt;
+            ball.vel[2] += ball.wind[2] * dt;
+        }
         for (let i = 0; i < 3; i++) ball.pos[i] += ball.vel[i] * dt;
 
         if (collideRim(ball)) ball.touchedRim = true;
@@ -252,27 +261,37 @@ const Physics = (function () {
 
     // Would a throw go in? Runs the whole shot instantly on a copy, without
     // sounds or scoring. Used for the rival's aim and the Sweet Spot zone.
-    // rimScale is optional (defaults to the hoop's current rim size).
-    function wouldScore(hoop, pos, vel, rimScale) {
+    // options (optional): { rimScale, wind } to try a different rim size or wind.
+    function wouldScore(hoop, pos, vel, options) {
+        options = options || {};
         const testHoop = createHoop(hoop.base[0], hoop.base[2]);
-        testHoop.rimScale = rimScale || hoop.rimScale;
+        testHoop.rimScale = options.rimScale || hoop.rimScale;
+        testHoop.rimBounce = hoop.rimBounce;
+        testHoop.rimThickness = hoop.rimThickness;
+        testHoop.floorBounce = hoop.floorBounce;
         const ball = createBall(testHoop, null);
         ball.silent = true;
+        if (options.wind) ball.wind = options.wind.slice();
         launch(ball, pos, vel);
         // a ball that has reached the floor can no longer score
         for (let i = 0; i < 6 * 240 && !ball.touchedFloor && !ball.scored; i++) step(ball, STEP);
         return ball.scored;
     }
 
-    // Points along the flight path, ignoring collisions. Used for the
-    // easy-mode aim arc (draw as a line strip).
-    function predictPath(start, vel, seconds, count) {
+    // Points along the flight path, ignoring collisions. Used for the aim arc
+    // (draw as a line strip). wind is optional.
+    function predictPath(start, vel, seconds, count, wind) {
+        wind = wind || [0, 0, 0];
         const pts = [];
         for (let i = 0; i <= count; i++) {
             const t = (seconds * i) / count;
             const y = start[1] + vel[1] * t - 0.5 * G * t * t;
             if (y < 0) break;
-            pts.push([start[0] + vel[0] * t, y, start[2] + vel[2] * t]);
+            pts.push([
+                start[0] + vel[0] * t + 0.5 * wind[0] * t * t,
+                y,
+                start[2] + vel[2] * t + 0.5 * wind[2] * t * t
+            ]);
         }
         return pts;
     }

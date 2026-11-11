@@ -23,6 +23,8 @@
 
         <div id="top-center">
             <div id="camera-display">Camera: Shooter (C to switch)</div>
+            <div id="court-display"></div>
+            <div id="wind-display"></div>
         </div>
 
         <div id="top-right" class="hud-box">
@@ -86,6 +88,11 @@
         <h1 id="menu-title">Hoop Shot 3D</h1>
         <p id="menu-subtitle">Race the rival: most points in 3 minutes wins</p>
         <p id="menu-controls">Mouse: aim | Hold Space: power | A/D: spot | C: camera | R: restart</p>
+        <div id="court-picker">
+            <label for="court-select">Court</label>
+            <select id="court-select"></select>
+            <p id="court-blurb"></p>
+        </div>
         <button id="play-btn">Play Game</button>
     </div>
 
@@ -101,6 +108,7 @@
         uniform mat3 uNormalMatrix;     // rotates normals to match uModel
         uniform float uNormalSign;      // -1 when we are inside a box (arena walls)
         uniform vec2 uTexScale;         // repeats the texture (walls)
+        uniform float uPointSize;       // size of dots (snow, confetti) at 1 m away, in pixels
 
         varying vec3 fPosition;         // world position, passed on to the fragment shader
         varying vec3 fNormal;
@@ -112,6 +120,7 @@
             fNormal = uNormalMatrix * vNormal * uNormalSign;
             fTexCoord = vTexCoord * uTexScale;
             gl_Position = uProjection * uView * world;
+            gl_PointSize = uPointSize / gl_Position.w;      // dots shrink with distance
         }
     </script>
 
@@ -138,19 +147,32 @@
         uniform sampler2D uTexture;
         uniform float uFogDensity;          // 0 = no fog (Fog Machine power-up turns it on)
         uniform vec3 uFogColor;
+        uniform int uPointShape;            // 0 = not a dot, 1 = soft round dot, 2 = square dot
+        uniform vec3 uTint;                 // colors the whole picture (Inferno streak turns it red-orange)
 
         // Blend a color toward the fog color the farther it is from the camera
         vec3 addFog(vec3 color) {
             float amount = 1.0 - exp(-uFogDensity * distance(uEye, fPosition));
-            return mix(color, uFogColor, amount);
+            return mix(color, uFogColor, amount) * uTint;
         }
 
         void main() {
             vec3 base = uColor;
-            if (uUseTexture) base *= texture2D(uTexture, fTexCoord).rgb;
+            float alpha = uAlpha;
+            if (uUseTexture) {
+                vec4 texel = texture2D(uTexture, fTexCoord);
+                if (texel.a < 0.5) discard;             // cut-out images (crowd fans)
+                base *= texel.rgb;
+            }
+            if (uPointShape == 1) {
+                // round dot that fades out toward its edge
+                float d = length(gl_PointCoord - vec2(0.5));
+                if (d > 0.5) discard;
+                alpha *= 1.0 - smoothstep(0.2, 0.5, d);
+            }
 
             if (!uLit) {
-                gl_FragColor = vec4(addFog(base), uAlpha);
+                gl_FragColor = vec4(addFog(base), alpha);
                 return;
             }
 
@@ -171,7 +193,7 @@
                 }
                 color += spot * uLightColor[i] * (diffuse * base + specular * uSpecular);
             }
-            gl_FragColor = vec4(addFog(color), uAlpha);
+            gl_FragColor = vec4(addFog(color), alpha);
         }
     </script>
 
@@ -180,6 +202,7 @@
     <script src="Common/initShaders.js"></script>
 
     <!-- Game code -->
+    <script src="courts.js"></script>
     <script src="ui.js"></script>
     <script src="input.js"></script>
     <script src="physics.js"></script>

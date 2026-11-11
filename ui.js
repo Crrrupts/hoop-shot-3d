@@ -189,3 +189,40 @@ document.addEventListener('keydown', (e) => {
     if (e.code === 'ArrowLeft' || e.code === 'Digit1') choosePickCard('buff');
     if (e.code === 'ArrowRight' || e.code === 'Digit2') choosePickCard('sabotage');
 });
+
+// ---------- Court picker (menu) and wind display ----------
+const courtSelect = document.getElementById('court-select');
+const courtBlurb = document.getElementById('court-blurb');
+for (const court of Courts.LIST) {
+    const option = document.createElement('option');
+    option.value = court.id;
+    option.textContent = `${court.name} (${court.difficulty})`;
+    courtSelect.appendChild(option);
+}
+function showCourt(court) {
+    courtSelect.value = court.id;
+    courtBlurb.textContent = court.blurb;
+    document.getElementById('court-display').textContent = court.name;
+}
+showCourt(Courts.LIST[0]);          // the first court is the default
+courtSelect.addEventListener('change', () => {
+    window.gameInstance.setCourt(courtSelect.value);    // game.js loads the court
+    courtSelect.blur();                                 // so the keys go back to the game
+});
+
+// Wind for the spot you are standing on. side: push to your right (+) or
+// left (-); along: tailwind (+) or headwind (-). Both in m/s^2.
+let windShown = '';
+function updateWind(side, along) {
+    let text = '';
+    if (Math.abs(side) > 0.03 || Math.abs(along) > 0.03) {
+        const arrows = Math.min(3, 1 + Math.floor(Math.abs(side) / 0.15));
+        text = 'WIND ';
+        if (Math.abs(side) > 0.03) text += (side > 0 ? '\u2192' : '\u2190').repeat(arrows) + ' ';
+        if (along > 0.08) text += 'tailwind';
+        if (along < -0.08) text += 'headwind';
+    }
+    if (text === windShown) return;
+    windShown = text;
+    document.getElementById('wind-display').textContent = text;
+}

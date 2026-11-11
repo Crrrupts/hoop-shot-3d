@@ -100,7 +100,7 @@ check('a ball scores on a second hoop', farScore === 1);
 
 // 11. Rim size power-ups: a wider rim accepts more power values, a smaller rim fewer
 function windowWidth(rimScale) {
-    const w = Game.makeWindow(shooter, 3, 0, 0, rimScale);
+    const w = Game.makeWindow(shooter, 3, 0, 0, { rimScale: rimScale });
     return w ? w.hi - w.lo : 0;
 }
 const normal = windowWidth(1), wide = windowWidth(1.2), tiny = windowWidth(0.85);

@@ -6,7 +6,9 @@ const PowerUps = require('../powerups.js');
 const Game = require('../game.js');
 const { check, finish } = require('./check.js');
 
+const Courts = require('../courts.js');
 const player = Game.player, rival = Game.rival, state = Game.state;
+Game.setCourt('home');          // the rule tests below use the normal court
 const noCards = { name: 'Test', accuracy: 0, pace: 999, maxRarity: null };    // a rival that never shoots
 
 // Run the game for some seconds at 60 frames per second
@@ -21,7 +23,7 @@ function quietStart(options) {
 }
 // A power value that scores for a shooter's current spot
 function goodPower(shooter) {
-    return Game.makeWindow(shooter, shooter.spot, 0, 0, 1).best;
+    return Game.makeWindow(shooter, shooter.spot, 0, 0).best;
 }
 // Throw a make or a miss for the player and wait for it to land
 function playerShot(make) {
@@ -46,6 +48,10 @@ player.spot = 1;
 playerShot(true);
 check('corner spot is worth 3', player.score === 3, 'score ' + player.score);
 player.spot = 3;
+
+// aiming: mouse right sends the ball to the shooter's right (+x from the top spot)
+check('mouse right aims right, mouse left aims left',
+    Game.shotVelocity(3, 50, 1, 0, 0)[0] > 0 && Game.shotVelocity(3, 50, -1, 0, 0)[0] < 0);
 
 // ---------- Rapid fire ----------
 quietStart();
@@ -185,12 +191,12 @@ check('the rival scores on its own scoreboard', rival.score > 0 && player.score 
 // Tiny Rim on the rival: count how many of its "make" throws still go in
 let normalMakes = 0, tinyMakes = 0;
 for (let spot = 1; spot <= 5; spot++) {
-    const w = Game.makeWindow(rival, spot, 0, 0, 1);
+    const w = Game.makeWindow(rival, spot, 0, 0);
     const pos = Game.spotPosition(spot, rival);
     for (let p = w.lo; p <= w.hi; p += 0.25) {
         const vel = Game.shotVelocity(spot, p, 0, 0, 0);
-        if (Physics.wouldScore(rival.hoop, pos, vel, 1)) normalMakes++;
-        if (Physics.wouldScore(rival.hoop, pos, vel, 0.85)) tinyMakes++;
+        if (Physics.wouldScore(rival.hoop, pos, vel, { rimScale: 1 })) normalMakes++;
+        if (Physics.wouldScore(rival.hoop, pos, vel, { rimScale: 0.85 })) tinyMakes++;
     }
 }
 check('Tiny Rim really lowers the rival\'s accuracy', tinyMakes < normalMakes * 0.95,
@@ -218,6 +224,67 @@ Game.choosePick('buff');
 run(100);       // 60 s of overtime plus another pick and a possible Time Freeze
 // the test rival never shoots, so overtime ends tied
 check('still tied after overtime ends as a tie game', state.mode === 'gameover' && state.result === 'tie');
+
+// ---------- Courts ----------
+// Total width of the scoring power window over all 5 spots (bigger = easier)
+function courtEase(id) {
+    Game.setCourt(id);
+    let total = 0;
+    for (let spot = 1; spot <= 5; spot++) {
+        const w = Game.makeWindow(player, spot, 0, 0);
+        if (w) total += w.hi - w.lo + 1;
+    }
+    return total;
+}
+const ease = { ymca: courtEase('ymca'), home: courtEase('home'), rooftop: courtEase('rooftop') };
+check('YMCA Gym (soft rim) is easier than Home Gym', ease.ymca > ease.home, `power window total: YMCA ${ease.ymca}, Home ${ease.home}`);
+check('an outdoor double rim is harder than Home Gym', ease.rooftop < ease.home, `Rooftop ${ease.rooftop}, Home ${ease.home}`);
+check('there are 7 courts and each has rules and a look',
+    Courts.LIST.length === 7 && Courts.LIST.every((c) => c.rules && c.look && c.name && c.blurb));
+
+// rain: the ball bounces lower off a wet floor
+function reboundHeight(id) {
+    Game.setCourt(id);
+    const ball = Physics.createBall(player.hoop);
+    Physics.launch(ball, [3, 3, 3], [0, 0, 0]);
+    let top = 0, bounced = false;
+    for (let i = 0; i < 300; i++) {
+        Physics.update(ball, 1 / 60);
+        if (ball.touchedFloor) bounced = true;
+        if (bounced) top = Math.max(top, ball.pos[1]);
+    }
+    return top;
+}
+const dry = reboundHeight('home'), wet = reboundHeight('rooftop');
+check('rain makes the floor bounce less', wet < dry * 0.8, `rebound ${wet.toFixed(2)} m wet vs ${dry.toFixed(2)} m dry`);
+
+// wind: the same throw lands somewhere else
+function landingX(id, seconds) {
+    Game.start({ rival: noCards, court: id, length: 100000 });
+    state.nextPickAt = Infinity; state.pickNumber = 99;
+    run(seconds);
+    const ball = Game.throwBall(player, 60, 0, 0, 0);
+    while (!ball.touchedFloor) Game.update(1 / 60);
+    return ball.pos[0];
+}
+const calm = landingX('home', 1), breezy = landingX('boardwalk', 1);
+check('Boardwalk wind pushes the ball sideways', Math.abs(breezy - calm) > 0.15, `landed ${(breezy - calm).toFixed(2)} m to the side`);
+let boardwalkSigns = new Set(), lakeSigns = new Set();
+for (let t = 0; t < 120; t += 0.5) {
+    boardwalkSigns.add(Math.sign(Courts.windAt(Courts.byId('boardwalk').rules, t)));
+    lakeSigns.add(Math.sign(Courts.windAt(Courts.byId('lake').rules, t)));
+}
+check('Boardwalk wind keeps one direction, Frozen Lake wind gusts both ways',
+    boardwalkSigns.size === 1 && lakeSigns.has(1) && lakeSigns.has(-1));
+
+// the rival aims into the wind, so it still scores on a windy court
+Game.start({ rival: { name: 'Bot', accuracy: 0.5, pace: 0.5, maxRarity: null }, court: 'lake', length: 100000 });
+state.nextPickAt = Infinity; state.pickNumber = 99;
+run(400);
+const windyRate = rival.made / rival.attempts;
+check('a 50% rival still makes 35-56% in gusting wind', windyRate > 0.35 && windyRate < 0.56,
+    `${rival.made}/${rival.attempts} = ${(windyRate * 100).toFixed(0)}%`);
+Game.setCourt('home');
 
 // A whole 3-minute match against the Medium rival, with picks
 Game.start({ rival: Game.RIVALS.Medium, length: 180 });
