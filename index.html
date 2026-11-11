@@ -48,17 +48,103 @@
     <!-- Start/Game Over Menu -->
     <div id="menu-overlay">
         <h1 id="menu-title">Hoop Shot 3D</h1>
-        <p id="menu-subtitle">Mouse: aim | Hold Space: power | A/D: spot | R: restart</p>
+        <p id="menu-subtitle">Mouse: aim | Hold Space: power | A/D: spot | C: camera | R: restart</p>
         <button id="play-btn">Play Game</button>
     </div>
 
-    <!-- Your JS files will go here later -->
+
+    <!-- GLSL shaders (our own). Phong shading: the lighting is worked out for every pixel. -->
+    <script id="vertex-shader" type="x-shader/x-vertex">
+        attribute vec4 vPosition;       // vertex position in the object's own space
+        attribute vec3 vNormal;         // which way the surface faces
+        attribute vec2 vTexCoord;       // where this vertex is on the texture image
+
+        uniform mat4 uModel;            // object space -> world (translate, rotate, scale)
+        uniform mat4 uView;             // world -> camera (from lookAt)
+        uniform mat4 uProjection;       // camera -> screen (from perspective)
+        uniform mat3 uNormalMatrix;     // rotates normals to match uModel
+        uniform float uNormalSign;      // -1 when we are inside a box (arena walls)
+        uniform vec2 uTexScale;         // repeats the texture (walls)
+
+        varying vec3 fPosition;         // world position, passed on to the fragment shader
+        varying vec3 fNormal;
+        varying vec2 fTexCoord;
+
+        void main() {
+            vec4 world = uModel * vPosition;
+            fPosition = world.xyz;
+            fNormal = uNormalMatrix * vNormal * uNormalSign;
+            fTexCoord = vTexCoord * uTexScale;
+            gl_Position = uProjection * uView * world;
+        }
+    </script>
+
+    <script id="fragment-shader" type="x-shader/x-fragment">
+        precision mediump float;
+
+        varying vec3 fPosition;
+        varying vec3 fNormal;
+        varying vec2 fTexCoord;
+
+        uniform vec3 uEye;                  // camera position
+        uniform vec3 uAmbientLight;         // light that reaches everything
+        uniform vec3 uLightPosition[3];
+        uniform vec3 uLightColor[3];
+        uniform vec3 uSpotDirection[3];     // which way each spotlight points
+        uniform vec2 uSpotCone[3];          // cos(inner angle), cos(outer angle)
+
+        uniform vec3 uColor;                // material color
+        uniform vec3 uSpecular;             // highlight color (0 = matte)
+        uniform float uShininess;           // bigger = smaller, sharper highlight
+        uniform float uAlpha;               // 1 = solid, less = see-through
+        uniform bool uLit;                  // false for lines and shadows (flat color)
+        uniform bool uUseTexture;
+        uniform sampler2D uTexture;
+
+        void main() {
+            vec3 base = uColor;
+            if (uUseTexture) base *= texture2D(uTexture, fTexCoord).rgb;
+
+            if (!uLit) {
+                gl_FragColor = vec4(base, uAlpha);
+                return;
+            }
+
+            vec3 N = normalize(fNormal);
+            vec3 V = normalize(uEye - fPosition);       // toward the camera
+
+            // Phong model: ambient + for each light (diffuse + specular)
+            vec3 color = uAmbientLight * base;
+            for (int i = 0; i < 3; i++) {
+                vec3 L = normalize(uLightPosition[i] - fPosition);     // toward the light
+                // spotlight: full strength inside the inner cone, fading to 0 at the outer cone
+                float spot = smoothstep(uSpotCone[i].y, uSpotCone[i].x, dot(-L, uSpotDirection[i]));
+                float diffuse = max(dot(N, L), 0.0);
+                float specular = 0.0;
+                if (diffuse > 0.0) {
+                    vec3 R = reflect(-L, N);                           // mirror direction of the light
+                    specular = pow(max(dot(R, V), 0.0), uShininess);
+                }
+                color += spot * uLightColor[i] * (diffuse * base + specular * uSpecular);
+            }
+            gl_FragColor = vec4(color, uAlpha);
+        }
+    </script>
+
+    <!-- Class libraries (Edward Angel): matrix/vector math and shader loading -->
+    <script src="Common/MV.js"></script>
+    <script src="Common/initShaders.js"></script>
+
+    <!-- Game code -->
     <script src="ui.js"></script>
     <script src="input.js"></script>
     <script src="physics.js"></script>
     <script src="game.js"></script>
     <script src="camera.js"></script>
     <script src="debug-view.js"></script>
+    <script src="geometry.js"></script>
+    <script src="textures.js"></script>
+    <script src="renderer.js"></script>
     <script src="main.js"></script>
 </body>
 

@@ -52,6 +52,14 @@ const Game = (function () {
         else if (typeof globalThis[fn] === 'function') globalThis[fn](...args);
     }
     function sound(name) { hud('playSound', name); }
+
+    // Other files (the renderer, later the crowd and effects) can listen for
+    // game events:  Game.on(function (name, data) { ... })
+    //   'basket'  data = { swish, bank, points, vel }
+    //   'bounce'  data = { surface, speed }
+    const listeners = [];
+    function on(fn) { listeners.push(fn); }
+    function emit(name, data) { for (const fn of listeners) fn(name, data); }
     function difficulty() {
         if (typeof getDifficultySettings === 'function') return getDifficultySettings();
         return { name: 'Medium', aimWobble: 0.02, movingHoop: false };
@@ -126,10 +134,12 @@ const Game = (function () {
         hud('updateScore', state.score);
         hud('updateStreak', state.streak);
         sound(info.swish ? 'swish' : 'score');
+        emit('basket', { swish: info.swish, bank: info.bank, points: points, vel: Physics.ball.vel.slice() });
     };
 
-    Physics.onBounce = function (surface) {
+    Physics.onBounce = function (surface, speed) {
         sound(surface);                 // 'rim', 'board', 'floor', 'pole'
+        emit('bounce', { surface: surface, speed: speed });
     };
 
     function endShot() {
@@ -204,7 +214,7 @@ const Game = (function () {
 
     return {
         state, SPOTS, GAME_LENGTH,
-        start, shoot, update, spotPosition, shotVelocity
+        start, shoot, update, spotPosition, shotVelocity, on
     };
 })();
 

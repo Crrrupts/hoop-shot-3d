@@ -27,8 +27,8 @@ const Camera = (function () {
         const dx = p[0] - rim[0], dz = p[2] - rim[2];
         const d = Math.hypot(dx, dz) || 1;
         return {
-            eye: [p[0] + dx / d * 1.8, 2.5, p[2] + dz / d * 1.8],
-            at: [rim[0], 2.6, rim[2]]
+            eye: [p[0] + dx / d * 2.6, 2.85, p[2] + dz / d * 2.6],
+            at: [rim[0], 2.45, rim[2]]
         };
     }
 
