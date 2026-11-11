@@ -96,3 +96,205 @@ body {
     align-items: center;
     z-index: 10;
 }
+
+/* ---------- Match HUD ---------- */
+#rival-display {
+    color: #ff9c8a;
+}
+
+#streak-hint {
+    font-size: 12px;
+    color: #ffd27a;
+    min-height: 14px;
+}
+
+/* streak tier colors */
+.tier-heating-up { color: #ffb347; font-weight: bold; }
+.tier-on-fire    { color: #ff6a2b; font-weight: bold; }
+.tier-inferno    { color: #ff3b3b; font-weight: bold; }
+
+/* frame around the small rival camera (renderer.js draws inside this box) */
+#rival-view {
+    position: absolute;
+    left: 20px;
+    top: 130px;
+    width: 180px;
+    height: 135px;
+    border: 2px solid #ff9c8a;
+    border-radius: 6px;
+    box-sizing: border-box;
+}
+
+#rival-view-label {
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    padding: 2px 6px;
+    font-size: 12px;
+    background: rgba(0, 0, 0, 0.6);
+    color: #ff9c8a;
+}
+
+#effects-list {
+    position: absolute;
+    left: 20px;
+    bottom: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 13px;
+}
+
+.effect {
+    padding: 3px 8px;
+    border-radius: 4px;
+    background: rgba(0, 0, 0, 0.6);
+    border-left: 4px solid #5fd38d;
+}
+
+.effect.sabotage {
+    border-left-color: #ff5a4f;
+}
+
+#banner {
+    position: absolute;
+    top: 150px;
+    width: 100%;
+    text-align: center;
+    font-size: 54px;
+    font-weight: 900;
+    letter-spacing: 2px;
+    color: #ffb347;
+    text-shadow: 0 0 12px rgba(0, 0, 0, 0.9), 0 3px 0 #000;
+    opacity: 0;
+}
+
+#banner.show {
+    animation: banner-pop 1.6s ease-out;
+}
+
+#banner.on-fire { color: #ff6a2b; }
+#banner.inferno { color: #ff3b3b; }
+#banner.overtime { color: #7fd0ff; }
+
+@keyframes banner-pop {
+    0%   { opacity: 0; transform: scale(0.4); }
+    15%  { opacity: 1; transform: scale(1.15); }
+    30%  { transform: scale(1); }
+    80%  { opacity: 1; }
+    100% { opacity: 0; transform: scale(1.05); }
+}
+
+#toast {
+    position: absolute;
+    top: 62px;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 6px 14px;
+    border-radius: 6px;
+    background: rgba(0, 0, 0, 0.75);
+    border: 1px solid #777;
+    font-size: 14px;
+    opacity: 0;
+    transition: opacity 0.3s;
+    white-space: nowrap;
+}
+
+#toast.show { opacity: 1; }
+#toast.sabotage { border-color: #ff5a4f; color: #ffb3ab; }
+
+/* Sweet Spot zone on the power meter */
+#power-bar-bg { position: relative; }
+
+#sweet-zone {
+    display: none;
+    position: absolute;
+    left: 0;
+    width: 100%;
+    background: rgba(95, 211, 141, 0.55);
+    border-top: 2px solid #5fd38d;
+    border-bottom: 2px solid #5fd38d;
+    box-sizing: border-box;
+    z-index: 2;
+}
+
+/* ---------- Power-up pick screen ---------- */
+#pick-overlay {
+    display: none;
+    position: absolute;
+    width: 800px;
+    height: 600px;
+    background: rgba(10, 10, 20, 0.78);
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    z-index: 9;
+}
+
+#pick-cards {
+    display: flex;
+    gap: 40px;
+}
+
+.pick-card {
+    width: 230px;
+    height: 300px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    border-radius: 12px;
+    border: 4px solid #9aa0a6;
+    background: #23232f;
+    color: white;
+    font-family: inherit;
+    cursor: pointer;
+    transition: transform 0.1s;
+}
+
+.pick-card:hover { transform: translateY(-6px); }
+.pick-card.landed { animation: card-land 0.3s ease-out; }
+
+@keyframes card-land {
+    0%   { transform: scale(1.12); }
+    100% { transform: scale(1); }
+}
+
+.pick-side { font-size: 12px; letter-spacing: 1px; color: #bbb; }
+.pick-rarity { font-size: 14px; font-weight: bold; letter-spacing: 2px; }
+.pick-name { font-size: 26px; font-weight: bold; margin-top: 20px; }
+.pick-text { font-size: 15px; line-height: 1.35; flex: 1; }
+.pick-key { font-size: 12px; color: #999; }
+
+/* rarity colors: gray, blue, purple, gold, red */
+.pick-card.common    { border-color: #9aa0a6; }
+.pick-card.common .pick-rarity    { color: #c5c9cf; }
+.pick-card.rare      { border-color: #3d8bff; box-shadow: 0 0 14px rgba(61, 139, 255, 0.5); }
+.pick-card.rare .pick-rarity      { color: #7fb2ff; }
+.pick-card.epic      { border-color: #a24dff; box-shadow: 0 0 16px rgba(162, 77, 255, 0.6); }
+.pick-card.epic .pick-rarity      { color: #c594ff; }
+.pick-card.legendary { border-color: #ffc93d; box-shadow: 0 0 22px rgba(255, 201, 61, 0.7); }
+.pick-card.legendary .pick-rarity { color: #ffd76e; }
+.pick-card.mythic    { border-color: #ff3b3b; box-shadow: 0 0 26px rgba(255, 59, 59, 0.8); }
+.pick-card.mythic .pick-rarity    { color: #ff8a8a; }
+
+#pick-timer {
+    margin-top: 26px;
+    width: 500px;
+    height: 8px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+}
+
+#pick-timer-fill {
+    width: 100%;
+    height: 100%;
+    background: #ffd27a;
+    border-radius: 4px;
+}
+
+#menu-controls {
+    color: #bbb;
+    font-size: 14px;
+}

@@ -1,9 +1,10 @@
-// camera.js — eye/at/up for the three camera views (Justin)
+// camera.js — eye/at/up for the three camera views
 //
-// Isaiah: feed Camera.eye, Camera.at, Camera.up into lookAt(), and use
+// renderer.js feeds Camera.eye, Camera.at, Camera.up into lookAt(), and uses
 // perspective(Camera.FOV, aspect, Camera.NEAR, Camera.FAR).
-// The view index comes from Amit's input.js (currentCamera, C key):
+// The view index comes from input.js (currentCamera, C key):
 //   0 = Shooter, 1 = Ball Follow, 2 = Orbit
+// Camera.rivalView() is a fixed camera on the rival's hoop for the small inset view.
 
 const Camera = (function () {
     const FOV = 45, NEAR = 0.1, FAR = 100;
@@ -22,8 +23,8 @@ const Camera = (function () {
 
     // Behind the shooter, looking at the rim
     function shooterView() {
-        const p = Game.spotPosition(Game.state.spot);
-        const rim = Physics.rimCenter();
+        const p = Game.spotPosition(Game.player.spot, Game.player);
+        const rim = Physics.rimCenter(Game.player.hoop);
         const dx = p[0] - rim[0], dz = p[2] - rim[2];
         const d = Math.hypot(dx, dz) || 1;
         return {
@@ -32,10 +33,11 @@ const Camera = (function () {
         };
     }
 
-    // Behind and above the ball while it flies
+    // Behind and above your newest ball while it flies
     function followView() {
-        if (!Physics.ball.inFlight) return shooterView();
-        const b = Physics.ball.pos, dir = Game.state.shotDir;
+        const ball = Game.state.followBall;
+        if (!ball || ball.dead || !ball.inFlight) return shooterView();
+        const b = ball.pos, dir = Game.state.shotDir;
         return {
             eye: [b[0] - dir[0] * 2.5, Math.max(b[1] + 0.8, 1.0), b[2] - dir[2] * 2.5],
             at: b.slice()
@@ -60,6 +62,19 @@ const Camera = (function () {
             eye[i] += (target.eye[i] - eye[i]) * k;
             at[i] += (target.at[i] - at[i]) * k;
         }
+        // Heckler power-up: a loud fan shakes your camera
+        if (Game.state.mode === 'playing' && PowerUps.has(Game.player, 'heckler')) {
+            for (let i = 0; i < 3; i++) at[i] += (Math.random() - 0.5) * 0.12;
+        }
+    }
+
+    // Fixed camera in front of the rival's hoop (for the small inset view)
+    function rivalView() {
+        return {
+            eye: [Game.rival.hoop.base[0] - 2.2, 3.3, 5.2],
+            at: [Game.rival.hoop.base[0], 2.7, 0],
+            up: [0, 1, 0], fov: FOV, near: NEAR, far: FAR
+        };
     }
 
     // Mouse drag spins the orbit view (only while it is active)
@@ -79,5 +94,5 @@ const Camera = (function () {
         }
     }
 
-    return { FOV, NEAR, FAR, eye, at, up, update };
+    return { FOV, NEAR, FAR, eye, at, up, update, rivalView };
 })();

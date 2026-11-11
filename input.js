@@ -9,7 +9,7 @@ let aimY = 0;
 
 // Shooting spots
 const TOTAL_SPOTS = 5;
-let currentSpot = 1;
+let currentSpot = 3;                    // start at the top of the key (the easiest shot)
 
 // Cameras
 const CAMERAS = ['Shooter', 'Ball Follow', 'Orbit'];
@@ -17,14 +17,16 @@ let currentCamera = 0;
 
 // Difficulty (1 = Easy, 2 = Medium, 3 = Hard)
 // These numbers are starting values, we tune them later.
+// Harder = faster meter, shakier aim and a stronger rival (see RIVALS in game.js).
+// Easy also shows the aim arc. The moving hoop is now a power-up, not part of Hard.
 const DIFFICULTY_SETTINGS = {
-    1: { name: 'Easy',   chargeSpeed: 60,  aimWobble: 0.00, movingHoop: false },
-    2: { name: 'Medium', chargeSpeed: 80,  aimWobble: 0.02, movingHoop: false },
-    3: { name: 'Hard',   chargeSpeed: 110, aimWobble: 0.05, movingHoop: true  }
+    1: { name: 'Easy',   chargeSpeed: 60,  aimWobble: 0.00 },
+    2: { name: 'Medium', chargeSpeed: 80,  aimWobble: 0.02 },
+    3: { name: 'Hard',   chargeSpeed: 110, aimWobble: 0.05 }
 };
 let difficulty = 2;
 
-const GAME_SECONDS = 60;
+const GAME_SECONDS = 180;
 const gameCanvas = document.getElementById('game-canvas');
 const diffSlider = document.getElementById('difficulty-slider');
 
@@ -37,7 +39,9 @@ function getDifficultySettings() {
 document.addEventListener('keydown', (e) => {
     if (e.code === 'Space') {
         e.preventDefault();
-        if (!e.repeat) charging = true;
+        // only charge while a game is running (not in menus or a power-up pick)
+        const playing = typeof Game === 'undefined' || Game.state.mode === 'playing';
+        if (!e.repeat && playing) charging = true;
     }
 
     // A = previous spot, D = next spot (wraps around)
@@ -53,8 +57,8 @@ document.addEventListener('keydown', (e) => {
 
 document.addEventListener('keyup', (e) => {
     if (e.code === 'Space') {
+        if (!charging) return;          // Space was not charging a shot
         charging = false;
-        console.log('Shot power:', Math.round(power), 'aimX:', aimX.toFixed(2), 'aimY:', aimY.toFixed(2), 'spot:', currentSpot, 'camera:', CAMERAS[currentCamera], 'difficulty:', getDifficultySettings().name);
         // Hand the shot to the game code (game.js)
         if (typeof window.onShoot === 'function') window.onShoot(power, aimX, aimY);
         power = 0;
@@ -79,7 +83,6 @@ function switchCamera() {
 // ---------- Difficulty ----------
 diffSlider.addEventListener('input', (e) => {
     difficulty = Number(e.target.value);
-    console.log('Difficulty set to', getDifficultySettings().name, getDifficultySettings());
     diffSlider.blur(); // so Space and A/D keep working after using the slider
 });
 
@@ -88,7 +91,7 @@ function restartGame() {
     // Input state
     charging = false;
     power = 0;
-    currentSpot = 1;
+    currentSpot = 3;
     currentCamera = 0;
 
     // HUD
@@ -102,7 +105,6 @@ function restartGame() {
     // Let the game code (Justin's) reset ball, score and timer too
     if (typeof window.onRestart === 'function') window.onRestart();
 
-    console.log('Game restarted');
 }
 
 // ---------- Mouse: aim ----------
@@ -118,7 +120,9 @@ function inputLoop(time) {
     lastTime = time;
 
     if (charging) {
-        power = Math.min(100, power + getDifficultySettings().chargeSpeed * dt);
+        // game.js sets chargeSpeedScale for the Steady Hands and Fast Meter power-ups
+        const scale = window.chargeSpeedScale || 1;
+        power = Math.min(100, power + getDifficultySettings().chargeSpeed * scale * dt);
         updatePowerMeter(power);
     }
     requestAnimationFrame(inputLoop);

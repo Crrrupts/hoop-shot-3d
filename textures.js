@@ -66,75 +66,74 @@ const Textures = (function () {
     }
 
     // ---------- Court: wood planks with painted lines ----------
-    // The image covers the floor plane from (x0, z0) to (x1, z1) in meters.
-    // The rim is above x = 0, z = 0; the shooter is on +z.
+    // One court tile: `width` meters wide (centered on the hoop, x = 0) and
+    // from z0 to z1 meters long. The rim is above x = 0, z = 0; the shooter is
+    // on +z. The same image is used for your court and the rival's court.
     // The lines are sized for this game's 5 spots: the corner spots (worth 3)
     // sit outside the three-point arc and the other spots sit inside it.
-    function court(x0, z0, x1, z1) {
+    function court(width, z0, z1) {
         const S = 2048;
         const c = makeCanvas(S, S), g = c.getContext('2d');
         const rand = randomMaker(21);
-        const px = S / (x1 - x0);                               // pixels per meter
-        const X = (x) => (x - x0) * px;                         // meters -> pixels
-        const Z = (z) => (z - z0) * px;
+        const x0 = -width / 2;
+        // From here on we draw in meters: the canvas is stretched to fit the tile
+        g.scale(S / width, S / (z1 - z0));
+        g.translate(-x0, -z0);
 
         // wood planks running the length of the court
-        const plankW = 0.11 * px;
-        for (let x = 0; x < S; x += plankW) {
-            let y = -rand() * 300;
-            while (y < S) {
-                const len = 150 + rand() * 250;
+        const plankW = 0.11;
+        for (let x = x0; x < x0 + width; x += plankW) {
+            let z = z0 - rand() * 3;
+            while (z < z1) {
+                const len = 1.5 + rand() * 2.5;
                 const shade = 0.88 + rand() * 0.2;
                 g.fillStyle = `rgb(${Math.round(203 * shade)},${Math.round(160 * shade)},${Math.round(100 * shade)})`;
-                g.fillRect(x, y, plankW + 1, len);
+                g.fillRect(x, z, plankW + 0.01, len);
                 g.fillStyle = 'rgba(70,40,15,0.35)';            // gap at the end of a plank
-                g.fillRect(x, y + len - 1, plankW, 1.5);
-                y += len;
+                g.fillRect(x, z + len - 0.012, plankW, 0.015);
+                z += len;
             }
             g.fillStyle = 'rgba(70,40,15,0.25)';                // gap between planks
-            g.fillRect(x, 0, 1, S);
+            g.fillRect(x, z0, 0.008, z1 - z0);
         }
 
         // court edges (meters)
-        const left = -7.5, right = 7.5, baseline = -1.0, far = 13.0;
+        const left = -7.2, right = 7.2, baseline = -1.0, far = 13.0;
         // darker floor outside the lines
         g.fillStyle = 'rgba(40,25,15,0.45)';
-        g.fillRect(0, 0, S, Z(baseline));
-        g.fillRect(0, Z(far), S, S - Z(far));
-        g.fillRect(0, Z(baseline), X(left), Z(far) - Z(baseline));
-        g.fillRect(X(right), Z(baseline), S - X(right), Z(far) - Z(baseline));
+        g.fillRect(x0, z0, width, baseline - z0);
+        g.fillRect(x0, far, width, z1 - far);
+        g.fillRect(x0, baseline, left - x0, far - baseline);
+        g.fillRect(right, baseline, x0 + width - right, far - baseline);
 
         // painted key (the lane under the hoop)
         const keyHalf = 1.8, freeThrow = 4.4;
         g.fillStyle = 'rgba(150,30,35,0.82)';
-        g.fillRect(X(-keyHalf), Z(baseline), (2 * keyHalf) * px, (freeThrow - baseline) * px);
+        g.fillRect(-keyHalf, baseline, 2 * keyHalf, freeThrow - baseline);
 
         g.strokeStyle = '#f5f2ea';
-        g.lineWidth = 0.06 * px;
+        g.lineWidth = 0.06;
         g.lineCap = 'butt';
-        g.strokeRect(X(left), Z(baseline), (right - left) * px, (far - baseline) * px);          // boundary
-        g.strokeRect(X(-keyHalf), Z(baseline), (2 * keyHalf) * px, (freeThrow - baseline) * px);  // key
-        g.beginPath(); g.arc(X(0), Z(freeThrow), 1.8 * px, 0, 2 * Math.PI); g.stroke();          // free-throw circle
-        g.beginPath(); g.arc(X(0), Z(0), 1.25 * px, 0, Math.PI); g.stroke();                     // small arc under the rim
+        g.strokeRect(left, baseline, right - left, far - baseline);             // boundary
+        g.strokeRect(-keyHalf, baseline, 2 * keyHalf, freeThrow - baseline);    // key
+        g.beginPath(); g.arc(0, freeThrow, 1.8, 0, 2 * Math.PI); g.stroke();    // free-throw circle
+        g.beginPath(); g.arc(0, 0, 1.25, 0, Math.PI); g.stroke();               // small arc under the rim
         // three-point line: straight in the corners, then an arc 5.2 m from the rim
         const arc = 5.2;
         g.beginPath();
-        g.moveTo(X(-arc), Z(baseline));
-        g.lineTo(X(-arc), Z(0));
-        g.arc(X(0), Z(0), arc * px, Math.PI, 0, true);
-        g.lineTo(X(arc), Z(baseline));
+        g.moveTo(-arc, baseline);
+        g.lineTo(-arc, 0);
+        g.arc(0, 0, arc, Math.PI, 0, true);
+        g.lineTo(arc, baseline);
         g.stroke();
         // half of the center circle at the far end
-        g.beginPath(); g.arc(X(0), Z(far), 1.8 * px, Math.PI, 2 * Math.PI); g.stroke();
+        g.beginPath(); g.arc(0, far, 1.8, Math.PI, 2 * Math.PI); g.stroke();
 
         // placeholder court logo (Bom can replace this)
-        g.save();
-        g.translate(X(0), Z(9.2));
         g.fillStyle = 'rgba(150,30,35,0.55)';
-        g.font = `bold ${Math.round(1.1 * px)}px sans-serif`;
+        g.font = 'bold 1.1px sans-serif';
         g.textAlign = 'center';
-        g.fillText('HOOP SHOT', 0, 0);
-        g.restore();
+        g.fillText('HOOP SHOT', 0, 9.2);
         return c;
     }
 

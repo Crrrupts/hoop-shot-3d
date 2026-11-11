@@ -2,8 +2,7 @@
 //
 // Units are meters and seconds. Y is up. The rim center sits above the
 // origin (x = 0, z = 0); the shooter stands out on +z looking toward -z.
-// No rendering here: Isaiah's code reads Physics.ball and Physics.hoopOffset
-// and draws the objects in the same coordinates.
+// No rendering here: renderer.js draws the balls and hoops in the same coordinates.
 
 const Physics = (function () {
 
@@ -30,51 +29,75 @@ const Physics = (function () {
     const FLOOR_FRICTION = 0.85;        // keeps this fraction of sideways speed per bounce
     const STEP = 1 / 240;               // fixed physics time step
 
-    // ---------- State ----------
-    const ball = {
-        pos: [0, 2.1, 4.2],
-        vel: [0, 0, 0],
-        spinAxis: [1, 0, 0],            // rotate the ball model around this...
-        spinAngle: 0,                   // ...by this many radians
-        inFlight: false,
-        flightTime: 0,
-        touchedFloor: false,
-        floorTime: 0
-    };
+    // ---------- Hoops and balls ----------
+    // The game can have several hoops (yours and the rival's) and many balls
+    // in the air at once, so both are plain objects made by these functions.
 
-    // Hard mode slides the whole hoop (pole -> board -> rim -> net) along x.
-    const hoopOffset = [0, 0, 0];
+    // A hoop standing at (x, z) on the floor. Sizes above are measured from there.
+    function createHoop(x, z) {
+        return {
+            base: [x, 0, z],            // where the hoop normally stands
+            offset: [0, 0, 0],          // Moving Hoop power-up slides the whole hoop by this
+            rimScale: 1,                // Wide Rim / Tiny Rim power-ups change the rim size
+            slippery: false             // Slippery Ball power-up: wild bounces off the rim
+        };
+    }
 
-    let accumulator = 0;
-    let scoredThisShot = false;
-    let touchedRimThisShot = false;
-    let touchedBoardThisShot = false;
-    let onBasket = null;                // callback(info) when a basket goes in
-    let onBounce = null;                // callback(surface, speed) for sound effects
+    // A ball that will be thrown at one hoop. owner is whoever shot it (game.js uses it).
+    function createBall(hoop, owner) {
+        return {
+            hoop: hoop,
+            owner: owner || null,
+            pos: [0, 0, 0],
+            vel: [0, 0, 0],
+            spinAxis: [1, 0, 0],        // rotate the ball model around this...
+            spinAngle: 0,               // ...by this many radians
+            inFlight: false,
+            flightTime: 0,
+            touchedFloor: false,
+            floorTime: 0,
+            scored: false,
+            touchedRim: false,
+            touchedBoard: false,
+            accumulator: 0,             // left-over time for the fixed time step
+            silent: false               // true for test throws that should not make sounds or score
+        };
+    }
+
+    let onBasket = null;                // callback(ball, info) when a basket goes in
+    let onBounce = null;                // callback(ball, surface, speed) for sound effects
 
     // ---------- Small vector helpers (plain arrays, no MV.js needed) ----------
     function sub(a, b) { return [a[0] - b[0], a[1] - b[1], a[2] - b[2]]; }
     function dot(a, b) { return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]; }
     function len(a) { return Math.sqrt(dot(a, a)); }
 
-    function rimCenter() {
-        return [hoopOffset[0], RIM_HEIGHT, hoopOffset[2]];
+    // Where the hoop is standing right now (base + Moving Hoop offset)
+    function hoopOrigin(hoop) {
+        return [hoop.base[0] + hoop.offset[0], 0, hoop.base[2] + hoop.offset[2]];
+    }
+    function rimCenter(hoop) {
+        const o = hoopOrigin(hoop);
+        return [o[0], RIM_HEIGHT, o[2]];
+    }
+    function rimRadius(hoop) {
+        return RIM_RADIUS * hoop.rimScale;
     }
 
     // Bounce velocity off a surface with unit normal n
-    function reflect(n, restitution, surface) {
+    function reflect(ball, n, restitution, surface) {
         const vn = dot(ball.vel, n);
         if (vn >= 0) return;            // already moving away
         for (let i = 0; i < 3; i++) ball.vel[i] -= (1 + restitution) * vn * n[i];
-        if (onBounce && -vn > 0.5) onBounce(surface, -vn);
+        if (onBounce && !ball.silent && -vn > 0.5) onBounce(ball, surface, -vn);
     }
 
     // ---------- Collisions ----------
-    function collideFloor() {
+    function collideFloor(ball) {
         if (ball.pos[1] >= BALL_RADIUS) return;
         ball.pos[1] = BALL_RADIUS;
         const wasFalling = ball.vel[1] < 0;
-        reflect([0, 1, 0], RESTITUTION.floor, 'floor');
+        reflect(ball, [0, 1, 0], RESTITUTION.floor, 'floor');
         if (wasFalling) {
             ball.vel[0] *= FLOOR_FRICTION;
             ball.vel[2] *= FLOOR_FRICTION;
@@ -85,9 +108,10 @@ const Physics = (function () {
     }
 
     // Sphere vs axis-aligned box (backboard, pole). Handles faces, edges and corners.
-    function collideBox(box, restitution, surface) {
-        const min = [box.min[0] + hoopOffset[0], box.min[1], box.min[2] + hoopOffset[2]];
-        const max = [box.max[0] + hoopOffset[0], box.max[1], box.max[2] + hoopOffset[2]];
+    function collideBox(ball, box, restitution, surface) {
+        const o = hoopOrigin(ball.hoop);
+        const min = [box.min[0] + o[0], box.min[1], box.min[2] + o[2]];
+        const max = [box.max[0] + o[0], box.max[1], box.max[2] + o[2]];
         const closest = [0, 0, 0];
         for (let i = 0; i < 3; i++) closest[i] = Math.max(min[i], Math.min(ball.pos[i], max[i]));
         const d = sub(ball.pos, closest);
@@ -102,20 +126,21 @@ const Physics = (function () {
         }
         const push = BALL_RADIUS - dist;
         for (let i = 0; i < 3; i++) ball.pos[i] += n[i] * push;
-        reflect(n, restitution, surface);
+        reflect(ball, n, restitution, surface);
         return true;
     }
 
     // Sphere vs torus (the rim). The rim is a circle of radius RIM_RADIUS lying
     // flat at RIM_HEIGHT; find the closest point on that circle and treat the
     // rim as a tube of radius RIM_TUBE around it.
-    function collideRim() {
-        const c = rimCenter();
+    function collideRim(ball) {
+        const c = rimCenter(ball.hoop);
+        const R = rimRadius(ball.hoop);
         const q = sub(ball.pos, c);
         const d = Math.sqrt(q[0] * q[0] + q[2] * q[2]);
         let ring;
-        if (d > 1e-6) ring = [q[0] / d * RIM_RADIUS, 0, q[2] / d * RIM_RADIUS];
-        else ring = [RIM_RADIUS, 0, 0];
+        if (d > 1e-6) ring = [q[0] / d * R, 0, q[2] / d * R];
+        else ring = [R, 0, 0];
         const n = sub(q, ring);
         const dist = len(n);
         const minDist = RIM_TUBE + BALL_RADIUS;
@@ -123,34 +148,41 @@ const Physics = (function () {
         for (let i = 0; i < 3; i++) n[i] /= dist;
         const push = minDist - dist;
         for (let i = 0; i < 3; i++) ball.pos[i] += n[i] * push;
-        reflect(n, RESTITUTION.rim, 'rim');
+        if (ball.hoop.slippery) {
+            // Slippery Ball: a livelier bounce plus a random sideways kick
+            reflect(ball, n, 0.85, 'rim');
+            ball.vel[0] += (Math.random() - 0.5) * 2.5;
+            ball.vel[2] += (Math.random() - 0.5) * 2.5;
+        } else {
+            reflect(ball, n, RESTITUTION.rim, 'rim');
+        }
         return true;
     }
 
     // A basket counts when the ball's center crosses the rim plane going down
     // while inside the rim circle (plan, advanced feature 1).
-    function checkBasket(prevY) {
-        if (scoredThisShot) return;
-        const c = rimCenter();
+    function checkBasket(ball, prevY) {
+        if (ball.scored) return;
+        const c = rimCenter(ball.hoop);
         if (!(prevY > c[1] && ball.pos[1] <= c[1] && ball.vel[1] < 0)) return;
         const dx = ball.pos[0] - c[0];
         const dz = ball.pos[2] - c[2];
-        if (Math.sqrt(dx * dx + dz * dz) < RIM_RADIUS) {
-            scoredThisShot = true;
+        if (Math.sqrt(dx * dx + dz * dz) < rimRadius(ball.hoop)) {
+            ball.scored = true;
             const info = {
-                swish: !touchedRimThisShot && !touchedBoardThisShot,
-                bank: touchedBoardThisShot
+                swish: !ball.touchedRim && !ball.touchedBoard,
+                bank: ball.touchedBoard
             };
-            if (onBasket) onBasket(info);
+            if (onBasket && !ball.silent) onBasket(ball, info);
         }
     }
 
     // The net slows the ball a little as it drops through
-    function applyNet(dt) {
-        const c = rimCenter();
+    function applyNet(ball, dt) {
+        const c = rimCenter(ball.hoop);
         const dx = ball.pos[0] - c[0];
         const dz = ball.pos[2] - c[2];
-        const inside = Math.sqrt(dx * dx + dz * dz) < RIM_RADIUS &&
+        const inside = Math.sqrt(dx * dx + dz * dz) < rimRadius(ball.hoop) &&
             ball.pos[1] < c[1] && ball.pos[1] > c[1] - NET_DEPTH;
         if (!inside) return;
         const keep = Math.pow(0.15, dt);     // strong drag on sideways motion
@@ -160,23 +192,24 @@ const Physics = (function () {
     }
 
     // One fixed-size physics step
-    function step(dt) {
+    function step(ball, dt) {
         const prevY = ball.pos[1];
 
         ball.vel[1] -= G * dt;
         for (let i = 0; i < 3; i++) ball.pos[i] += ball.vel[i] * dt;
 
-        if (collideRim()) touchedRimThisShot = true;
-        if (collideBox(BOARD, RESTITUTION.board, 'board')) touchedBoardThisShot = true;
-        collideBox(POLE, RESTITUTION.pole, 'pole');
-        collideFloor();
-        checkBasket(prevY);
-        applyNet(dt);
+        if (collideRim(ball)) ball.touchedRim = true;
+        if (collideBox(ball, BOARD, RESTITUTION.board, 'board')) ball.touchedBoard = true;
+        collideBox(ball, POLE, RESTITUTION.pole, 'pole');
+        collideFloor(ball);
+        checkBasket(ball, prevY);
+        applyNet(ball, dt);
 
-        // Spin for the renderer: backspin while flying, rolling spin on the floor
+        // Spin for the renderer: backspin while flying, rolling spin on the floor.
+        // The axis is level and points to the left of the ball's travel.
         const hs = Math.sqrt(ball.vel[0] * ball.vel[0] + ball.vel[2] * ball.vel[2]);
         if (hs > 1e-3) ball.spinAxis = [-ball.vel[2] / hs, 0, ball.vel[0] / hs];
-        const spinRate = ball.touchedFloor ? hs / BALL_RADIUS : -18;   // rad/s
+        const spinRate = ball.touchedFloor ? -hs / BALL_RADIUS : 18;   // rad/s
         ball.spinAngle += spinRate * dt;
 
         ball.flightTime += dt;
@@ -185,50 +218,50 @@ const Physics = (function () {
 
     // ---------- Public functions ----------
 
-    // Advance the simulation by a frame's worth of time (any size).
-    function update(frameDt) {
+    // Advance one ball by a frame's worth of time (any size).
+    function update(ball, frameDt) {
         if (!ball.inFlight) return;
-        accumulator += Math.min(frameDt, 0.1);   // avoid a huge jump after a tab switch
-        while (accumulator >= STEP) {
-            step(STEP);
-            accumulator -= STEP;
+        ball.accumulator += Math.min(frameDt, 0.1);   // avoid a huge jump after a tab switch
+        while (ball.accumulator >= STEP) {
+            step(ball, STEP);
+            ball.accumulator -= STEP;
         }
     }
 
-    // Put the ball in the shooter's hands at a spot
-    function placeBall(pos) {
+    // Throw a ball from a position with a velocity vector
+    function launch(ball, pos, vel) {
         ball.pos = pos.slice();
-        ball.vel = [0, 0, 0];
-        ball.inFlight = false;
-        ball.flightTime = 0;
-        ball.touchedFloor = false;
-        ball.floorTime = 0;
-        accumulator = 0;
-    }
-
-    // Launch the ball with a velocity vector
-    function launch(vel) {
         ball.vel = vel.slice();
         ball.inFlight = true;
         ball.flightTime = 0;
         ball.touchedFloor = false;
         ball.floorTime = 0;
-        scoredThisShot = false;
-        touchedRimThisShot = false;
-        touchedBoardThisShot = false;
-        accumulator = 0;
+        ball.scored = false;
+        ball.touchedRim = false;
+        ball.touchedBoard = false;
+        ball.accumulator = 0;
     }
 
-    // Is the shot finished? (lets game.js hand the player a new ball)
-    function shotOver() {
+    // Is this ball finished? (game.js removes it from the court)
+    function shotOver(ball) {
         if (!ball.inFlight) return false;
-        const out = Math.abs(ball.pos[0]) > 15 || Math.abs(ball.pos[2]) > 15;
-        return out || ball.floorTime > 0.8 || ball.flightTime > 4.0;
+        const o = ball.hoop.base;
+        const out = Math.abs(ball.pos[0] - o[0]) > 15 || Math.abs(ball.pos[2] - o[2]) > 15;
+        return out || ball.floorTime > 0.8 || ball.flightTime > 6.0;
     }
 
-    function setHoopOffset(x, z) {
-        hoopOffset[0] = x;
-        hoopOffset[2] = z || 0;
+    // Would a throw go in? Runs the whole shot instantly on a copy, without
+    // sounds or scoring. Used for the rival's aim and the Sweet Spot zone.
+    // rimScale is optional (defaults to the hoop's current rim size).
+    function wouldScore(hoop, pos, vel, rimScale) {
+        const testHoop = createHoop(hoop.base[0], hoop.base[2]);
+        testHoop.rimScale = rimScale || hoop.rimScale;
+        const ball = createBall(testHoop, null);
+        ball.silent = true;
+        launch(ball, pos, vel);
+        // a ball that has reached the floor can no longer score
+        for (let i = 0; i < 6 * 240 && !ball.touchedFloor && !ball.scored; i++) step(ball, STEP);
+        return ball.scored;
     }
 
     // Points along the flight path, ignoring collisions. Used for the
@@ -247,9 +280,8 @@ const Physics = (function () {
     return {
         // constants Isaiah can use to build matching geometry
         G, BALL_RADIUS, RIM_HEIGHT, RIM_RADIUS, RIM_TUBE, NET_DEPTH, BOARD, POLE,
-        ball, hoopOffset,
-        update, placeBall, launch, shotOver, setHoopOffset, predictPath, rimCenter,
-        get scored() { return scoredThisShot; },
+        createHoop, createBall, update, launch, shotOver, wouldScore, predictPath,
+        hoopOrigin, rimCenter, rimRadius,
         set onBasket(fn) { onBasket = fn; },
         set onBounce(fn) { onBounce = fn; }
     };

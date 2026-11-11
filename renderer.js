@@ -3,7 +3,8 @@
 // main.js calls window.renderScene(scene) once per frame. This file:
 //   1. builds the meshes (geometry.js) and textures (textures.js) once at startup
 //   2. every frame, sets the camera (lookAt + perspective) and the lights
-//   3. draws the arena, court, hoop, balls, net, aim arc and shadows
+//   3. draws the arena, both courts, both hoops, the balls, nets, aim arc and shadows
+//   4. draws everything a second time into a small box: a live view of the rival's hoop
 //
 // The shaders are in index.html (ids "vertex-shader" and "fragment-shader").
 // Lighting is Phong shading done per pixel: ambient + diffuse + specular,
@@ -14,9 +15,6 @@
 // Moving or shaking a parent moves everything below it.
 
 (function () {
-    // The 2D wireframe test view (?debug) uses the canvas instead of WebGL
-    if (location.search.includes('debug')) return;
-
     const canvas = document.getElementById('game-canvas');
     const gl = canvas.getContext('webgl', { antialias: true });
     if (!gl) {
@@ -36,7 +34,8 @@
     const uniformNames = [
         'uModel', 'uView', 'uProjection', 'uNormalMatrix', 'uNormalSign', 'uTexScale',
         'uEye', 'uAmbientLight', 'uLightPosition', 'uLightColor', 'uSpotDirection', 'uSpotCone',
-        'uColor', 'uSpecular', 'uShininess', 'uAlpha', 'uLit', 'uUseTexture', 'uTexture'
+        'uColor', 'uSpecular', 'uShininess', 'uAlpha', 'uLit', 'uUseTexture', 'uTexture',
+        'uFogDensity', 'uFogColor'
     ];
     const uniform = {};
     uniformNames.forEach((name) => { uniform[name] = gl.getUniformLocation(program, name); });
@@ -64,14 +63,16 @@
         };
     }
 
-    // Arena and floor cover x from -11 to 11 and z from -5 to 17 (meters)
-    const ARENA = { x0: -11, x1: 11, z0: -5, z1: 17, height: 10 };
+    // Each court is a floor tile 15 m wide, centered on its hoop. Your court is
+    // at x = 0 and the rival's is one tile to the right. The arena box holds both.
+    const COURT = { width: Game.SETTINGS.courtGap, z0: -5, z1: 17 };
+    const ARENA = { x0: -COURT.width / 2, x1: COURT.width * 1.5, z0: COURT.z0, z1: COURT.z1, height: 10 };
 
     const meshes = {
         sphere: makeMesh(Geometry.sphere(32, 20)),
         torus: makeMesh(Geometry.torus(Physics.RIM_RADIUS, Physics.RIM_TUBE * 1.3, 48, 10)),
         cube: makeMesh(Geometry.cube()),
-        floor: makeMesh(Geometry.plane(ARENA.x0, ARENA.z0, ARENA.x1, ARENA.z1, 24)),
+        floor: makeMesh(Geometry.plane(-COURT.width / 2, COURT.z0, COURT.width / 2, COURT.z1, 24)),
         disc: makeMesh(Geometry.disc(28))
     };
 
@@ -95,7 +96,7 @@
     }
     const textures = {
         ball: makeTexture(Textures.ball(), true),
-        court: makeTexture(Textures.court(ARENA.x0, ARENA.z0, ARENA.x1, ARENA.z1), false),
+        court: makeTexture(Textures.court(COURT.width, COURT.z0, COURT.z1), false),
         backboard: makeTexture(Textures.backboard(), false),
         wall: makeTexture(Textures.wall(), true)
     };
@@ -109,7 +110,7 @@
         board:    { color: [1, 1, 1], specular: [0.3, 0.3, 0.3], shininess: 40, texture: textures.backboard },
         rim:      { color: [0.95, 0.35, 0.08], specular: [1, 0.9, 0.8], shininess: 90 },                        // shiny metal
         pole:     { color: [0.2, 0.22, 0.27], specular: [0.5, 0.5, 0.5], shininess: 50 },
-        wall:     { color: [0.8, 0.8, 0.8], specular: [0, 0, 0], shininess: 1, texture: textures.wall, texScale: [6, 1] },
+        wall:     { color: [0.8, 0.8, 0.8], specular: [0, 0, 0], shininess: 1, texture: textures.wall, texScale: [7, 1] },
         ceiling:  { color: [0.12, 0.12, 0.14], specular: [0, 0, 0], shininess: 1 }
     };
 
@@ -133,20 +134,30 @@
     // ---------- Lights ----------
     // Up to 3 lights. cone = [inner, outer] angle in degrees for a spotlight,
     // or null for a light that shines in every direction.
-    const LIGHTING = {
+    const NO_LIGHT = { position: [0, 0, 0], color: [0, 0, 0], direction: [0, -1, 0], cone: null };
+    const mid = COURT.width / 2;                // halfway between the two hoops
+    const NORMAL_LIGHTING = {
         ambient: [0.42, 0.42, 0.46],
         lights: [
-            // overhead spotlight above the key, pointing straight down
+            // overhead spotlight above each key, pointing straight down
             { position: [0, 9.5, 2.5], color: [0.95, 0.92, 0.85], direction: [0, -1, 0], cone: [38, 62] },
-            // soft fill light behind the shooter so the hoop is not flat
-            { position: [0, 6, 14], color: [0.22, 0.22, 0.25], direction: [0, -1, 0], cone: null },
-            { position: [0, 0, 0], color: [0, 0, 0], direction: [0, -1, 0], cone: null }    // unused
+            { position: [COURT.width, 9.5, 2.5], color: [0.95, 0.92, 0.85], direction: [0, -1, 0], cone: [38, 62] },
+            // soft fill light behind the shooters so the hoops are not flat
+            { position: [mid, 6, 14], color: [0.22, 0.22, 0.25], direction: [0, -1, 0], cone: null }
+        ]
+    };
+    // Blackout power-up: the lights go out except a narrow spotlight on your hoop
+    const BLACKOUT_LIGHTING = {
+        ambient: [0.035, 0.035, 0.05],
+        lights: [
+            { position: [0, 8, 3.5], color: [1, 0.96, 0.85], direction: [0, -0.82, -0.57], cone: [9, 15] },
+            NO_LIGHT, NO_LIGHT
         ]
     };
 
-    function setLights(eye) {
+    function setLights(lighting, eye) {
         const positions = [], colors = [], directions = [], cones = [];
-        for (const light of LIGHTING.lights) {
+        for (const light of lighting.lights) {
             positions.push(...light.position);
             colors.push(...light.color);
             directions.push(...light.direction);
@@ -160,7 +171,7 @@
         gl.uniform3fv(uniform.uLightColor, colors);
         gl.uniform3fv(uniform.uSpotDirection, directions);
         gl.uniform2fv(uniform.uSpotCone, cones);
-        gl.uniform3fv(uniform.uAmbientLight, LIGHTING.ambient);
+        gl.uniform3fv(uniform.uAmbientLight, lighting.ambient);
         gl.uniform3fv(uniform.uEye, eye);
     }
 
@@ -225,37 +236,46 @@
         s.speed += (-s.stiffness * s.value - s.damping * s.speed) * dt;
         s.value += s.speed * dt;
     }
-    const hoopAnim = {
-        boardTilt: makeSpring(900, 14),     // backboard wobble (degrees)
-        rimTilt: makeSpring(1400, 16),      // rim shake (degrees)
-        netX: makeSpring(120, 5),           // net sway (meters at the bottom)
-        netZ: makeSpring(120, 5),
-        netStretch: makeSpring(260, 9)      // net pulled down by the ball
-    };
-
-    // game.js tells us when the ball hits something or goes in
-    if (typeof Game !== 'undefined' && Game.on) {
-        Game.on(function (name, data) {
-            if (name === 'bounce' && data.surface === 'rim') {
-                hoopAnim.rimTilt.speed -= Math.min(data.speed, 8) * 10;
-                hoopAnim.boardTilt.speed -= Math.min(data.speed, 8) * 3;
-                hoopAnim.netX.speed += (Math.random() - 0.5) * 0.6;
-            }
-            if (name === 'bounce' && data.surface === 'board') {
-                hoopAnim.boardTilt.speed -= Math.min(data.speed, 8) * 9;
-            }
-            if (name === 'basket') {
-                // the ball drags the net down and sideways; a swish snaps harder
-                hoopAnim.netStretch.speed += data.swish ? 6.5 : 4.5;
-                hoopAnim.netX.speed += data.vel[0] * 0.5;
-                hoopAnim.netZ.speed += data.vel[2] * 0.5;
-            }
-        });
+    // Every hoop gets its own set of springs
+    const hoopAnims = new Map();
+    function animFor(hoop) {
+        if (!hoopAnims.has(hoop)) {
+            hoopAnims.set(hoop, {
+                boardTilt: makeSpring(900, 14),     // backboard wobble (degrees)
+                rimTilt: makeSpring(1400, 16),      // rim shake (degrees)
+                netX: makeSpring(120, 5),           // net sway (meters at the bottom)
+                netZ: makeSpring(120, 5),
+                netStretch: makeSpring(260, 9)      // net pulled down by the ball
+            });
+        }
+        return hoopAnims.get(hoop);
     }
+
+    // game.js tells us when a ball hits something or goes in
+    Game.on(function (name, data) {
+        if (name !== 'bounce' && name !== 'basket') return;
+        const anim = animFor(data.ball.hoop);
+        if (name === 'bounce' && data.surface === 'rim') {
+            anim.rimTilt.speed -= Math.min(data.speed, 8) * 10;
+            anim.boardTilt.speed -= Math.min(data.speed, 8) * 3;
+            anim.netX.speed += (Math.random() - 0.5) * 0.6;
+        }
+        if (name === 'bounce' && data.surface === 'board') {
+            anim.boardTilt.speed -= Math.min(data.speed, 8) * 9;
+        }
+        if (name === 'basket') {
+            // the ball drags the net down and sideways; a swish snaps harder
+            anim.netStretch.speed += data.swish ? 6.5 : 4.5;
+            anim.netX.speed += data.vel[0] * 0.5;
+            anim.netZ.speed += data.vel[2] * 0.5;
+        }
+    });
 
     // ---------- The hoop: pole -> arm -> backboard -> rim -> net ----------
     // Sizes come from physics.js so what you see matches what the ball hits.
-    function drawHoop(offset, time) {
+    function drawHoop(hoop, time) {
+        const hoopAnim = animFor(hoop);
+        const origin = Physics.hoopOrigin(hoop);
         const P = Physics.POLE, B = Physics.BOARD;
         const poleSize = [P.max[0] - P.min[0], P.max[1] - P.min[1], P.max[2] - P.min[2]];
         const poleCenterZ = (P.min[2] + P.max[2]) / 2;
@@ -265,8 +285,9 @@
         const armLength = B.min[2] - P.max[2];              // from the pole's front to the board's back
 
         pushMatrix();
-        // ROOT: the whole hoop slides with the Moving Hoop offset
-        transform(translate(offset[0], offset[1], offset[2]));
+        // ROOT: where the hoop stands. The Moving Hoop power-up slides this,
+        // and everything below follows.
+        transform(translate(origin[0], origin[1], origin[2]));
 
         // POLE (origin at the pole's base)
         transform(translate(0, 0, poleCenterZ));
@@ -299,17 +320,21 @@
         transform(rotateX(hoopAnim.rimTilt.value));
         transform(translate(0, 0, -boardCenter[2] - boardFront));
         setMaterial(MATERIALS.rim);
-        drawMesh(meshes.torus);
         // small plate that joins the rim to the board
         const plateLength = rimBack - B.max[2];
         pushMatrix();
         transform(translate(0, -0.01, rimBack - plateLength / 2));
         drawBox(0.12, 0.02, plateLength);
         popMatrix();
+        // the rim itself (Wide Rim / Tiny Rim power-ups scale it)
+        pushMatrix();
+        transform(scalem(hoop.rimScale, 1, hoop.rimScale));
+        drawMesh(meshes.torus);
+        popMatrix();
 
         // NET (hangs from the rim, drawn as lines). It always sways a little.
-        const idle = 0.012 * Math.sin(time * 1.3);
-        const net = Geometry.netLines(Physics.RIM_RADIUS, Physics.NET_DEPTH,
+        const idle = 0.012 * Math.sin(time * 1.3 + origin[0]);
+        const net = Geometry.netLines(Physics.rimRadius(hoop), Physics.NET_DEPTH,
             hoopAnim.netX.value + idle, hoopAnim.netZ.value, Math.max(-0.3, hoopAnim.netStretch.value));
         drawLines(netBuffer, net, gl.LINES, [0.96, 0.96, 0.96], 1);
 
@@ -348,16 +373,17 @@
         popMatrix();
     }
 
-    // Circles on the floor at the 5 shooting spots; the current one is brighter
-    function drawSpots(state) {
+    // Circles on the floor at the 5 shooting spots of one shooter; the one
+    // they are standing on is brighter (yellow for you, red for the rival)
+    function drawSpots(shooter, color) {
         for (let i = 1; i <= Game.SPOTS.length; i++) {
-            const p = Game.spotPosition(i);
-            const current = i === state.spot;
+            const p = Game.spotPosition(i, shooter);
+            const current = i === shooter.spot;
             pushMatrix();
             transform(translate(p[0], 0.008, p[2]));
             transform(scalem(0.32, 1, 0.32));
             setMaterial({
-                color: current ? [1, 0.85, 0.2] : [1, 1, 1],
+                color: current ? color : [1, 1, 1],
                 unlit: true,
                 alpha: current ? 0.75 : 0.22
             });
@@ -384,39 +410,45 @@
         gl.cullFace(gl.BACK);
         popMatrix();
 
+        // The same floor tile is drawn twice: your court and the rival's
         setMaterial(MATERIALS.court);
-        drawMesh(meshes.floor);
+        for (const hoop of [Game.player.hoop, Game.rival.hoop]) {
+            pushMatrix();
+            transform(translate(hoop.base[0], 0, hoop.base[2]));
+            drawMesh(meshes.floor);
+            popMatrix();
+        }
     }
 
-    // ---------- One frame ----------
-    let lastTime = performance.now();
-
-    window.renderScene = function (scene) {
-        const now = performance.now();
-        const dt = Math.min((now - lastTime) / 1000, 0.05);
-        lastTime = now;
-        for (const key in hoopAnim) stepSpring(hoopAnim[key], dt);
-
-        gl.viewport(0, 0, canvas.width, canvas.height);
+    // ---------- One view of the scene ----------
+    // Draws everything from one camera into one rectangle of the canvas.
+    // rect = { x, y, width, height } in canvas pixels (y measured from the bottom).
+    function drawView(scene, cam, rect, lighting, fogDensity, time) {
+        gl.viewport(rect.x, rect.y, rect.width, rect.height);
+        gl.scissor(rect.x, rect.y, rect.width, rect.height);    // only clear and draw inside the rectangle
+        const fogColor = [0.62, 0.64, 0.68];
+        if (fogDensity > 0) gl.clearColor(fogColor[0], fogColor[1], fogColor[2], 1);
+        else gl.clearColor(0.03, 0.03, 0.05, 1);
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
         // Camera: where the eye is, what it looks at, and the lens
-        const cam = scene.camera;
         const view = lookAt(cam.eye.slice(), cam.at.slice(), cam.up.slice());
-        const projection = perspective(cam.fov, canvas.width / canvas.height, cam.near, cam.far);
+        const projection = perspective(cam.fov, rect.width / rect.height, cam.near, cam.far);
         gl.uniformMatrix4fv(uniform.uView, false, flatten(view));
         gl.uniformMatrix4fv(uniform.uProjection, false, flatten(projection));
         gl.uniform1f(uniform.uNormalSign, 1);
-        setLights(cam.eye);
+        gl.uniform1f(uniform.uFogDensity, fogDensity);
+        gl.uniform3fv(uniform.uFogColor, fogColor);
+        setLights(lighting, cam.eye);
 
         modelMatrix = mat4();
 
         // 1. solid objects
         drawArena();
-        drawHoop(scene.hoopOffset, now / 1000);
-        drawBall(scene.ball);
+        for (const hoop of scene.hoops) drawHoop(hoop, time);
+        for (const ball of scene.balls) drawBall(ball);
 
-        // 2. aim arc (easy mode), drawn as a line strip
+        // 2. aim arc, drawn as a line strip
         const arcPoints = [];
         for (const p of scene.aimPath) arcPoints.push(p[0], p[1], p[2]);
         drawLines(arcBuffer, arcPoints, gl.LINE_STRIP, [1, 0.9, 0.3], 1);
@@ -424,9 +456,45 @@
         // 3. see-through things last, without writing depth
         gl.enable(gl.BLEND);
         gl.depthMask(false);
-        drawSpots(scene.state);
-        drawShadow(scene.ball);
+        drawSpots(scene.state.player, [1, 0.85, 0.2]);
+        drawSpots(scene.state.rival, [1, 0.35, 0.3]);
+        for (const ball of scene.balls) drawShadow(ball);
         gl.depthMask(true);
         gl.disable(gl.BLEND);
+    }
+
+    // The small rival view sits inside the #rival-view box from index.html
+    const insetBox = document.getElementById('rival-view');
+    function insetRect() {
+        return {
+            x: insetBox.offsetLeft + 2,
+            y: canvas.height - insetBox.offsetTop - insetBox.offsetHeight + 2,
+            width: insetBox.offsetWidth - 4,
+            height: insetBox.offsetHeight - 4
+        };
+    }
+
+    // ---------- One frame ----------
+    let lastTime = performance.now();
+    let fogAmount = 0;                  // fades in and out so the fog does not pop
+
+    window.renderScene = function (scene) {
+        const now = performance.now();
+        const dt = Math.min((now - lastTime) / 1000, 0.05);
+        lastTime = now;
+        // animations pause with the game during a power-up pick
+        if (scene.state.mode !== 'picking') {
+            hoopAnims.forEach((anim) => { for (const key in anim) stepSpring(anim[key], dt); });
+        }
+        fogAmount += ((scene.fog ? 1 : 0) - fogAmount) * Math.min(1, dt * 3);
+        const time = now / 1000;
+
+        gl.enable(gl.SCISSOR_TEST);
+        // Main view: your camera, with the effects of power-ups used on you
+        drawView(scene, scene.camera, { x: 0, y: 0, width: canvas.width, height: canvas.height },
+            scene.blackout ? BLACKOUT_LIGHTING : NORMAL_LIGHTING, fogAmount * 0.16, time);
+        // Inset view: a fixed camera on the rival's hoop
+        drawView(scene, scene.inset, insetRect(), NORMAL_LIGHTING, 0, time);
+        gl.disable(gl.SCISSOR_TEST);
     };
 })();

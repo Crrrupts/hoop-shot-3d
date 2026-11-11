@@ -15,8 +15,10 @@
     <!-- UI Overlay -->
     <div id="ui-layer">
         <div id="top-left" class="hud-box">
-            <div id="score-display">SCORE 0</div>
+            <div id="score-display">YOU 0</div>
+            <div id="rival-display">RIVAL 0</div>
             <div id="streak-display">Streak x0</div>
+            <div id="streak-hint"></div>
         </div>
 
         <div id="top-center">
@@ -24,13 +26,25 @@
         </div>
 
         <div id="top-right" class="hud-box">
-            <div id="time-display">TIME 1:00</div>
-            <div id="spot-display">Spot 1 of 5</div>
+            <div id="time-display">TIME 3:00</div>
+            <div id="spot-display">Spot 3 of 5</div>
         </div>
+
+        <!-- Frame around the small live view of the rival's hoop (drawn by renderer.js) -->
+        <div id="rival-view"><span id="rival-view-label">RIVAL</span></div>
+
+        <!-- Active power-ups (green = helping you, red = hurting you) -->
+        <div id="effects-list"></div>
+
+        <!-- Big text for streak tiers and overtime -->
+        <div id="banner"></div>
+        <!-- Small message when the rival picks a card -->
+        <div id="toast"></div>
 
         <div id="power-meter-container">
             <div id="power-label">Power</div>
             <div id="power-bar-bg" role="meter" aria-labelledby="power-label" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+                <div id="sweet-zone"></div>
                 <div id="power-bar-fill"></div>
             </div>
         </div>
@@ -45,13 +59,35 @@
         <button id="start-btn">Start</button>
     </div>
 
+    <!-- Power-up pick: the game pauses and you choose one of two cards -->
+    <div id="pick-overlay">
+        <h2 id="pick-title">Power-up! Pick one</h2>
+        <div id="pick-cards">
+            <button class="pick-card" id="pick-buff">
+                <span class="pick-side">BUFF FOR YOU</span>
+                <span class="pick-rarity"></span>
+                <span class="pick-name"></span>
+                <span class="pick-text"></span>
+                <span class="pick-key">Left arrow or 1</span>
+            </button>
+            <button class="pick-card" id="pick-sabotage">
+                <span class="pick-side">SABOTAGE THE RIVAL</span>
+                <span class="pick-rarity"></span>
+                <span class="pick-name"></span>
+                <span class="pick-text"></span>
+                <span class="pick-key">Right arrow or 2</span>
+            </button>
+        </div>
+        <div id="pick-timer"><div id="pick-timer-fill"></div></div>
+    </div>
+
     <!-- Start/Game Over Menu -->
     <div id="menu-overlay">
         <h1 id="menu-title">Hoop Shot 3D</h1>
-        <p id="menu-subtitle">Mouse: aim | Hold Space: power | A/D: spot | C: camera | R: restart</p>
+        <p id="menu-subtitle">Race the rival: most points in 3 minutes wins</p>
+        <p id="menu-controls">Mouse: aim | Hold Space: power | A/D: spot | C: camera | R: restart</p>
         <button id="play-btn">Play Game</button>
     </div>
-
 
     <!-- GLSL shaders (our own). Phong shading: the lighting is worked out for every pixel. -->
     <script id="vertex-shader" type="x-shader/x-vertex">
@@ -100,13 +136,21 @@
         uniform bool uLit;                  // false for lines and shadows (flat color)
         uniform bool uUseTexture;
         uniform sampler2D uTexture;
+        uniform float uFogDensity;          // 0 = no fog (Fog Machine power-up turns it on)
+        uniform vec3 uFogColor;
+
+        // Blend a color toward the fog color the farther it is from the camera
+        vec3 addFog(vec3 color) {
+            float amount = 1.0 - exp(-uFogDensity * distance(uEye, fPosition));
+            return mix(color, uFogColor, amount);
+        }
 
         void main() {
             vec3 base = uColor;
             if (uUseTexture) base *= texture2D(uTexture, fTexCoord).rgb;
 
             if (!uLit) {
-                gl_FragColor = vec4(base, uAlpha);
+                gl_FragColor = vec4(addFog(base), uAlpha);
                 return;
             }
 
@@ -127,7 +171,7 @@
                 }
                 color += spot * uLightColor[i] * (diffuse * base + specular * uSpecular);
             }
-            gl_FragColor = vec4(color, uAlpha);
+            gl_FragColor = vec4(addFog(color), uAlpha);
         }
     </script>
 
@@ -139,9 +183,9 @@
     <script src="ui.js"></script>
     <script src="input.js"></script>
     <script src="physics.js"></script>
+    <script src="powerups.js"></script>
     <script src="game.js"></script>
     <script src="camera.js"></script>
-    <script src="debug-view.js"></script>
     <script src="geometry.js"></script>
     <script src="textures.js"></script>
     <script src="renderer.js"></script>
