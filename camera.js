@@ -12,7 +12,11 @@ const Camera = (function () {
     const FOV = 45, NEAR = 0.1, FAR = 100;
     const SMOOTH = 6;                   // higher = snappier camera moves
 
-    let orbitAngle = 0;                 // radians around the hoop
+    // The orbit camera swings in front of the hoop, from one corner of the
+    // court to the other. It never goes behind the hoop.
+    const ORBIT_LIMIT = 70 * Math.PI / 180;     // the corner spots are 70 degrees to each side
+    let orbitAngle = 0;                 // radians around the hoop (0 = straight in front)
+    let orbitDirection = 1;             // which way it is swinging
     let orbitDragging = false;
 
     function mode() {
@@ -91,7 +95,11 @@ const Camera = (function () {
     ];
 
     function update(dt) {
-        if (!orbitDragging) orbitAngle += 0.2 * dt;
+        if (!orbitDragging) {
+            orbitAngle += orbitDirection * 0.2 * dt;
+            if (Math.abs(orbitAngle) >= ORBIT_LIMIT) orbitDirection = orbitAngle > 0 ? -1 : 1;     // turn around at a corner
+        }
+        orbitAngle = Math.max(-ORBIT_LIMIT, Math.min(ORBIT_LIMIT, orbitAngle));
         rigs[0].update(dt);
         if (Game.state.twoPlayer) rigs[1].update(dt);
     }

@@ -18,11 +18,13 @@ let currentCamera = 0;
 // Difficulty (1 = Easy, 2 = Medium, 3 = Hard)
 // These numbers are starting values, we tune them later.
 // Harder = faster meter, shakier aim and a stronger rival (see RIVALS in game.js).
-// Easy also shows the aim arc. The moving hoop is now a power-up, not part of Hard.
+// Easy also shows the golden aim dot and the meter zones. The moving hoop is now a power-up, not part of Hard.
 const DIFFICULTY_SETTINGS = {
-    1: { name: 'Easy',   chargeSpeed: 60,  aimWobble: 0.00 },
-    2: { name: 'Medium', chargeSpeed: 80,  aimWobble: 0.02 },
-    3: { name: 'Hard',   chargeSpeed: 110, aimWobble: 0.05 }
+    // buffer = width of the grey zone on each side of the meter's green zone (in % of the meter).
+    // Letting go in the grey still has a chance (up to 35%) of going in.
+    1: { name: 'Easy',   chargeSpeed: 60,  aimWobble: 0.00, buffer: 9 },
+    2: { name: 'Medium', chargeSpeed: 80,  aimWobble: 0.02, buffer: 6 },
+    3: { name: 'Hard',   chargeSpeed: 110, aimWobble: 0.05, buffer: 3 }
 };
 let difficulty = 2;
 
@@ -112,13 +114,33 @@ function restartGame() {
 
 }
 
-// ---------- Mouse: aim ----------
-gameCanvas.addEventListener('mousemove', (e) => {
-    const rect = gameCanvas.getBoundingClientRect();
-    // in two-player your view is the left half of the canvas
-    const width = (typeof Game !== 'undefined' && Game.state.twoPlayer) ? rect.width / 2 : rect.width;
-    aimX = Math.max(-1, Math.min(1, ((e.clientX - rect.left) / width) * 2 - 1));
-    aimY = -(((e.clientY - rect.top) / rect.height) * 2 - 1);
+// ---------- Aiming with a crosshair ----------
+// Each player has a crosshair on the screen (canvas pixels). Putting it on
+// the rim is perfect aim; main.js turns its position into aimX / aimY.
+// After every shot it jumps to a random place, so you have to aim again.
+// Player 1 moves it with the mouse, Player 2 with the arrow keys.
+const crosshairs = [{ x: 400, y: 300 }, { x: 600, y: 300 }];
+
+// The part of the canvas a player sees: everything, or one half in two-player
+function viewRect(index) {
+    const two = typeof Game !== 'undefined' && Game.state.twoPlayer;
+    const w = gameCanvas.width, h = gameCanvas.height;
+    if (!two) return { x: 0, y: 0, width: w, height: h };
+    return { x: index === 0 ? 0 : w / 2, y: 0, width: w / 2, height: h };
+}
+function keepCrosshairInView(index) {
+    const r = viewRect(index), c = crosshairs[index];
+    c.x = Math.max(r.x + 8, Math.min(r.x + r.width - 8, c.x));
+    c.y = Math.max(r.y + 8, Math.min(r.y + r.height - 8, c.y));
+}
+
+// The mouse moves the crosshair by how far the mouse moved (not to where the
+// pointer is), which is what lets the crosshair jump after a shot.
+document.addEventListener('mousemove', (e) => {
+    if (typeof Game === 'undefined' || Game.state.mode !== 'playing') return;
+    crosshairs[0].x += e.movementX;
+    crosshairs[0].y += e.movementY;
+    keepCrosshairInView(0);
 });
 
 // ---------- Loop ----------
@@ -137,13 +159,13 @@ function inputLoop(time) {
 requestAnimationFrame(inputLoop);
 
 // ---------- Player 2 (two-player mode, same keyboard) ----------
-// Arrow keys: aim | hold Enter: power, release to shoot | J / L: change spot
+// Arrow keys: move the crosshair | hold Enter: power, release to shoot | J / L: change spot
 let charging2 = false;
 let power2 = 0;
-let aim2X = 0;                  // -1..1 like aimX / aimY, moved with the arrow keys
+let aim2X = 0;                  // -1..1 like aimX / aimY (set by main.js from Player 2's crosshair)
 let aim2Y = 0;
 let currentSpot2 = 3;
-const AIM2_SPEED = 0.9;         // how fast the arrow keys move the aim (per second)
+const AIM2_SPEED = 260;         // how fast the arrow keys move Player 2's crosshair (pixels per second)
 const held2 = { ArrowLeft: false, ArrowRight: false, ArrowUp: false, ArrowDown: false };
 
 function twoPlayerPlaying() {
@@ -182,12 +204,10 @@ function inputLoop2(time) {
     const dt = Math.min((time - lastTime2) / 1000, 0.1);
     lastTime2 = time;
     if (twoPlayerPlaying()) {
-        // arrow keys slide the aim; it stays where you leave it
-        aim2X += ((held2.ArrowRight ? 1 : 0) - (held2.ArrowLeft ? 1 : 0)) * AIM2_SPEED * dt;
-        aim2Y += ((held2.ArrowUp ? 1 : 0) - (held2.ArrowDown ? 1 : 0)) * AIM2_SPEED * dt;
-        aim2X = Math.max(-1, Math.min(1, aim2X));
-        aim2Y = Math.max(-1, Math.min(1, aim2Y));
-        updateAim2(aim2X, aim2Y);
+        // arrow keys slide Player 2's crosshair
+        crosshairs[1].x += ((held2.ArrowRight ? 1 : 0) - (held2.ArrowLeft ? 1 : 0)) * AIM2_SPEED * dt;
+        crosshairs[1].y += ((held2.ArrowDown ? 1 : 0) - (held2.ArrowUp ? 1 : 0)) * AIM2_SPEED * dt;
+        keepCrosshairInView(1);
         if (charging2) {
             const scale = window.chargeSpeedScale2 || 1;
             power2 = Math.min(100, power2 + getDifficultySettings().chargeSpeed * scale * dt);

@@ -136,13 +136,38 @@ function updateEffects(effects) {
 }
 
 // Sweet Spot power-up: green band on the power meter from lo% to hi% (null hides it)
+// zone = { lo, hi, buffer } in percent, or null to hide. Green from lo to hi
+// (the power that scores), grey for `buffer` on each side (a smaller chance).
 // which: 0 = your meter, 1 = Player 2's meter
 function setSweetZone(zone, which) {
-    const el = document.getElementById(which ? 'sweet-zone-2' : 'sweet-zone');
-    if (!zone) { el.style.display = 'none'; return; }
+    const suffix = which ? '-2' : '';
+    const green = document.getElementById('sweet-zone' + suffix);
+    const below = document.getElementById('buffer-low' + suffix);
+    const above = document.getElementById('buffer-high' + suffix);
+    for (const el of [green, below, above]) el.style.display = zone ? 'block' : 'none';
+    if (!zone) return;
+    green.style.bottom = zone.lo + '%';
+    green.style.height = Math.max(2, zone.hi - zone.lo) + '%';
+    const low = Math.max(0, zone.lo - zone.buffer), high = Math.min(100, zone.hi + zone.buffer);
+    below.style.bottom = low + '%';
+    below.style.height = (zone.lo - low) + '%';
+    above.style.bottom = zone.hi + '%';
+    above.style.height = (high - zone.hi) + '%';
+}
+
+// ---------- Crosshair and golden aim dot ----------
+// index: 0 = you, 1 = Player 2. position = { x, y } in canvas pixels, or null to hide.
+function showCrosshair(index, position) {
+    placeMark(document.getElementById('crosshair-' + index), position);
+}
+function showAimDot(index, position) {
+    placeMark(document.getElementById('aimdot-' + index), position);
+}
+function placeMark(el, position) {
+    if (!position) { el.style.display = 'none'; return; }
     el.style.display = 'block';
-    el.style.bottom = zone.lo + '%';
-    el.style.height = Math.max(2, zone.hi - zone.lo) + '%';
+    el.style.left = position.x + 'px';
+    el.style.top = position.y + 'px';
 }
 
 // ---------- Power-up pick screen ----------
@@ -241,13 +266,6 @@ function markPick2(who, side) {
 function updatePowerMeter2(percentage) {
     const fill = Math.max(0, Math.min(percentage, 100));
     document.getElementById('power-bar-fill-2').style.height = `${fill}%`;
-}
-
-// Player 2 aims with the arrow keys, so a dot in a small box shows where (-1..1 each way)
-function updateAim2(x, y) {
-    const dot = document.getElementById('aim2-dot');
-    dot.style.left = (50 + x * 50) + '%';
-    dot.style.top = (50 - y * 50) + '%';
 }
 
 let effects2Shown = '';

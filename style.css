@@ -737,3 +737,53 @@ body {
 
 #versus-keys { border-collapse: collapse; font-size: 14px; margin: 6px 0; }
 #versus-keys th, #versus-keys td { border: 1px solid #666; padding: 3px 12px; }
+
+/* ---------- Crosshair, golden aim dot and the meter's grey buffer ---------- */
+.crosshair {
+    display: none;
+    position: absolute;
+    width: 30px;
+    height: 30px;
+    margin: -15px 0 0 -15px;
+    border: 2px solid #fff;
+    border-radius: 50%;
+    box-shadow: 0 0 3px #000, inset 0 0 3px #000;
+    z-index: 5;
+}
+
+/* the cross lines */
+.crosshair::before, .crosshair::after {
+    content: '';
+    position: absolute;
+    background: #fff;
+    box-shadow: 0 0 2px #000;
+}
+.crosshair::before { left: 50%; top: -8px; width: 2px; height: 42px; margin-left: -1px; }
+.crosshair::after  { top: 50%; left: -8px; height: 2px; width: 42px; margin-top: -1px; }
+.crosshair.p2 { border-color: #ffb066; }
+.crosshair.p2::before, .crosshair.p2::after { background: #ffb066; }
+
+.aim-dot {
+    display: none;
+    position: absolute;
+    width: 14px;
+    height: 14px;
+    margin: -7px 0 0 -7px;
+    border-radius: 50%;
+    background: #ffd34d;
+    box-shadow: 0 0 10px 3px rgba(255, 211, 77, 0.9), 0 0 2px #000;
+    z-index: 4;
+}
+
+/* hide the normal mouse pointer over the game; the crosshair replaces it */
+#game-canvas { cursor: none; }
+
+.buffer-zone {
+    display: none;
+    position: absolute;
+    left: 0;
+    width: 100%;
+    background: rgba(190, 190, 195, 0.6);
+    box-sizing: border-box;
+    z-index: 2;
+}

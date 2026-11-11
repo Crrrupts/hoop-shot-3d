@@ -205,6 +205,53 @@ const Game = (function () {
         return best;
     }
 
+    // A first guess at the sideways aim (aimX) that cancels the wind from a
+    // shooter's spot: how far the wind carries the ball, turned against it.
+    function windEstimate(shooter, wind) {
+        const spot = SPOTS[shooter.spot - 1];
+        const a = spot.angle * Math.PI / 180;
+        const right = [Math.cos(a), 0, -Math.sin(a)];       // the shooter's right-hand side
+        const drift = 0.5 * (wind[0] * right[0] + wind[2] * right[2]) * 1.2 * 1.2;     // about 1.2 s in the air
+        return -drift / (spot.dist * YAW_RANGE * Math.PI / 180);
+    }
+
+    // The best aim and the power meter's zones for a shooter's current spot:
+    //   aimX          the sideways aim that works best (0 with no wind). The golden dot marks it.
+    //   green lo..hi  the power that scores with that aim
+    //   grey          `buffer` wide on each side: a little early or late still has a chance
+    // These depend on the spot, the rim and the wind, not on where you are aiming.
+    // Working them out takes a few milliseconds, so the answer is kept until something changes.
+    const zoneCache = {};
+    function shotGuide(shooter) {
+        const wind = [Math.round(state.wind[0] * 20) / 20, 0, 0];      // to the nearest 0.05
+        const key = [shooter.spot, shooter.hoop.rimScale, wind[0], state.court.id].join('|');
+        let cached = zoneCache[shooter.id];
+        if (!cached || cached.key !== key) {
+            // try a few aims around the first guess and keep the one with the widest green zone
+            const guess = windEstimate(shooter, wind);
+            let best = null;
+            for (const nudge of (wind[0] ? [0, -0.1, 0.1, -0.2, 0.2] : [0])) {
+                const zone = makeWindow(shooter, shooter.spot, guess + nudge, 0, { wind: wind });
+                if (zone && (!best || zone.hi - zone.lo > best.hi - best.lo)) {
+                    best = { aimX: guess + nudge, lo: zone.lo, hi: zone.hi };
+                }
+            }
+            cached = zoneCache[shooter.id] = { key: key, guide: best };
+        }
+        return cached.guide;
+    }
+    function perfectAim(shooter) {
+        const guide = shotGuide(shooter);
+        return guide ? guide.aimX : 0;
+    }
+    function powerZone(shooter) {
+        const guide = shotGuide(shooter);
+        if (!guide) return null;
+        return { lo: guide.lo, hi: guide.hi, buffer: difficulty().buffer || 5 };
+    }
+    const BUFFER_BEST_CHANCE = 0.35;    // chance of a save right next to the green zone...
+    const BUFFER_WORST_CHANCE = 0.15;   // ...falling to this at the far edge of the grey zone
+
     // ---------- Scoring ----------
     // The streak tier for a number of makes in a row (null below 2)
     function tierFor(streak) {
@@ -352,6 +399,20 @@ const Game = (function () {
     }
     function shootAs(shooter, power, aimX, aimY) {
         if (!canShoot(shooter)) return;
+        shooter.spot = shooter === player ? inputSpot() : shooter.spot;
+        // Grey buffer zone: letting go a little early or late is sometimes
+        // saved (the throw is nudged into the green zone). Never better than 35%.
+        const zone = powerZone(shooter);
+        if (zone) {
+            const off = power < zone.lo ? zone.lo - power : power > zone.hi ? power - zone.hi : 0;
+            if (off > 0 && off <= zone.buffer) {
+                const chance = BUFFER_BEST_CHANCE - (BUFFER_BEST_CHANCE - BUFFER_WORST_CHANCE) * off / zone.buffer;
+                if (Math.random() < chance) {
+                    const quarter = (zone.hi - zone.lo) / 4;
+                    power = power < zone.lo ? zone.lo + quarter : zone.hi - quarter;
+                }
+            }
+        }
         // aim error: difficulty + Shaky Hands + a wet ball in the rain
         // (the Rooftop boss makes the rain heavier as it scores; the Headband gear steadies you)
         const rain = state.court.rules.slip * (state.twist === 'heavierRain' ? 1 + rival.score / 40 : 1);
@@ -393,11 +454,7 @@ const Game = (function () {
 
         // In wind the rival has to aim off to the side, like you do. Estimate
         // how far the wind will carry the ball and turn the shot against it.
-        const spot = SPOTS[rival.spot - 1];
-        const a = spot.angle * Math.PI / 180;
-        const right = [Math.cos(a), 0, -Math.sin(a)];       // the shooter's right-hand side
-        const drift = 0.5 * (state.wind[0] * right[0] + state.wind[2] * right[2]) * 1.2 * 1.2;   // about 1.2 s in the air
-        const windAim = -drift / (spot.dist * YAW_RANGE * Math.PI / 180);
+        const windAim = windEstimate(rival, state.wind);
         const windy = Math.abs(state.wind[0]) > 0.01;
 
         // Decide if this shot should go in, then find a throw that does that
@@ -766,7 +823,7 @@ const Game = (function () {
     return {
         state, player, rival, SPOTS, SETTINGS, TIERS, RIVALS,
         start, shoot, shoot2, update, on,
-        spotPosition, shotVelocity, makeWindow, tierFor, pointsFor,
+        spotPosition, shotVelocity, makeWindow, tierFor, pointsFor, perfectAim, powerZone,
         throwBall, applyCard, choosePick, opponentOf, setCourt, forcePick, clearBalls, quit
     };
 })();

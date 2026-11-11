@@ -53,6 +53,11 @@
         <!-- Whole-screen flash and the glowing border for streak tiers -->
         <div id="flash"></div>
         <div id="glow"></div>
+        <!-- Aiming: a crosshair for each player, and the golden dot that shows perfect aim -->
+        <div id="aimdot-0" class="aim-dot"></div>
+        <div id="aimdot-1" class="aim-dot"></div>
+        <div id="crosshair-0" class="crosshair"></div>
+        <div id="crosshair-1" class="crosshair p2"></div>
         <!-- Tutorial instructions (menus.js) -->
         <div id="tutorial-box">
             <div id="tutorial-step"></div>
@@ -63,16 +68,19 @@
         <div id="power-meter-container">
             <div id="power-label">Power</div>
             <div id="power-bar-bg" role="meter" aria-labelledby="power-label" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+                <div id="buffer-low" class="buffer-zone"></div>
                 <div id="sweet-zone"></div>
+                <div id="buffer-high" class="buffer-zone"></div>
                 <div id="power-bar-fill"></div>
             </div>
         </div>
 
         <!-- two-player: Player 2's power meter, aim marker and power-ups -->
         <div id="power-meter-container-2">
-            <div id="aim2-box" title="Player 2 aim"><div id="aim2-dot"></div></div>
             <div id="power-bar-bg-2">
+                <div id="buffer-low-2" class="buffer-zone"></div>
                 <div id="sweet-zone-2"></div>
+                <div id="buffer-high-2" class="buffer-zone"></div>
                 <div id="power-bar-fill-2"></div>
             </div>
         </div>
@@ -131,7 +139,7 @@
         <div class="screen" id="screen-main">
             <h1>Hoop Shot 3D</h1>
             <p>Race a rival at your own hoops: most points in 3 minutes wins</p>
-            <p class="small">Mouse: aim | Hold Space: power | A/D: spot | C: camera | R: restart</p>
+            <p class="small">Mouse: put the crosshair on the rim | Hold Space: power | A/D: spot | C: camera | R: restart</p>
             <button id="btn-campaign" class="big">Campaign</button>
             <button id="btn-quick">Quick Match</button>
             <button id="btn-versus">2 Players</button>
@@ -157,7 +165,7 @@
             <p>Split screen: Player 1 on the left, Player 2 on the right. A coin flip decides home court.</p>
             <table id="versus-keys">
                 <tr><th></th><th>Player 1</th><th>Player 2</th></tr>
-                <tr><td>Aim</td><td>Mouse (left half)</td><td>Arrow keys</td></tr>
+                <tr><td>Move crosshair</td><td>Mouse</td><td>Arrow keys</td></tr>
                 <tr><td>Shoot</td><td>Hold Space</td><td>Hold Enter</td></tr>
                 <tr><td>Change spot</td><td>A / D</td><td>J / L</td></tr>
                 <tr><td>Pick a card</td><td>1 / 2</td><td>Left / Right arrow</td></tr>
@@ -200,8 +208,8 @@
         <div class="sandbox-row">
             <label>Court <select id="sandbox-court"></select></label>
             <label>Ball <select id="sandbox-ball"></select></label>
-            <label><input type="checkbox" id="sandbox-arc"> Aim arc</label>
-            <label><input type="checkbox" id="sandbox-zone"> Power zone</label>
+            <label><input type="checkbox" id="sandbox-arc"> Golden aim dot</label>
+            <label><input type="checkbox" id="sandbox-zone"> Power zones</label>
             <label><input type="checkbox" id="sandbox-slow"> Slow motion</label>
             <button id="sandbox-reset">Reset balls</button>
             <button id="sandbox-exit">Exit sandbox</button>

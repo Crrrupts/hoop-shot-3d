@@ -19,7 +19,7 @@ Plain WebGL with our own GLSL shaders and MV.js (no 3D engine).
 Open index.html with a local web server (e.g. VS Code Live Server).
 
 ## Controls
-Mouse: aim | hold Space: charge power, release to shoot | A/D: change spot | C: change camera | R: restart | slider: difficulty. In the Orbit camera, drag the mouse to spin the view. On a power-up pick: click a card, or Left arrow / 1 for the left card and Right arrow / 2 for the right card.
+Mouse: move the crosshair (on the rim = perfect aim; it jumps to a new place after every shot) | hold Space: charge power, release to shoot | A/D: change spot | C: change camera | R: restart | slider: difficulty. The Orbit camera swings in front of the hoop from corner to corner (never behind it); drag the mouse to turn it. On a power-up pick: click a card, or Left arrow / 1 for the left card and Right arrow / 2 for the right card.
 
 ## Modes
 - **Campaign** (main mode): 7 stages, one per court, easiest to hardest. Each is a race against that court's boss, who has a twist (listed on the campaign screen). A win earns 1–3 stars (win, win by 10+, win without picking a sabotage), gold and a chest, and unlocks the next stage. The first stage starts with a 6-step tutorial and a 60-second practice race.
@@ -27,13 +27,13 @@ Mouse: aim | hold Space: charge power, release to shoot | A/D: change spot | C: 
 - **2 Players**: two people on one computer, split screen (Player 1 left, Player 2 right). No online play.
   | | Player 1 | Player 2 |
   |---|---|---|
-  | Aim | Mouse (over the left half) | Arrow keys (a dot in a small box shows the aim) |
+  | Move crosshair | Mouse | Arrow keys |
   | Shoot | Hold Space | Hold Enter |
   | Change spot | A / D | J / L |
   | Pick a card | 1 / 2 | Left / Right arrow |
 
   Each player gets their own two cards at a pick and the game waits for both. It uses the better multiplayer odds, power-ups reset every match, gear cards are off, and a coin flip gives one player home court (the crowd cheers that player's makes).
-- **Sandbox**: free shootaround with no clock and no rival. A panel under the game lets you change court and ball, switch any power-up or sabotage on yourself and set its level, show the aim arc and power zone, use slow motion, reset the balls, and see makes/attempts per spot.
+- **Sandbox**: free shootaround with no clock and no rival. A panel under the game lets you change court and ball, switch any power-up or sabotage on yourself and set its level, show the golden aim dot and the power zones, use slow motion, reset the balls, and see makes/attempts per spot.
 - **Cards**: chests give ball skins (looks only) and gear. Duplicates plus gold level a card up (max level 5). Gear: Headband (steadier aim), Shooting Sleeve (slightly bigger rim for you), Wristband (once a game a miss may keep your streak). Progress is saved in the browser on this computer.
 
 ## How a match works
@@ -43,7 +43,9 @@ Mouse: aim | hold Space: charge power, release to shoot | A/D: change spot | C: 
 - **Streak tiers.** 2 makes in a row = Heating Up (+1 per basket), 4 = On Fire (+2), 7 = Inferno (points x2, then +2). One miss drops you to zero.
 - **Power-up picks.** Every 30–45 seconds (the first one comes early, at your 2nd make) the game pauses and you pick one of two cards: a buff for you or a sabotage for the rival. You have 8 seconds. Picking a card you already have levels it up. The 20 cards and the rarity odds are in `powerups.js`.
 - **Clock.** 3 minutes. Shots in the air at the buzzer still count. A tie goes to a 1-minute overtime that starts with a pick.
-- **Difficulty slider.** Easy / Medium / Hard changes the meter speed, your aim wobble and the rival (how often it scores, how fast it shoots, which cards it can pick). Easy also shows the aim arc.
+- **Difficulty slider.** Easy / Medium / Hard changes the meter speed, your aim wobble and the rival (how often it scores, how fast it shoots, which cards it can pick). Easy also shows the golden aim dot and the meter zones.
+- **Power meter.** The green zone is the power that scores with perfect aim from your spot; it does not move when you aim. The grey zone on each side is a buffer: a little early or late is saved 15–35% of the time. The buffer is wider on Easy (9) than Medium (6) or Hard (3). The zones are visible on Easy or with the Sweet Spot card, but the buffer always works.
+- **Aiming.** The golden dot (Easy, or the Guide Line card) marks where to put the crosshair. In wind it sits to one side of the rim.
 - **Money Rack.** Once a game, for a surprise 10 seconds, every make pays double.
 
 ## Courts
@@ -61,7 +63,7 @@ Pick a court on the menu. Rules and looks are in `courts.js`.
 
 The scoreboard (score and time boxes) is styled to match each court: red bulbs in a wood frame at the Home Gym, a neon sign at the Neon Arcade, a painted wooden sign on the Boardwalk, and so on (`SCOREBOARDS` in `courts.js`).
 
-The wind when you release is the wind that ball gets. The HUD shows it for the spot you are standing on (arrows = sideways push), and the aim arc bends with it.
+The wind when you release is the wind that ball gets. The HUD shows it for the spot you are standing on (arrows = sideways push), and the golden aim dot moves to the side to show how far to aim off.
 
 ## Crowd and game feel
 - The crowd is flat cut-out cards that bob. They jump when you score, bounce more as the **hype meter** fills, and stomp together in intense moments (last minute of a close game, overtime, or when you are On Fire).

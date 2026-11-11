@@ -13,7 +13,6 @@
 //                      rect     'full', 'left', 'right' or 'inset'
 //                      fog / blackout   power-ups used on that view's player
 //                      hoopX    where that player's hoop stands (for the Blackout spotlight)
-//   scene.aimPaths   aim arcs to draw; each is an array of [x, y, z] points
 //   scene.tint       [r, g, b] multiplies the picture's colors (Inferno turns it red-orange)
 //   scene.ballSkin   id of the ball card to draw for your balls (cards.js)
 //   scene.state      Game.state (mode, player, rival, ...)
@@ -25,36 +24,61 @@
     const playerHand = { pos: [0, 0, 0], spinAxis: [1, 0, 0], spinAngle: 0, mine: true };
     const rivalHand = { pos: [0, 0, 0], spinAxis: [1, 0, 0], spinAngle: 0 };
 
-    // What each person is doing with their controls right now (from input.js)
-    function inputOf(shooter) {
-        if (shooter === Game.player) return { charging: charging, power: power, aimX: aimX, aimY: aimY };
-        return { charging: charging2, power: power2, aimX: aim2X, aimY: aim2Y };
+    // ---------- Aiming ----------
+    // Perfect aim is the crosshair on the rim (a little to the side in wind).
+    // Moving it AIM_PIXELS away is full aim (aimX or aimY of 1 or -1).
+    const AIM_PIXELS = 110;
+
+    // Where perfect aim is on the screen for a player (canvas pixels)
+    function aimTarget(shooter, index) {
+        const rim = window.worldToScreen(Physics.rimCenter(shooter.hoop), index);
+        return { x: rim.x + Game.perfectAim(shooter) * AIM_PIXELS, y: rim.y, rimX: rim.x };
     }
 
-    // The aim arc shows on Easy, or while the Guide Line power-up is active
-    function aimPath(shooter) {
-        const input = inputOf(shooter);
-        const guide = PowerUps.has(shooter, 'guide');
-        if (getDifficultySettings().name !== 'Easy' && !guide) return [];
-        if (!input.charging || Game.state.mode !== 'playing') return [];
-        const vel = Game.shotVelocity(shooter.spot, input.power, input.aimX, input.aimY, 0);
-        return Physics.predictPath(Game.spotPosition(shooter.spot, shooter), vel, 1.6, 40, Game.state.wind);
+    // Turn a crosshair's position into aimX / aimY (-1..1) and show the HUD marks
+    function updateAim(shooter, index) {
+        const playing = Game.state.mode === 'playing';
+        const target = aimTarget(shooter, index), cross = crosshairs[index];
+        const clamp = (v) => Math.max(-1, Math.min(1, v));
+        const ax = clamp((cross.x - target.rimX) / AIM_PIXELS);
+        const ay = clamp(-(cross.y - target.y) / AIM_PIXELS);       // up on the screen = a higher arc
+        if (index === 0) { aimX = ax; aimY = ay; } else { aim2X = ax; aim2Y = ay; }
+        showCrosshair(index, playing ? cross : null);
+        // the golden dot (where to aim) shows on Easy or with the Guide Line power-up
+        const help = getDifficultySettings().name === 'Easy' || PowerUps.has(shooter, 'guide');
+        showAimDot(index, playing && help ? target : null);
     }
 
-    // Sweet Spot power-up: show the power range that scores from here.
-    // Working it out takes a few milliseconds, so only redo it when the aim or spot changes.
-    const sweetKeys = ['', ''];
-    function updateSweetZone(shooter, which) {
-        if (Game.state.mode !== 'playing' || !PowerUps.has(shooter, 'sweet')) {
-            if (sweetKeys[which] !== '') { sweetKeys[which] = ''; setSweetZone(null, which); }
-            return;
+    // After a shot the crosshair jumps somewhere else in the middle of the
+    // view (not near the edges, and not right on the target), so you have to aim again
+    function resetCrosshair(shooter, index) {
+        const r = viewRect(index), target = aimTarget(shooter, index);
+        for (let tries = 0; tries < 20; tries++) {
+            crosshairs[index].x = r.x + r.width * (0.25 + Math.random() * 0.5);
+            crosshairs[index].y = r.y + r.height * (0.22 + Math.random() * 0.45);
+            if (Math.hypot(crosshairs[index].x - target.x, crosshairs[index].y - target.y) > 90) break;
         }
-        const input = inputOf(shooter), wind = Game.state.wind;
-        const ax = Number(input.aimX.toFixed(1)), ay = Number(input.aimY.toFixed(1));
-        const key = [shooter.spot, ax, ay, shooter.hoop.rimScale, wind[0].toFixed(1)].join(',');
-        if (key === sweetKeys[which]) return;
-        sweetKeys[which] = key;
-        setSweetZone(Game.makeWindow(shooter, shooter.spot, ax, ay, { wind: wind }), which);
+    }
+    Game.on(function (name, data) {
+        if (name === 'shoot' && data.shooter === Game.player) resetCrosshair(Game.player, 0);
+        if (name === 'shoot' && data.shooter === Game.rival && Game.state.twoPlayer) resetCrosshair(Game.rival, 1);
+        if (name === 'start') {
+            // start each match with the crosshairs in the middle of each view
+            for (const i of [0, 1]) { const r = viewRect(i); crosshairs[i].x = r.x + r.width / 2; crosshairs[i].y = r.height * 0.6; }
+        }
+    });
+
+    // ---------- Power meter zones ----------
+    // The green zone and grey buffer show on Easy or with the Sweet Spot power-up.
+    const zoneKeys = ['', ''];
+    function updateZones(shooter, which) {
+        const show = Game.state.mode === 'playing' &&
+            (getDifficultySettings().name === 'Easy' || PowerUps.has(shooter, 'sweet'));
+        const zone = show ? Game.powerZone(shooter) : null;
+        const key = JSON.stringify(zone);
+        if (key === zoneKeys[which]) return;        // nothing changed
+        zoneKeys[which] = key;
+        setSweetZone(zone, which);
     }
 
     function frame(now) {
@@ -67,8 +91,10 @@
         Camera.update(dt);
 
         const player = Game.player, rival = Game.rival, two = Game.state.twoPlayer;
-        updateSweetZone(player, 0);
-        if (two) updateSweetZone(rival, 1);
+        updateAim(player, 0);
+        if (two) updateAim(rival, 1); else { showCrosshair(1, null); showAimDot(1, null); }
+        updateZones(player, 0);
+        if (two) updateZones(rival, 1);
 
         // the ball dips in your hands as you charge
         playerHand.pos = Game.spotPosition(player.spot, player);
@@ -92,7 +118,6 @@
             balls: balls,
             hoops: [player.hoop, rival.hoop],
             views: views,
-            aimPaths: two ? [aimPath(player), aimPath(rival)] : [aimPath(player)],
             tint: Effects.getTint(),
             ballSkin: Cards.activeBall(),
             state: Game.state

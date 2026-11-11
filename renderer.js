@@ -5,7 +5,7 @@
 //   2. builds the textures and lights for the chosen court (courts.js, textures.js)
 //   3. every frame, sets the camera (lookAt + perspective) and the lights
 //   4. draws the arena or sky, both courts, both hoops, the crowd, the balls,
-//      nets, aim arc, weather, effects and shadows
+//      nets, weather, effects and shadows
 //   5. draws each view main.js asks for: your view plus the small rival view,
 //      or a split screen for two players
 //
@@ -79,9 +79,8 @@
         disc: makeMesh(Geometry.disc(28))
     };
 
-    // Buffers for things that change every frame (net, aim arc, weather, effects)
+    // Buffers for things that change every frame (net, weather, effects)
     const netBuffer = gl.createBuffer();
-    const arcBuffer = gl.createBuffer();
     const dynamicBuffer = gl.createBuffer();
 
     // ---------- Textures ----------
@@ -656,14 +655,7 @@
         for (const hoop of scene.hoops) drawHoop(hoop, time);
         for (const ball of scene.balls) drawBall(ball);
 
-        // 2. aim arc, drawn as a line strip
-        for (const path of scene.aimPaths) {
-            const arcPoints = [];
-            for (const p of path) arcPoints.push(p[0], p[1], p[2]);
-            drawLines(arcBuffer, arcPoints, gl.LINE_STRIP, [1, 0.9, 0.3], 1);
-        }
-
-        // 3. see-through things last, without writing depth
+        // 2. see-through things last, without writing depth
         gl.enable(gl.BLEND);
         gl.depthMask(false);
         drawSpots(scene.state.player, [1, 0.85, 0.2]);

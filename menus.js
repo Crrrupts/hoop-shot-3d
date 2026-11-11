@@ -175,7 +175,7 @@ const Menus = (function () {
     const tutorialBox = $('tutorial-box');
     let tutorial = null;            // { step, startSpot, startCamera, picked } while it runs
     const TUTORIAL_STEPS = [
-        { text: 'Move the mouse to aim. Hold Space to fill the power meter, then let go to shoot. The green band on the meter is the power that scores.',
+        { text: 'Move the crosshair onto the golden dot at the rim. Hold Space to fill the power meter and let go in the green zone (grey has a small chance). The crosshair jumps after every shot.',
           done: (t) => Game.player.attempts >= 1 },
         { text: 'Press A or D to move to another spot (corners are worth 3). Press C to change the camera.',
           done: (t) => {
@@ -229,7 +229,7 @@ const Menus = (function () {
     setInterval(() => {
         if (!tutorial) return;
         if (Game.state.options.mode !== 'tutorial') { hideTutorial(); return; }
-        // the aim arc and the power zone stay on while you learn
+        // the golden aim dot and the power zones stay on while you learn
         if (Game.state.mode === 'playing') {
             Game.player.effects.guide = { level: 1, left: 99 };
             Game.player.effects.sweet = { level: 1, left: 99 };
@@ -259,7 +259,7 @@ const Menus = (function () {
         show('main');
     });
     for (const id of ['sandbox-arc', 'sandbox-zone', 'sandbox-slow']) {
-        $(id).addEventListener('change', (e) => e.target.blur());       // keep Space for shooting
+        $(id).addEventListener('change', (e) => { e.target.blur(); applySandbox(); });     // keep Space for shooting
     }
     for (const card of PowerUps.LIST) {
         const label = document.createElement('label');
@@ -278,18 +278,20 @@ const Menus = (function () {
         } else {
             const box = document.createElement('input');
             box.type = 'checkbox';
-            box.addEventListener('change', () => { sandbox.on[card.id] = box.checked; box.blur(); });
+            box.addEventListener('change', () => { sandbox.on[card.id] = box.checked; box.blur(); applySandbox(); });
             const level = document.createElement('input');
             level.type = 'number'; level.min = 1; level.max = 5; level.value = 1;
-            level.addEventListener('change', () => { sandbox.levels[card.id] = Number(level.value) || 1; level.blur(); });
+            level.addEventListener('change', () => { sandbox.levels[card.id] = Number(level.value) || 1; level.blur(); applySandbox(); });
             label.append(box, ' ' + card.name + ' Lv ', level);
         }
         $('sandbox-powerups').appendChild(label);
     }
     $('sandbox-slow').addEventListener('change', (e) => { window.sandboxSlowMotion = e.target.checked; });
 
-    // Keep the chosen power-ups switched on, and show the stats
-    setInterval(() => {
+    // Keep the chosen power-ups switched on, and show the stats.
+    // This runs right when a box is ticked and again a few times a second
+    // (shots and timers use power-ups up, so they are topped back up).
+    function applySandbox() {
         const inSandbox = Game.state.options.mode === 'sandbox' && Game.state.mode === 'playing';
         window.sandboxSlowMotion = inSandbox && $('sandbox-slow').checked;
         if (!inSandbox) return;
@@ -304,7 +306,8 @@ const Menus = (function () {
         $('time-display').textContent = 'SANDBOX';
         $('sandbox-stats').textContent = 'Makes / attempts at each spot:  ' + Game.player.spotStats
             .map((st, i) => `Spot ${i + 1}: ${st.made}/${st.attempts}`).join('   ');
-    }, 200);
+    }
+    setInterval(applySandbox, 200);
 
     show('main');
     return { show };

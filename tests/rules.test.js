@@ -54,6 +54,39 @@ player.spot = 3;
 check('mouse right aims right, mouse left aims left',
     Game.shotVelocity(3, 50, 1, 0, 0)[0] > 0 && Game.shotVelocity(3, 50, -1, 0, 0)[0] < 0);
 
+// ---------- Power meter zones ----------
+quietStart();
+const zone = Game.powerZone(player);
+check('the meter has a green zone and a grey buffer on each side', zone.hi > zone.lo && zone.buffer > 0, JSON.stringify(zone));
+function makeRate(power, tries) {
+    let makes = 0;
+    for (let i = 0; i < tries; i++) {
+        quietStart();
+        Game.shoot(power, 0, 0);
+        run(3);
+        makes += player.made;
+    }
+    return makes / tries;
+}
+const greenRate = makeRate((zone.lo + zone.hi) / 2, 20);
+const nearRate = makeRate(zone.hi + 1, 150), edgeRate = makeRate(zone.hi + zone.buffer, 150);
+const outsideRate = makeRate(zone.hi + zone.buffer + 3, 30);
+check('green zone with perfect aim goes in', greenRate > 0.9, (greenRate * 100).toFixed(0) + '%');
+check('grey zone has a decent chance, always under 40%', nearRate > 0.15 && nearRate < 0.5 && edgeRate > 0.03 && edgeRate < 0.3,
+    `${(nearRate * 100).toFixed(0)}% next to green, ${(edgeRate * 100).toFixed(0)}% at the far edge`);
+check('past the grey zone the shot misses', outsideRate < 0.1, (outsideRate * 100).toFixed(0) + '%');
+const zoneAtCenter = JSON.stringify(Game.powerZone(player));
+check('the zones do not change with where you aim (only spot, rim and wind)', zoneAtCenter === JSON.stringify(zone));
+Game.start({ rival: noCards, court: 'boardwalk', length: 100000 });
+state.nextPickAt = Infinity; state.pickNumber = 99;
+run(5);
+const windZone = Game.powerZone(player), windAim = Game.perfectAim(player);
+let windMakes = 0;
+for (let i = 0; i < 10; i++) { Game.throwBall(player, (windZone.lo + windZone.hi) / 2, windAim, 0, 0); run(3); }
+check('in wind, the golden-dot aim plus the green zone still scores', windZone && Math.abs(windAim) > 0.1 && player.made >= 8,
+    `aim ${windAim.toFixed(2)}, made ${player.made}/10`);
+Game.setCourt('home');
+
 // ---------- Rapid fire ----------
 quietStart();
 Game.throwBall(player, goodPower(player), 0, 0, 0);
