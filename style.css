@@ -601,3 +601,139 @@ body {
 .sandbox-card.sabotage { border-left-color: #ff5a4f; }
 .sandbox-card input[type=number] { width: 34px; }
 #sandbox-stats { margin-top: 8px; text-align: center; color: #ffd27a; }
+
+/* ---------- Two players (split screen) ---------- */
+#p2-score, #p2-streak, #time-center, #power-meter-container-2, #effects-list-2 { display: none; }
+#p2-score { font-size: 20px; font-weight: bold; letter-spacing: 1px; }
+
+.two-player #p2-score, .two-player #p2-streak { display: block; }
+.two-player #time-display, .two-player #spot-display, .two-player #rival-display,
+.two-player #rival-view, .two-player #camera-display, .two-player #court-display,
+.two-player #streak-hint, .two-player #hype-row { display: none; }
+
+.two-player #time-center {
+    display: block;
+    position: absolute;
+    top: 14px;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 2px 10px;
+    font-size: 24px;
+    font-weight: bold;
+    background: rgba(0, 0, 0, 0.7);
+    border-radius: 6px;
+}
+
+.two-player #time-center.urgent { color: #ff5a4f; }
+.two-player #wind-display { margin-top: 44px; }
+
+/* Player 1's meter moves to the right edge of the left half */
+.two-player #power-meter-container { right: 420px; }
+.two-player #power-meter-container-2 {
+    display: block;
+    position: absolute;
+    bottom: 40px;
+    right: 20px;
+    text-align: center;
+}
+
+#power-bar-bg-2 {
+    position: relative;
+    width: 30px;
+    height: 150px;
+    margin-left: auto;
+    background: rgba(0, 0, 0, 0.5);
+    border: 2px solid #fff;
+    border-radius: 4px;
+    display: flex;
+    align-items: flex-end;
+}
+
+#power-bar-fill-2 { width: 100%; height: 0%; background: #e67e22; }
+
+#sweet-zone-2 {
+    display: none;
+    position: absolute;
+    left: 0;
+    width: 100%;
+    background: rgba(95, 211, 141, 0.55);
+    border-top: 2px solid #5fd38d;
+    border-bottom: 2px solid #5fd38d;
+    box-sizing: border-box;
+    z-index: 2;
+}
+
+/* Player 2's aim marker: a dot in a box, moved with the arrow keys */
+#aim2-box {
+    position: relative;
+    width: 44px;
+    height: 44px;
+    margin: 0 0 6px auto;
+    background: rgba(0, 0, 0, 0.5);
+    border: 1px solid #fff;
+    border-radius: 4px;
+}
+
+#aim2-dot {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 8px;
+    height: 8px;
+    margin: -4px 0 0 -4px;
+    border-radius: 50%;
+    background: #e67e22;
+}
+
+.two-player #effects-list-2 {
+    display: flex;
+    position: absolute;
+    left: 420px;
+    bottom: 20px;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 13px;
+}
+
+/* two-player pick screen */
+#pick2-overlay {
+    display: none;
+    position: absolute;
+    width: 800px;
+    height: 600px;
+    background: rgba(10, 10, 20, 0.8);
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    z-index: 9;
+}
+
+#pick2-sides { display: flex; gap: 30px; }
+.pick2-who { text-align: center; font-weight: bold; margin-bottom: 8px; }
+.pick2-cards { display: flex; gap: 10px; }
+
+.pick-card.small {
+    width: 150px;
+    height: 250px;
+    padding: 10px;
+    gap: 8px;
+    cursor: default;
+}
+
+.pick-card.small .pick-name { font-size: 19px; margin-top: 8px; }
+.pick-card.small .pick-text { font-size: 13px; }
+.pick-card.chosen { transform: translateY(-10px); outline: 4px solid #7dff9b; }
+.pick-card.not-chosen { opacity: 0.3; }
+
+#pick2-timer {
+    margin-top: 22px;
+    width: 500px;
+    height: 8px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+}
+
+#pick2-timer-fill { width: 100%; height: 100%; background: #ffd27a; border-radius: 4px; }
+
+#versus-keys { border-collapse: collapse; font-size: 14px; margin: 6px 0; }
+#versus-keys th, #versus-keys td { border: 1px solid #666; padding: 3px 12px; }

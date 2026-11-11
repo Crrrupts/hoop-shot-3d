@@ -33,7 +33,7 @@ difficultySlider.addEventListener('input', (e) => {
 // Scores count up instead of jumping. Each counter has the number on screen
 // and the real number it is climbing toward.
 const counters = {
-    you:   { shown: 0, target: 0, show: (n) => { scoreDisplay.textContent = `YOU ${n}`; } },
+    you:   { shown: 0, target: 0, show: (n) => { scoreDisplay.textContent = `${twoPlayerHud ? 'P1' : 'YOU'} ${n}`; } },
     rival: { shown: 0, target: 0, show: () => {} }      // filled in by updateRivalScore
 };
 setInterval(() => {
@@ -56,6 +56,7 @@ function updateRivalScore(points, name) {
         const label = `${(name || 'Rival').toUpperCase()} ${n}`;
         document.getElementById('rival-display').textContent = label;
         document.getElementById('rival-view-label').textContent = label;
+        document.getElementById('p2-score').textContent = label;
     };
     counters.rival.target = points;
     if (points <= counters.rival.shown) { counters.rival.shown = points; counters.rival.show(points); }
@@ -76,6 +77,10 @@ function updateTime(secondsLeft, overtime) {
     timeDisplay.textContent = `${overtime ? 'OT' : 'TIME'} ${minutes}:${seconds.toString().padStart(2, '0')}`;
     // last 10 seconds: the timer turns red and pulses
     timeDisplay.className = secondsLeft <= 10 && secondsLeft > 0 ? 'urgent' : '';
+    // two-player shows the clock in the middle
+    const center = document.getElementById('time-center');
+    center.textContent = `${overtime ? 'OT ' : ''}${minutes}:${seconds.toString().padStart(2, '0')}`;
+    center.className = timeDisplay.className;
 }
 
 function updateSpot(current, total) {
@@ -131,12 +136,13 @@ function updateEffects(effects) {
 }
 
 // Sweet Spot power-up: green band on the power meter from lo% to hi% (null hides it)
-const sweetZoneEl = document.getElementById('sweet-zone');
-function setSweetZone(zone) {
-    if (!zone) { sweetZoneEl.style.display = 'none'; return; }
-    sweetZoneEl.style.display = 'block';
-    sweetZoneEl.style.bottom = zone.lo + '%';
-    sweetZoneEl.style.height = Math.max(2, zone.hi - zone.lo) + '%';
+// which: 0 = your meter, 1 = Player 2's meter
+function setSweetZone(zone, which) {
+    const el = document.getElementById(which ? 'sweet-zone-2' : 'sweet-zone');
+    if (!zone) { el.style.display = 'none'; return; }
+    el.style.display = 'block';
+    el.style.bottom = zone.lo + '%';
+    el.style.height = Math.max(2, zone.hi - zone.lo) + '%';
 }
 
 // ---------- Power-up pick screen ----------
@@ -187,11 +193,85 @@ function hidePick() {
     pickSpinning = false;
     pickOverlay.style.display = 'none';
     pickChoose = null;
+    pick2Overlay.style.display = 'none';
+    pick2Choose = null;
 }
 
 // fraction goes from 1 (8 seconds left) down to 0
 function updatePickTimer(fraction) {
     document.getElementById('pick-timer-fill').style.width = (fraction * 100) + '%';
+    document.getElementById('pick2-timer-fill').style.width = (fraction * 100) + '%';
+}
+
+// ---------- Two-player pick screen ----------
+// pick = { buff, sabotage (Player 1's cards), p2: { buff, sabotage } }
+const pick2Overlay = document.getElementById('pick2-overlay');
+let pick2Choose = null;
+let pick2Spinning = false;
+
+function smallCard(card, key) {
+    return `<div class="pick-card small ${card.rarity}" data-side="${card.side}">` +
+        `<span class="pick-side">${card.side === 'buff' ? 'BUFF FOR YOU' : 'SABOTAGE THEM'}</span>` +
+        `<span class="pick-rarity">${card.rarity.toUpperCase()}</span>` +
+        `<span class="pick-name">${card.name}</span><span class="pick-text">${card.text}</span>` +
+        `<span class="pick-key">${key}</span></div>`;
+}
+
+function showPick2(pick, choose) {
+    pick2Choose = choose;
+    pick2Overlay.style.display = 'flex';
+    document.querySelector('#pick2-player .pick2-cards').innerHTML =
+        smallCard(pick.buff, 'Press 1') + smallCard(pick.sabotage, 'Press 2');
+    document.querySelector('#pick2-rival .pick2-cards').innerHTML =
+        smallCard(pick.p2.buff, 'Left arrow') + smallCard(pick.p2.sabotage, 'Right arrow');
+    // a short pause before choosing, so a key held from shooting does not pick by accident
+    pick2Spinning = true;
+    setTimeout(() => { pick2Spinning = false; }, 800);
+}
+
+// Show which card a player locked in. who is 'player' or 'rival'.
+function markPick2(who, side) {
+    for (const el of document.querySelectorAll(`#pick2-${who} .pick-card`)) {
+        el.classList.add(el.dataset.side === side ? 'chosen' : 'not-chosen');
+    }
+}
+
+// ---------- Two-player HUD ----------
+// Player 2's power meter, aim marker, power-ups and streak
+function updatePowerMeter2(percentage) {
+    const fill = Math.max(0, Math.min(percentage, 100));
+    document.getElementById('power-bar-fill-2').style.height = `${fill}%`;
+}
+
+// Player 2 aims with the arrow keys, so a dot in a small box shows where (-1..1 each way)
+function updateAim2(x, y) {
+    const dot = document.getElementById('aim2-dot');
+    dot.style.left = (50 + x * 50) + '%';
+    dot.style.top = (50 - y * 50) + '%';
+}
+
+let effects2Shown = '';
+function updateEffects2(effects) {
+    const html = effects.map((e) =>
+        `<div class="effect ${e.side}">${e.name} <b>${e.label}</b></div>`).join('');
+    if (html === effects2Shown) return;
+    effects2Shown = html;
+    document.getElementById('effects-list-2').innerHTML = html;
+}
+
+function updateStreak2(count, tierName) {
+    const el = document.getElementById('p2-streak');
+    el.textContent = tierName ? `${tierName} x${count}` : `Streak x${count}`;
+    el.className = tierName ? 'tier-' + tierName.toLowerCase().replace(' ', '-') : '';
+}
+
+// Switch the HUD between one-player and two-player layouts (style.css does the moving)
+let twoPlayerHud = false;
+function setTwoPlayer(on) {
+    twoPlayerHud = on;
+    document.getElementById('ui-layer').classList.toggle('two-player', on);
+    updateEffects2([]);
+    counters.you.show(counters.you.shown);
 }
 
 function choosePickCard(side) {
@@ -201,6 +281,15 @@ function choosePickCard(side) {
 pickCards.buff.addEventListener('click', () => choosePickCard('buff'));
 pickCards.sabotage.addEventListener('click', () => choosePickCard('sabotage'));
 document.addEventListener('keydown', (e) => {
+    if (pick2Choose) {
+        // two-player: Player 1 uses 1 / 2, Player 2 uses the arrow keys
+        if (pick2Spinning) return;
+        if (e.code === 'Digit1') pick2Choose('buff', Game.player);
+        if (e.code === 'Digit2') pick2Choose('sabotage', Game.player);
+        if (e.code === 'ArrowLeft') pick2Choose('buff', Game.rival);
+        if (e.code === 'ArrowRight') pick2Choose('sabotage', Game.rival);
+        return;
+    }
     if (e.code === 'ArrowLeft' || e.code === 'Digit1') choosePickCard('buff');
     if (e.code === 'ArrowRight' || e.code === 'Digit2') choosePickCard('sabotage');
 });

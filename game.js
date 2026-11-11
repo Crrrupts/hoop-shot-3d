@@ -116,6 +116,8 @@ const Game = (function () {
         moneyRackAt: 0,                 // when the Money Rack bonus round starts (seconds played)
         moneyRack: 0,                   // seconds of Money Rack left (0 = not running)
         practice: false,                // true = no clock, no rival, no picks (tutorial and sandbox)
+        twoPlayer: false,               // true = the "rival" is a second person on the same keyboard
+        home: null,                     // two-player: who won the coin flip for home court (the crowd is theirs)
         twist: null,                    // a campaign boss's special rule (see campaign.js)
         options: {},                    // what the current match was started with (R restarts it)
         followBall: null,               // your newest ball (for the Ball Follow camera)
@@ -155,7 +157,7 @@ const Game = (function () {
     function randomBetween(a, b) { return a + Math.random() * (b - a); }
     // What your gear cards do (cards.js). No gear in the node tests.
     function gear() {
-        if (typeof Cards !== 'undefined') return Cards.gearBonus();
+        if (typeof Cards !== 'undefined' && !state.twoPlayer) return Cards.gearBonus();    // no gear in two-player
         return { wobbleScale: 1, rimScale: 1, freeMissChance: 0 };
     }
 
@@ -231,6 +233,9 @@ const Game = (function () {
         const next = TIERS.find((t) => t.makes > player.streak);
         hud('updateStreak', player.streak, tier ? tier.name : '',
             next ? (next.makes - player.streak) + ' more for ' + next.name : '');
+        // two-player: Player 2's streak
+        const tier2 = tierFor(rival.streak);
+        hud('updateStreak2', rival.streak, tier2 ? tier2.name : '');
     }
 
     function setStreak(shooter, value) {
@@ -240,7 +245,8 @@ const Game = (function () {
         const after = tierFor(value);
         if (after && after !== before) {
             emit('tier', { shooter: shooter, tier: after });
-            if (shooter === player) hud('showBanner', after.name, 'tier');
+            if (state.twoPlayer) hud('showBanner', shooter.name + ' ' + after.name, 'tier');
+            else if (shooter === player) hud('showBanner', after.name, 'tier');
         }
     }
 
@@ -338,14 +344,20 @@ const Game = (function () {
     // Called by input.js when Space is released
     function shoot(power, aimX, aimY) {
         if (state.mode === 'playing' && PU.has(rival, 'freeze')) hud('showToast', 'Frozen by Time Freeze!', 'sabotage');
-        if (!canShoot(player)) return;
-        player.spot = inputSpot();
+        shootAs(player, power, aimX, aimY);
+    }
+    // Called by input.js when Player 2 releases Enter (two-player)
+    function shoot2(power, aimX, aimY) {
+        if (state.twoPlayer) shootAs(rival, power, aimX, aimY);
+    }
+    function shootAs(shooter, power, aimX, aimY) {
+        if (!canShoot(shooter)) return;
         // aim error: difficulty + Shaky Hands + a wet ball in the rain
         // (the Rooftop boss makes the rain heavier as it scores; the Headband gear steadies you)
         const rain = state.court.rules.slip * (state.twist === 'heavierRain' ? 1 + rival.score / 40 : 1);
-        const wobble = (difficulty().aimWobble + (PU.has(player, 'shaky') ? SHAKY_WOBBLE : 0) + rain) *
-            gear().wobbleScale;
-        throwBall(player, power, aimX, aimY, wobble);
+        const wobble = (difficulty().aimWobble + (PU.has(shooter, 'shaky') ? SHAKY_WOBBLE : 0) + rain) *
+            (shooter === player ? gear().wobbleScale : 1);
+        throwBall(shooter, power, aimX, aimY, wobble);
     }
 
     // ---------- The AI rival ----------
@@ -415,33 +427,52 @@ const Game = (function () {
     // ---------- Power-up picks ----------
     function startPick() {
         state.pickNumber++;
-        const row = PU.oddsRow(SETTINGS.oddsMode, state.pickNumber, state.timeLeft, state.overtime);
+        // two-player is the fast-paced mode: it uses the better multiplayer odds
+        const row = PU.oddsRow(state.twoPlayer ? 'multiplayer' : SETTINGS.oddsMode,
+            state.pickNumber, state.timeLeft, state.overtime);
         state.pick = {
             buff: PU.rollCard('buff', row),
             sabotage: PU.rollCard('sabotage', row),
             timeLeft: SETTINGS.pickChooseTime,
             row: row
         };
+        if (state.twoPlayer) {
+            // Player 2 gets their own two cards; the game waits for both players
+            state.pick.p2 = { buff: PU.rollCard('buff', row), sabotage: PU.rollCard('sabotage', row) };
+            state.pick.chosen = { player: null, rival: null };
+        }
         state.mode = 'picking';         // the game pauses until a card is chosen
-        // let go of the power meter (input.js variables)
-        if (typeof charging !== 'undefined') { charging = false; power = 0; }
+        // let go of the power meters (input.js variables)
+        if (typeof charging !== 'undefined') { charging = false; power = 0; charging2 = false; power2 = 0; }
         hud('updatePowerMeter', 0);
-        hud('showPick', state.pick, choosePick);
+        hud('updatePowerMeter2', 0);
+        hud(state.twoPlayer ? 'showPick2' : 'showPick', state.pick, choosePick);
     }
 
-    // side is 'buff' (left card) or 'sabotage' (right card)
-    function choosePick(side) {
+    // side is 'buff' (left card) or 'sabotage' (right card).
+    // who is the shooter choosing (two-player); it defaults to you.
+    function choosePick(side, who) {
         if (state.mode !== 'picking') return;
         const row = state.pick.row;
-        applyCard(state.pick[side], player);
-        if (side === 'sabotage') player.sabotagesUsed++;    // campaign: a star for winning without sabotage
-        // the rival picks a card at the same time
-        if (rival.ai && rival.ai.maxRarity) {
-            // the final boss uses a sabotage every pick
-            const rivalSide = state.twist === 'sabotageEveryPick' || Math.random() < 0.5 ? 'sabotage' : 'buff';
-            const card = PU.rollCard(rivalSide, row, rival.ai.maxRarity);
-            applyCard(card, rival);
-            hud('showToast', rival.name + ' picked ' + card.name + (card.side === 'sabotage' ? ' on you!' : ''), card.side);
+        if (state.twoPlayer) {
+            const key = who === rival ? 'rival' : 'player';
+            if (state.pick.chosen[key]) return;             // already chose
+            state.pick.chosen[key] = side;
+            hud('markPick2', key, side);
+            if (!state.pick.chosen.player || !state.pick.chosen.rival) return;     // wait for the other player
+            applyCard(state.pick[state.pick.chosen.player], player);
+            applyCard(state.pick.p2[state.pick.chosen.rival], rival);
+        } else {
+            applyCard(state.pick[side], player);
+            if (side === 'sabotage') player.sabotagesUsed++;    // campaign: a star for winning without sabotage
+            // the rival picks a card at the same time
+            if (rival.ai && rival.ai.maxRarity) {
+                // the final boss uses a sabotage every pick
+                const rivalSide = state.twist === 'sabotageEveryPick' || Math.random() < 0.5 ? 'sabotage' : 'buff';
+                const card = PU.rollCard(rivalSide, row, rival.ai.maxRarity);
+                applyCard(card, rival);
+                hud('showToast', rival.name + ' picked ' + card.name + (card.side === 'sabotage' ? ' on you!' : ''), card.side);
+            }
         }
         state.pick = null;
         state.mode = 'playing';
@@ -514,12 +545,15 @@ const Game = (function () {
 
     // options (all optional): { rival: { name, accuracy, pace, maxRarity }, length, court }
     //   practice: true = no clock, rival or picks (tutorial, sandbox); twist = a boss rule;
-    //   mode = 'quick', 'campaign', 'tutorial' or 'sandbox' (menus.js uses it); stage = campaign stage number
+    //   mode = 'quick', 'campaign', 'tutorial', 'sandbox' or 'versus' (menus.js uses it); stage = campaign stage number
+    //   twoPlayer: true = Player 2 controls the rival (see input.js)
     // With no options, the last match starts again (the R key).
     function start(options) {
         options = options || state.options;
         state.options = options;
         state.practice = !!options.practice;
+        state.twoPlayer = !!options.twoPlayer;
+        state.home = null;
         state.twist = options.twist || null;
         if (options.court && options.court !== state.court.id) setCourt(options.court);
         player.sabotagesUsed = 0;
@@ -540,6 +574,14 @@ const Game = (function () {
             accuracy: preset.accuracy, pace: preset.pace, maxRarity: preset.maxRarity,
             timer: preset.pace
         };
+        player.name = 'You';
+        if (state.twoPlayer) {
+            // a second person plays the rival: no AI, and a coin flip for home court
+            rival.ai = null;
+            player.name = 'P1';
+            rival.name = 'P2';
+            state.home = Math.random() < 0.5 ? player : rival;
+        }
         player.spot = inputSpot();
 
         state.mode = 'playing';
@@ -571,6 +613,8 @@ const Game = (function () {
         hud('updateEffects', []);
         hud('hidePick');
         hud('showCourt', state.court);
+        hud('setTwoPlayer', state.twoPlayer);
+        if (state.twoPlayer) hud('showBanner', 'HOME COURT: ' + state.home.name, 'overtime');
         showWind();
         hud('hideMenus');
         emit('start');
@@ -635,7 +679,12 @@ const Game = (function () {
             // everything is paused; only the choose timer runs
             state.pick.timeLeft -= dt;
             hud('updatePickTimer', Math.max(0, state.pick.timeLeft / SETTINGS.pickChooseTime));
-            if (state.pick.timeLeft <= 0) choosePick(Math.random() < 0.5 ? 'buff' : 'sabotage');
+            if (state.pick.timeLeft <= 0) {
+                // time is up: pick at random for anyone who has not chosen
+                const randomSide = () => (Math.random() < 0.5 ? 'buff' : 'sabotage');
+                choosePick(randomSide(), player);
+                if (state.twoPlayer) choosePick(randomSide(), rival);
+            }
             return;
         }
         if (state.mode !== 'playing') return;
@@ -677,6 +726,7 @@ const Game = (function () {
         player.cooldown -= dt;
         rival.cooldown -= dt;
         player.spot = inputSpot();              // follow A/D spot changes
+        if (state.twoPlayer && typeof currentSpot2 !== 'undefined') rival.spot = currentSpot2;    // Player 2: J/L
         updateHoop(player, dt);
         updateHoop(rival, dt);
         updateRival(dt);
@@ -686,17 +736,20 @@ const Game = (function () {
         // meter speed for input.js: Steady Hands slows it, Fast Meter speeds it up
         if (typeof window !== 'undefined') {
             window.chargeSpeedScale = Math.pow(0.8, PU.level(player, 'steady')) * (PU.has(player, 'fast') ? 1.3 : 1);
+            window.chargeSpeedScale2 = Math.pow(0.8, PU.level(rival, 'steady')) * (PU.has(rival, 'fast') ? 1.3 : 1);
         }
         const chips = PU.describe(player);
         if (state.moneyRack > 0) chips.unshift({ name: 'Money Rack: makes pay double', side: 'buff', label: Math.ceil(state.moneyRack) + 's' });
         hud('updateEffects', chips);
+        if (state.twoPlayer) hud('updateEffects2', PU.describe(rival));
         showWind();
 
         if (state.buzzer) {
             if (ballsInPlay() === 0) endOfClock();
         } else if (!frozen && !state.practice) {
             // the first pick comes early if you already made 2 shots
-            const early = state.pickNumber === 0 && player.made >= SETTINGS.earlyPickMakes &&
+            const makes = state.twoPlayer ? Math.max(player.made, rival.made) : player.made;
+            const early = state.pickNumber === 0 && makes >= SETTINGS.earlyPickMakes &&
                 state.elapsed < SETTINGS.pickGapMin;
             if (early || state.elapsed >= state.nextPickAt) startPick();
         }
@@ -705,13 +758,14 @@ const Game = (function () {
     // ---------- Hooks for other files ----------
     if (typeof window !== 'undefined') {
         window.onShoot = shoot;                 // input.js calls this on Space release
+        window.onShoot2 = shoot2;               // ...and this when Player 2 releases Enter
         window.onRestart = function () { start(); };    // input.js calls this on R
         window.gameInstance = { start, setCourt };
     }
 
     return {
         state, player, rival, SPOTS, SETTINGS, TIERS, RIVALS,
-        start, shoot, update, on,
+        start, shoot, shoot2, update, on,
         spotPosition, shotVelocity, makeWindow, tierFor, pointsFor,
         throwBall, applyCard, choosePick, opponentOf, setCourt, forcePick, clearBalls, quit
     };

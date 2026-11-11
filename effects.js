@@ -54,11 +54,18 @@ const Effects = (function () {
     }
 
     // Floating text at a point in the world (ui.js shows it; renderer.js finds the screen spot)
-    function popup(text, worldPos, kind) {
+    // view: 0 = your view, 1 = Player 2's half of the screen
+    function popup(text, worldPos, kind, view) {
         if (typeof window.worldToScreen !== 'function') return;
-        const p = window.worldToScreen(worldPos);
+        const p = window.worldToScreen(worldPos, view);
         if (p.visible) hud('showPopup', text, p.x, p.y, kind);
     }
+
+    // Is this shooter a person? (you always; the rival too in two-player)
+    function isPerson(shooter) { return shooter === Game.player || Game.state.twoPlayer; }
+    function viewOf(shooter) { return shooter === Game.player ? 0 : 1; }
+    // The crowd cheers for you. In two-player it cheers for whoever won home court.
+    function crowdFavorite() { return Game.state.twoPlayer ? Game.state.home : Game.player; }
 
     // ---------- React to game events ----------
     Game.on(function (name, data) {
@@ -77,16 +84,19 @@ const Effects = (function () {
             // On Fire or better: the net burns on a make
             if (data.ball.heat >= 2) burst('fire', [rim[0], rim[1] - 0.25, rim[2]], 30, 0.9, 0);
             if (data.bank) boardFlash.set(data.ball.hoop, 1);
-            if (!mine) return;
+            if (!isPerson(data.shooter)) return;
+
+            const view = viewOf(data.shooter);
+            popup('+' + data.points, [rim[0], rim[1] + 0.45, rim[2]], 'points', view);
+            if (data.swish) popup('SWISH!', [rim[0], rim[1] + 0.95, rim[2]], 'swish', view);
+            else if (data.bank) popup('BANK!', [rim[0], rim[1] + 0.95, rim[2]], 'bank', view);
+            sound('chime', { streak: data.shooter.streak });    // pitch can rise with the streak
+            if (data.shooter !== crowdFavorite()) return;       // the crowd only cheers its own player
 
             hype = Math.min(1, hype + 0.12 + (data.swish ? 0.08 : 0) + (data.points >= 3 ? 0.05 : 0));
             cheer = 1;
             shake = 0.04;
-            popup('+' + data.points, [rim[0], rim[1] + 0.45, rim[2]], 'points');
-            if (data.swish) popup('SWISH!', [rim[0], rim[1] + 0.95, rim[2]], 'swish');
-            else if (data.bank) popup('BANK!', [rim[0], rim[1] + 0.95, rim[2]], 'bank');
             sound('cheer', { big: data.swish || data.points >= 3 });
-            sound('chime', { streak: player.streak });      // pitch can rise with the streak
             if (Game.state.buzzer) {
                 // buzzer beater: the whole crowd jumps and the lights flash
                 hype = 1;
@@ -95,25 +105,26 @@ const Effects = (function () {
             }
         }
 
-        if (name === 'miss' && data.shooter === player) {
+        if (name === 'miss' && isPerson(data.shooter)) {
             const rim = Physics.rimCenter(data.ball.hoop);
+            const view = viewOf(data.shooter);
             if (data.airball) {
-                popup('AIR BALL', [rim[0], rim[1] + 0.6, rim[2]], 'bad');
+                popup('AIR BALL', [rim[0], rim[1] + 0.6, rim[2]], 'bad', view);
                 sound('airball');
             } else if (data.ball.touchedRim) {
-                popup('SO CLOSE!', [rim[0], rim[1] + 0.6, rim[2]], 'close');
+                popup('SO CLOSE!', [rim[0], rim[1] + 0.6, rim[2]], 'close', view);
                 sound('gasp');
             } else {
                 sound('groan');
             }
             if (data.lostTier) {
                 // the streak ends: the fire puffs out into smoke
-                burst('smoke', Game.spotPosition(player.spot, player), 14, 0.7, 0);
+                burst('smoke', Game.spotPosition(data.shooter.spot, data.shooter), 14, 0.7, 0);
                 sound('hiss');
             }
         }
 
-        if (name === 'tier' && data.shooter === player) {
+        if (name === 'tier' && isPerson(data.shooter)) {
             hype = Math.min(1, hype + 0.25);
             hud('flashScreen', 'orange');
             sound('fire');
@@ -232,7 +243,8 @@ const Effects = (function () {
         const s = Game.state;
         if (window.sandboxSlowMotion) return 0.4;       // sandbox practice tool
         if (s.mode !== 'playing' || !s.buzzer) return 1;
-        for (const ball of Game.player.balls) {
+        const balls = s.twoPlayer ? Game.player.balls.concat(Game.rival.balls) : Game.player.balls;
+        for (const ball of balls) {
             if (ball.resolved || ball.vel[1] > 0) continue;
             const rim = Physics.rimCenter(ball.hoop);
             const d = Math.hypot(ball.pos[0] - rim[0], ball.pos[1] - rim[1], ball.pos[2] - rim[2]);

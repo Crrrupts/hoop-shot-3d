@@ -24,6 +24,15 @@ Mouse: aim | hold Space: charge power, release to shoot | A/D: change spot | C: 
 ## Modes
 - **Campaign** (main mode): 7 stages, one per court, easiest to hardest. Each is a race against that court's boss, who has a twist (listed on the campaign screen). A win earns 1–3 stars (win, win by 10+, win without picking a sabotage), gold and a chest, and unlocks the next stage. The first stage starts with a 6-step tutorial and a 60-second practice race.
 - **Quick Match**: pick any court; the Difficulty slider sets the rival.
+- **2 Players**: two people on one computer, split screen (Player 1 left, Player 2 right). No online play.
+  | | Player 1 | Player 2 |
+  |---|---|---|
+  | Aim | Mouse (over the left half) | Arrow keys (a dot in a small box shows the aim) |
+  | Shoot | Hold Space | Hold Enter |
+  | Change spot | A / D | J / L |
+  | Pick a card | 1 / 2 | Left / Right arrow |
+
+  Each player gets their own two cards at a pick and the game waits for both. It uses the better multiplayer odds, power-ups reset every match, gear cards are off, and a coin flip gives one player home court (the crowd cheers that player's makes).
 - **Sandbox**: free shootaround with no clock and no rival. A panel under the game lets you change court and ball, switch any power-up or sabotage on yourself and set its level, show the aim arc and power zone, use slow motion, reset the balls, and see makes/attempts per spot.
 - **Cards**: chests give ball skins (looks only) and gear. Duplicates plus gold level a card up (max level 5). Gear: Headband (steadier aim), Shooting Sleeve (slightly bigger rim for you), Wristband (once a game a miss may keep your streak). Progress is saved in the browser on this computer.
 
@@ -77,7 +86,7 @@ The wind when you release is the wind that ball gets. The HUD shows it for the s
 | File | Role area | What it does |
 |---|---|---|
 | index.html, ui.js, style.css | Bom | Page, HUD, menus, power meter, power-up pick screen. index.html also holds the GLSL shaders |
-| input.js | Amit | Mouse aim, Space power, A/D spot, C camera, R restart, difficulty |
+| input.js | Amit | Mouse aim, Space power, A/D spot, C camera, R restart, difficulty; Player 2's keys |
 | physics.js | Justin | Ball flight (fixed 240 Hz step), floor/backboard/pole/rim collisions, basket detection, for any number of balls and hoops |
 | game.js | Justin | The match: shooting, scoring, streak tiers, clock and overtime, the AI rival, power-up picks, game events (`Game.on`) |
 | powerups.js | Justin | The 20 power-up cards, rarity odds tables, and how effects are stored and counted down |
@@ -87,11 +96,11 @@ The wind when you release is the wind that ball gets. The HUD shows it for the s
 | cards.js | Justin, Bom | Ball and gear cards, chests, upgrades, saved progress |
 | campaign.js | Justin | The 7 campaign stages (rival numbers, boss twists), stars and rewards |
 | menus.js | Bom | Menu screens, result and chest opening, tutorial steps, sandbox panel |
-| camera.js | Justin | Shooter, Ball Follow and Orbit views (eye/at/up for lookAt), plus the fixed rival camera |
+| camera.js | Justin | Shooter, Ball Follow and Orbit views (eye/at/up for lookAt), one camera rig per player, plus the fixed rival camera |
 | main.js | Justin | Frame loop; calls `window.renderScene(scene)` every frame |
 | geometry.js | Isaiah | Builds every mesh in code (positions, normals, texture coordinates, triangles) |
 | textures.js | Isaiah, Bom | Placeholder textures painted on 2D canvases (swap in real art here) |
-| renderer.js | Isaiah | WebGL setup, materials, lights, matrix stack, draws the main view and the small rival view |
+| renderer.js | Isaiah | WebGL setup, materials, lights, matrix stack, draws the main view and the small rival view, or a split screen for two players |
 | tests/ | Amit | `physics.test.js`, `rules.test.js` and `cards.test.js`, run with node |
 
 Units are meters, y is up, the rim is above x = 0, z = 0 and the shooter is on +z. Sizes shared by physics and drawing are in `Physics` (`RIM_HEIGHT`, `RIM_RADIUS`, `BOARD`, `POLE`, ...).
@@ -106,7 +115,7 @@ node tests/physics.test.js
 node tests/rules.test.js
 node tests/cards.test.js
 ```
-The first checks that every spot can be scored, the collisions, and frame-rate independence. The second checks the match rules: streak tiers, rapid fire, power-up odds and effects, the rival's accuracy, the buzzer, overtime, the court rules (soft rim, double rim, rain, wind), practice mode, boss twists and a whole simulated match. The third checks chests, upgrades, gear and campaign stars and unlocks.
+The first checks that every spot can be scored, the collisions, and frame-rate independence. The second checks the match rules: streak tiers, rapid fire, power-up odds and effects, the rival's accuracy, the buzzer, overtime, the court rules (soft rim, double rim, rain, wind), practice mode, boss twists, two-player rules and a whole simulated match. The third checks chests, upgrades, gear and campaign stars and unlocks.
 
 For testing in the browser, add to the page address: `?length=30` for a short game, or `?test=moving,fog` to start with those power-ups on you (ids are in `powerups.js`).
 

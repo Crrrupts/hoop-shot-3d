@@ -31,7 +31,12 @@
         <div id="top-right" class="hud-box">
             <div id="time-display">TIME 3:00</div>
             <div id="spot-display">Spot 3 of 5</div>
+            <!-- two-player: Player 2's score and streak go here -->
+            <div id="p2-score">P2 0</div>
+            <div id="p2-streak">Streak x0</div>
         </div>
+        <!-- two-player: the clock in the middle, and a line between the halves -->
+        <div id="time-center">3:00</div>
 
         <!-- Frame around the small live view of the rival's hoop (drawn by renderer.js) -->
         <div id="rival-view"><span id="rival-view-label">RIVAL</span></div>
@@ -62,6 +67,16 @@
                 <div id="power-bar-fill"></div>
             </div>
         </div>
+
+        <!-- two-player: Player 2's power meter, aim marker and power-ups -->
+        <div id="power-meter-container-2">
+            <div id="aim2-box" title="Player 2 aim"><div id="aim2-dot"></div></div>
+            <div id="power-bar-bg-2">
+                <div id="sweet-zone-2"></div>
+                <div id="power-bar-fill-2"></div>
+            </div>
+        </div>
+        <div id="effects-list-2"></div>
     </div>
 
     <!-- Controls below canvas -->
@@ -95,6 +110,22 @@
         <div id="pick-timer"><div id="pick-timer-fill"></div></div>
     </div>
 
+    <!-- Two-player pick: each player gets two cards and chooses with their own keys -->
+    <div id="pick2-overlay">
+        <h2>Power-up! Each player picks one</h2>
+        <div id="pick2-sides">
+            <div class="pick2-side" id="pick2-player">
+                <div class="pick2-who">PLAYER 1: press 1 or 2</div>
+                <div class="pick2-cards"></div>
+            </div>
+            <div class="pick2-side" id="pick2-rival">
+                <div class="pick2-who">PLAYER 2: press Left or Right arrow</div>
+                <div class="pick2-cards"></div>
+            </div>
+        </div>
+        <div id="pick2-timer"><div id="pick2-timer-fill"></div></div>
+    </div>
+
     <!-- Menus: one overlay, one screen shown at a time (menus.js) -->
     <div id="menu-overlay">
         <div class="screen" id="screen-main">
@@ -103,6 +134,7 @@
             <p class="small">Mouse: aim | Hold Space: power | A/D: spot | C: camera | R: restart</p>
             <button id="btn-campaign" class="big">Campaign</button>
             <button id="btn-quick">Quick Match</button>
+            <button id="btn-versus">2 Players</button>
             <button id="btn-sandbox">Sandbox</button>
             <button id="btn-cards">Cards</button>
             <p class="gold-line">Gold: <span class="gold-amount">0</span></p>
@@ -117,6 +149,21 @@
             </div>
             <p class="small">The Difficulty slider under the game sets the rival.</p>
             <button id="play-btn" class="big">Play Game</button>
+            <button class="back-btn">Back</button>
+        </div>
+
+        <div class="screen" id="screen-versus">
+            <h2>2 Players, one computer</h2>
+            <p>Split screen: Player 1 on the left, Player 2 on the right. A coin flip decides home court.</p>
+            <table id="versus-keys">
+                <tr><th></th><th>Player 1</th><th>Player 2</th></tr>
+                <tr><td>Aim</td><td>Mouse (left half)</td><td>Arrow keys</td></tr>
+                <tr><td>Shoot</td><td>Hold Space</td><td>Hold Enter</td></tr>
+                <tr><td>Change spot</td><td>A / D</td><td>J / L</td></tr>
+                <tr><td>Pick a card</td><td>1 / 2</td><td>Left / Right arrow</td></tr>
+            </table>
+            <label>Court <select id="versus-court"></select></label>
+            <button id="versus-play" class="big">Play</button>
             <button class="back-btn">Back</button>
         </div>
 

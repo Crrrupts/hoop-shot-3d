@@ -329,6 +329,39 @@ for (let i = 0; i < 6; i++) { Game.forcePick(); Game.choosePick('buff'); }
 check('final boss uses a sabotage every pick', bossSabotages === 6, bossSabotages + ' of 6');
 Game.setCourt('home');
 
+// ---------- Two players on one computer ----------
+Game.start({ twoPlayer: true, court: 'home', length: 180 });
+state.moneyRackAt = 0;
+run(20);
+check('two-player: the second hoop has no AI (nobody shoots for Player 2)', rival.attempts === 0 && rival.ai === null);
+check('two-player: home court goes to one of the two players', state.home === player || state.home === rival);
+Game.shoot2(goodPower(rival), 0, 0);
+run(3);
+check('two-player: Player 2 shoots and scores on their own hoop', rival.made === 1 && rival.score === 2 && player.score === 0,
+    `P2 score ${rival.score}`);
+Game.shoot2(goodPower(rival), 0, 0);
+run(3);
+check('two-player: the early pick comes at either player\'s 2nd make', state.mode === 'picking' && state.pick.p2 && state.pick.p2.buff.side === 'buff');
+Game.choosePick('buff', player);
+check('two-player: the game waits until both players have picked', state.mode === 'picking');
+Game.choosePick('sabotage', player);
+check('two-player: a player cannot pick twice', state.pick.chosen.player === 'buff');
+Game.choosePick('buff', rival);
+check('two-player: play resumes when both have picked', state.mode === 'playing');
+let multiOdds = true;
+for (let i = 0; i < 4; i++) {
+    Game.start({ twoPlayer: true, court: 'home', length: 180 });
+    Game.forcePick();
+    if (state.pick.row !== PowerUps.ODDS.multiplayer.pick1) multiOdds = false;
+    run(9);         // nobody picks: after 8 seconds cards are chosen for both
+    if (state.mode !== 'playing') multiOdds = false;
+}
+check('two-player uses the multiplayer odds, and the timer picks for both players', multiOdds);
+Game.start({ rival: noCards, court: 'home', length: 60 });
+check('a normal match after two-player has an AI rival again', !state.twoPlayer && rival.ai !== null && player.name === 'You');
+Game.shoot2(50, 0, 0);
+check('Player 2 keys do nothing outside two-player', rival.attempts === 0);
+
 // A whole 3-minute match against the Medium rival, with picks
 Game.start({ rival: Game.RIVALS.Medium, length: 180 });
 let shotTimer = 0, guard = 0;

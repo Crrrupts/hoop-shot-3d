@@ -93,6 +93,11 @@ function restartGame() {
     power = 0;
     currentSpot = 3;
     currentCamera = 0;
+    charging2 = false;
+    power2 = 0;
+    aim2X = 0;
+    aim2Y = 0;
+    currentSpot2 = 3;
 
     // HUD
     updateScore(0);
@@ -110,7 +115,9 @@ function restartGame() {
 // ---------- Mouse: aim ----------
 gameCanvas.addEventListener('mousemove', (e) => {
     const rect = gameCanvas.getBoundingClientRect();
-    aimX = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+    // in two-player your view is the left half of the canvas
+    const width = (typeof Game !== 'undefined' && Game.state.twoPlayer) ? rect.width / 2 : rect.width;
+    aimX = Math.max(-1, Math.min(1, ((e.clientX - rect.left) / width) * 2 - 1));
     aimY = -(((e.clientY - rect.top) / rect.height) * 2 - 1);
 });
 
@@ -128,3 +135,65 @@ function inputLoop(time) {
     requestAnimationFrame(inputLoop);
 }
 requestAnimationFrame(inputLoop);
+
+// ---------- Player 2 (two-player mode, same keyboard) ----------
+// Arrow keys: aim | hold Enter: power, release to shoot | J / L: change spot
+let charging2 = false;
+let power2 = 0;
+let aim2X = 0;                  // -1..1 like aimX / aimY, moved with the arrow keys
+let aim2Y = 0;
+let currentSpot2 = 3;
+const AIM2_SPEED = 0.9;         // how fast the arrow keys move the aim (per second)
+const held2 = { ArrowLeft: false, ArrowRight: false, ArrowUp: false, ArrowDown: false };
+
+function twoPlayerPlaying() {
+    return typeof Game !== 'undefined' && Game.state.twoPlayer && Game.state.mode === 'playing';
+}
+
+document.addEventListener('keydown', (e) => {
+    if (typeof Game === 'undefined' || !Game.state.twoPlayer) return;
+    if (e.code in held2 || e.code === 'Enter') e.preventDefault();      // no page scrolling or button presses
+    if (!twoPlayerPlaying()) return;
+    if (e.code in held2) held2[e.code] = true;
+    if (e.code === 'Enter' && !e.repeat) charging2 = true;
+    if (!e.repeat && e.code === 'KeyJ') changeSpot2(-1);
+    if (!e.repeat && e.code === 'KeyL') changeSpot2(1);
+});
+
+document.addEventListener('keyup', (e) => {
+    if (e.code in held2) held2[e.code] = false;
+    if (e.code === 'Enter') {
+        if (!charging2) return;
+        charging2 = false;
+        if (typeof window.onShoot2 === 'function') window.onShoot2(power2, aim2X, aim2Y);
+        power2 = 0;
+        updatePowerMeter2(power2);
+    }
+});
+
+function changeSpot2(direction) {
+    currentSpot2 += direction;
+    if (currentSpot2 > TOTAL_SPOTS) currentSpot2 = 1;
+    if (currentSpot2 < 1) currentSpot2 = TOTAL_SPOTS;
+}
+
+let lastTime2 = 0;
+function inputLoop2(time) {
+    const dt = Math.min((time - lastTime2) / 1000, 0.1);
+    lastTime2 = time;
+    if (twoPlayerPlaying()) {
+        // arrow keys slide the aim; it stays where you leave it
+        aim2X += ((held2.ArrowRight ? 1 : 0) - (held2.ArrowLeft ? 1 : 0)) * AIM2_SPEED * dt;
+        aim2Y += ((held2.ArrowUp ? 1 : 0) - (held2.ArrowDown ? 1 : 0)) * AIM2_SPEED * dt;
+        aim2X = Math.max(-1, Math.min(1, aim2X));
+        aim2Y = Math.max(-1, Math.min(1, aim2Y));
+        updateAim2(aim2X, aim2Y);
+        if (charging2) {
+            const scale = window.chargeSpeedScale2 || 1;
+            power2 = Math.min(100, power2 + getDifficultySettings().chargeSpeed * scale * dt);
+            updatePowerMeter2(power2);
+        }
+    }
+    requestAnimationFrame(inputLoop2);
+}
+requestAnimationFrame(inputLoop2);

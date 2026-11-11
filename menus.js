@@ -23,6 +23,7 @@ const Menus = (function () {
 
     $('btn-campaign').addEventListener('click', () => show('campaign'));
     $('btn-quick').addEventListener('click', () => show('quick'));
+    $('btn-versus').addEventListener('click', () => show('versus'));
     $('btn-cards').addEventListener('click', () => show('cards'));
     $('btn-sandbox').addEventListener('click', startSandbox);
     for (const b of document.querySelectorAll('.back-btn')) b.addEventListener('click', () => show('main'));
@@ -35,6 +36,14 @@ const Menus = (function () {
     $('play-btn').addEventListener('click', () => {
         Cards.previewBall = null;
         Game.start({ mode: 'quick', court: $('court-select').value });
+    });
+
+    // ---------- Two players on one computer ----------
+    for (const court of Courts.LIST) $('versus-court').add(new Option(`${court.name} (${court.difficulty})`, court.id));
+    $('versus-play').addEventListener('click', () => {
+        Cards.previewBall = null;
+        document.activeElement.blur();          // so Enter (Player 2's shoot key) does not press a button
+        Game.start({ mode: 'versus', twoPlayer: true, court: $('versus-court').value });
     });
 
     // ---------- Campaign map ----------
@@ -81,6 +90,12 @@ const Menus = (function () {
         $('result-title').textContent = { win: 'You Win!', lose: 'You Lose', tie: 'Tie Game' }[s.result];
         $('result-score').textContent = `You ${player.score} - ${rival.score} ${rival.name} | ` +
             `${player.made}/${player.attempts} shots (${pct}%) | best streak ${player.bestStreak}`;
+        if (s.twoPlayer) {
+            const pct2 = rival.attempts ? Math.round(100 * rival.made / rival.attempts) : 0;
+            $('result-title').textContent = { win: 'Player 1 Wins!', lose: 'Player 2 Wins!', tie: 'Tie Game' }[s.result];
+            $('result-score').textContent = `P1 ${player.score} - ${rival.score} P2 | ` +
+                `P1 ${player.made}/${player.attempts} (${pct}%), P2 ${rival.made}/${rival.attempts} (${pct2}%)`;
+        }
         $('result-stars').textContent = '';
         $('result-reward').textContent = '';
         $('result-cards').innerHTML = '';

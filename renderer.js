@@ -6,7 +6,8 @@
 //   3. every frame, sets the camera (lookAt + perspective) and the lights
 //   4. draws the arena or sky, both courts, both hoops, the crowd, the balls,
 //      nets, aim arc, weather, effects and shadows
-//   5. draws everything a second time into a small box: a live view of the rival's hoop
+//   5. draws each view main.js asks for: your view plus the small rival view,
+//      or a split screen for two players
 //
 // The shaders are in index.html (ids "vertex-shader" and "fragment-shader").
 // Lighting is Phong shading done per pixel: ambient + diffuse + specular.
@@ -192,14 +193,16 @@
     // Up to 3 lights. cone = [inner, outer] angle in degrees for a spotlight,
     // or null for a light that shines in every direction.
     const NO_LIGHT = { position: [0, 0, 0], color: [0, 0, 0], direction: [0, -1, 0], cone: null };
-    // Blackout power-up: the lights go out except a narrow spotlight on your hoop
-    const BLACKOUT_LIGHTING = {
-        ambient: [0.035, 0.035, 0.05],
-        lights: [
-            { position: [0, 8, 3.5], color: [1, 0.96, 0.85], direction: [0, -0.82, -0.57], cone: [9, 15] },
-            NO_LIGHT, NO_LIGHT
-        ]
-    };
+    // Blackout power-up: the lights go out except a narrow spotlight on that player's hoop
+    function blackoutLighting(hoopX) {
+        return {
+            ambient: [0.035, 0.035, 0.05],
+            lights: [
+                { position: [hoopX, 8, 3.5], color: [1, 0.96, 0.85], direction: [0, -0.82, -0.57], cone: [9, 15] },
+                NO_LIGHT, NO_LIGHT
+            ]
+        };
+    }
 
     function setLights(lights, eye) {
         const positions = [], colors = [], directions = [], cones = [];
@@ -635,7 +638,7 @@
         const projection = perspective(cam.fov, rect.width / rect.height, cam.near, cam.far);
         gl.uniformMatrix4fv(uniform.uView, false, flatten(view));
         gl.uniformMatrix4fv(uniform.uProjection, false, flatten(projection));
-        if (rect.width === canvas.width) { mainView = view; mainProjection = projection; }
+        lastView = view; lastProjection = projection;
         gl.uniform1f(uniform.uNormalSign, 1);
         gl.uniform1f(uniform.uFogDensity, fogDensity);
         gl.uniform3fv(uniform.uFogColor, fogColor);
@@ -654,9 +657,11 @@
         for (const ball of scene.balls) drawBall(ball);
 
         // 2. aim arc, drawn as a line strip
-        const arcPoints = [];
-        for (const p of scene.aimPath) arcPoints.push(p[0], p[1], p[2]);
-        drawLines(arcBuffer, arcPoints, gl.LINE_STRIP, [1, 0.9, 0.3], 1);
+        for (const path of scene.aimPaths) {
+            const arcPoints = [];
+            for (const p of path) arcPoints.push(p[0], p[1], p[2]);
+            drawLines(arcBuffer, arcPoints, gl.LINE_STRIP, [1, 0.9, 0.3], 1);
+        }
 
         // 3. see-through things last, without writing depth
         gl.enable(gl.BLEND);
@@ -670,17 +675,22 @@
         gl.disable(gl.BLEND);
     }
 
-    // Where a point in the world lands on the main view, in canvas pixels
+    // Where a point in the world lands on the screen, in canvas pixels
     // (used to place floating text like "+2" over the rim).
-    let mainView = mat4(), mainProjection = mat4();
+    // viewIndex: 0 = your view; 1 = Player 2's half in two-player.
+    let lastView = mat4(), lastProjection = mat4();
+    const screens = [];                         // for each view: its matrices and rectangle
+    const fogAmounts = [0, 0];
     function timesPoint(m, p) {                 // 4x4 matrix times a point [x, y, z, w]
         return m.map((row) => row[0] * p[0] + row[1] * p[1] + row[2] * p[2] + row[3] * p[3]);
     }
-    window.worldToScreen = function (p) {
-        const clip = timesPoint(mainProjection, timesPoint(mainView, [p[0], p[1], p[2], 1]));
+    window.worldToScreen = function (p, viewIndex) {
+        const screen = screens[viewIndex || 0];
+        if (!screen) return { x: 0, y: 0, visible: false };
+        const clip = timesPoint(screen.projection, timesPoint(screen.view, [p[0], p[1], p[2], 1]));
         return {
-            x: (clip[0] / clip[3] * 0.5 + 0.5) * canvas.width,
-            y: (1 - (clip[1] / clip[3] * 0.5 + 0.5)) * canvas.height,
+            x: screen.rect.x + (clip[0] / clip[3] * 0.5 + 0.5) * screen.rect.width,
+            y: canvas.height - screen.rect.y - (clip[1] / clip[3] * 0.5 + 0.5) * screen.rect.height,
             visible: clip[3] > 0
         };
     };
@@ -698,9 +708,17 @@
 
     // ---------- One frame ----------
     let lastTime = performance.now();
-    let fogAmount = 0;                  // fades in and out so the fog does not pop
 
     loadCourt(Game.state.court);
+
+    // The rectangle of the canvas for each kind of view (y measured from the bottom)
+    function rectFor(name) {
+        const w = canvas.width, h = canvas.height;
+        if (name === 'left') return { x: 0, y: 0, width: w / 2 - 1, height: h };          // split screen,
+        if (name === 'right') return { x: w / 2 + 1, y: 0, width: w / 2 - 1, height: h };  // with a thin gap
+        if (name === 'inset') return insetRect();
+        return { x: 0, y: 0, width: w, height: h };
+    }
 
     window.renderScene = function (scene) {
         const now = performance.now();
@@ -712,14 +730,19 @@
             hoopAnims.forEach((anim) => { for (const key in anim) stepSpring(anim[key], dt); });
             updateWeather(dt, scene.state.wind[0], time);
         }
-        fogAmount += ((scene.fog ? 1 : 0) - fogAmount) * Math.min(1, dt * 3);
 
+        gl.disable(gl.SCISSOR_TEST);
+        gl.clearColor(0, 0, 0, 1);
+        gl.clear(gl.COLOR_BUFFER_BIT);              // the gap between split-screen halves stays black
         gl.enable(gl.SCISSOR_TEST);
-        // Main view: your camera, with the effects of power-ups used on you
-        drawView(scene, scene.camera, { x: 0, y: 0, width: canvas.width, height: canvas.height },
-            scene.blackout ? BLACKOUT_LIGHTING : lighting, fogAmount * 0.16, time);
-        // Inset view: a fixed camera on the rival's hoop
-        drawView(scene, scene.inset, insetRect(), lighting, 0, time);
+        scene.views.forEach((view, i) => {
+            // fog fades in and out so it does not pop
+            fogAmounts[i] += ((view.fog ? 1 : 0) - fogAmounts[i]) * Math.min(1, dt * 3);
+            const rect = rectFor(view.rect);
+            drawView(scene, view.camera, rect,
+                view.blackout ? blackoutLighting(view.hoopX) : lighting, fogAmounts[i] * 0.16, time);
+            screens[i] = { view: lastView, projection: lastProjection, rect: rect };
+        });
         gl.disable(gl.SCISSOR_TEST);
     };
 })();
