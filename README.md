@@ -29,18 +29,40 @@ Mouse: aim | hold Space: charge power, release to shoot | A/D: change spot | C: 
 - **Power-up picks.** Every 30–45 seconds (the first one comes early, at your 2nd make) the game pauses and you pick one of two cards: a buff for you or a sabotage for the rival. You have 8 seconds. Picking a card you already have levels it up. The 20 cards and the rarity odds are in `powerups.js`.
 - **Clock.** 3 minutes. Shots in the air at the buzzer still count. A tie goes to a 1-minute overtime that starts with a pick.
 - **Difficulty slider.** Easy / Medium / Hard changes the meter speed, your aim wobble and the rival (how often it scores, how fast it shoots, which cards it can pick). Easy also shows the aim arc.
+- **Money Rack.** Once a game, for a surprise 10 seconds, every make pays double.
+
+## Courts
+Pick a court on the menu. Rules and looks are in `courts.js`.
+
+| Court | Difficulty | What changes |
+|---|---|---|
+| YMCA Gym | Easiest | Bright even lights, a slightly bigger and softer rim |
+| Home Gym | Normal | Nothing |
+| Neon Arcade | Normal | Looks only |
+| Pro Arena | Normal | Looks only, the biggest crowd |
+| Boardwalk | Hard | Outdoor double rim (stiffer, thicker) and a sea wind that pushes the ball sideways |
+| Rooftop | Hard | Outdoor double rim and rain: a slippery ball (shakier aim) and a floor that bounces less |
+| Frozen Lake | Hardest | Outdoor double rim, gusting wind that changes direction, falling snow |
+
+The wind when you release is the wind that ball gets. The HUD shows it for the spot you are standing on (arrows = sideways push), and the aim arc bends with it.
+
+## Crowd and game feel
+- The crowd is flat cut-out cards that bob. They jump when you score, bounce more as the **hype meter** fills, and stomp together in intense moments (last minute of a close game, overtime, or when you are On Fire).
+- Makes throw confetti and float "+2" from the rim; swishes, bank shots, rim-outs ("SO CLOSE!") and air balls get their own text.
+- Heating Up gives the ball an orange trail, On Fire covers it in fire and burns the net, Inferno turns the lights red-orange and makes the rim glow. Losing the streak puffs out smoke.
+- The last 10 seconds turn the timer red. A shot still in the air after the buzzer drops in slow motion.
 
 ## Where each graded requirement lives
 | Requirement | Where to look |
 |---|---|
-| Own 3D geometry | `geometry.js`: sphere (ball), torus (rim), unit cube (board, pole, arm, arena), plane (court), disc, line net |
+| Own 3D geometry | `geometry.js`: sphere (ball), torus (rim), unit cube (board, pole, arm, arena, bleachers, crowd cards), plane (court), disc, line net |
 | Transformations | `renderer.js`: `drawBall` (translate, rotate, scale), `drawBox` (one unit cube scaled into every box) |
 | lookAt camera | `camera.js` picks eye/at/up for the 3 views; `renderer.js` calls `lookAt` and `perspective` |
 | Interaction | `input.js`: mouse aim, Space power, A/D, C, R, difficulty slider |
 | Animation | `main.js` frame loop; ball flight, net sway and stretch, rim shake, backboard wobble, moving hoop (the Moving Hoop power-up; open `index.html?test=moving` to see it right away) |
-| Lighting | Phong shading in the fragment shader in `index.html`: ambient + overhead spotlight + fill light; shiny rim, matte court |
+| Lighting | Phong shading in the fragment shader in `index.html`: ambient + up to 3 lights (overhead spotlights, sun or moon, lamp posts, set per court in `courts.js`); shiny rim, matte court |
 | Advanced: collisions and physics | `physics.js` (several balls and two hoops), tested by `tests/physics.test.js` |
-| Advanced: texture mapping | `textures.js` paints the ball, court, backboard and wall images; UVs come from `geometry.js` |
+| Advanced: texture mapping | `textures.js` paints the ball, court floors, backboards, walls, skies and crowd images; UVs come from `geometry.js` |
 | Advanced: hierarchical modeling | `renderer.js` `drawHoop`: pole → arm → backboard → rim → net on a matrix stack; only the root moves for the Moving Hoop power-up |
 
 ## Code layout
@@ -51,6 +73,9 @@ Mouse: aim | hold Space: charge power, release to shoot | A/D: change spot | C: 
 | physics.js | Justin | Ball flight (fixed 240 Hz step), floor/backboard/pole/rim collisions, basket detection, for any number of balls and hoops |
 | game.js | Justin | The match: shooting, scoring, streak tiers, clock and overtime, the AI rival, power-up picks, game events (`Game.on`) |
 | powerups.js | Justin | The 20 power-up cards, rarity odds tables, and how effects are stored and counted down |
+| courts.js | Justin, Bom | The 7 courts: rules (rim, wind, rain) and looks (colors, lights, sky, weather) |
+| effects.js | Justin, Bom | Game feel: hype meter, confetti, fire, smoke, ball trails, floating text, slow motion, sound hooks |
+| crowd.js | Bom | Where the fans stand and how high each one jumps |
 | camera.js | Justin | Shooter, Ball Follow and Orbit views (eye/at/up for lookAt), plus the fixed rival camera |
 | main.js | Justin | Frame loop; calls `window.renderScene(scene)` every frame |
 | geometry.js | Isaiah | Builds every mesh in code (positions, normals, texture coordinates, triangles) |
@@ -60,16 +85,16 @@ Mouse: aim | hold Space: charge power, release to shoot | A/D: change spot | C: 
 
 Units are meters, y is up, the rim is above x = 0, z = 0 and the shooter is on +z. Sizes shared by physics and drawing are in `Physics` (`RIM_HEIGHT`, `RIM_RADIUS`, `BOARD`, `POLE`, ...).
 
-**Sound hookup (Bom):** define `window.playSound(name)`; the game calls it with `shoot`, `swish`, `score`, `rim`, `board`, `floor`, `pole`, `buzzer`.
+**Sound hookup (Bom):** define `window.playSound(name, detail)`. There are no sounds in the repo yet. The game calls it with `shoot`, `swish`, `score`, `rim`, `board`, `floor`, `pole`, `buzzer`, and the feel layer with `cheer`, `chime` (`detail.streak` rises with the streak, for a rising pitch), `groan`, `gasp`, `airball`, `hiss`, `fire`, `stomp`, `tick`.
 
-**Art hookup (Bom):** each function in `textures.js` returns one image (ball, court, backboard, wall). Replace the drawing with your own image of the same layout.
+**Art hookup (Bom):** each function in `textures.js` returns one image (ball, court floor, backboard, wall, sky, crowd fan). Replace the drawing with your own image of the same layout. Court colors are in `courts.js`.
 
 ## Tests
 ```
 node tests/physics.test.js
 node tests/rules.test.js
 ```
-The first checks that every spot can be scored, the collisions, and frame-rate independence. The second checks the match rules: streak tiers, rapid fire, power-up odds and effects, the rival's accuracy, the buzzer, overtime and a whole simulated match.
+The first checks that every spot can be scored, the collisions, and frame-rate independence. The second checks the match rules: streak tiers, rapid fire, power-up odds and effects, the rival's accuracy, the buzzer, overtime, the court rules (soft rim, double rim, rain, wind) and a whole simulated match.
 
 For testing in the browser, add to the page address: `?length=30` for a short game, or `?test=moving,fog` to start with those power-ups on you (ids are in `powerups.js`).
 

@@ -20,6 +20,7 @@ function quietStart(options) {
     Game.start(Object.assign({ rival: noCards }, options));
     state.nextPickAt = Infinity;
     state.pickNumber = 99;
+    state.moneyRackAt = 0;          // no surprise bonus round either
 }
 // A power value that scores for a shooter's current spot
 function goodPower(shooter) {
@@ -157,6 +158,19 @@ run(5);
 check('Time Freeze stops the clock', Math.abs(state.timeLeft - 60) < 1e-6, 'time left ' + state.timeLeft.toFixed(2));
 run(6);
 check('...for 10 seconds', state.timeLeft < 60 && state.timeLeft > 58);
+
+quietStart();
+state.moneyRack = 10;
+playerShot(true);
+check('Money Rack makes a basket pay double', player.score === 4, 'score ' + player.score);
+run(8);
+playerShot(true);
+check('...for 10 seconds', player.score === 4 + 3, 'score ' + player.score);
+Game.start({ rival: noCards, length: 180 });
+state.nextPickAt = Infinity; state.pickNumber = 99;
+let sawRack = false;
+for (let i = 0; i < 60 * 170; i++) { Game.update(1 / 60); if (state.moneyRack > 0) sawRack = true; }
+check('one Money Rack happens during a game', sawRack && state.moneyRackAt === 0);
 
 // ---------- Picks ----------
 Game.start({ rival: noCards, length: 180 });

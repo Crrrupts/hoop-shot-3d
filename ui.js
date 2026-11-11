@@ -41,15 +41,35 @@ function startGame() {
 // API Functions for the Game Loop
 // Justin and Amit call these functions to update the UI when the ball scores or time passes.
 
+// Scores count up instead of jumping. Each counter has the number on screen
+// and the real number it is climbing toward.
+const counters = {
+    you:   { shown: 0, target: 0, show: (n) => { scoreDisplay.textContent = `YOU ${n}`; } },
+    rival: { shown: 0, target: 0, show: () => {} }      // filled in by updateRivalScore
+};
+setInterval(() => {
+    for (const key in counters) {
+        const c = counters[key];
+        if (c.shown === c.target) continue;
+        c.shown += c.shown < c.target ? 1 : c.target - c.shown;     // up one at a time; drop at once (new game)
+        c.show(c.shown);
+    }
+}, 70);
+
 function updateScore(points) {
-    scoreDisplay.textContent = `YOU ${points}`;
+    counters.you.target = points;
+    if (points < counters.you.shown) { counters.you.shown = points; counters.you.show(points); }
 }
 
 // The rival's live score (top-left box and the label on the small rival view)
 function updateRivalScore(points, name) {
-    const label = `${(name || 'Rival').toUpperCase()} ${points}`;
-    document.getElementById('rival-display').textContent = label;
-    document.getElementById('rival-view-label').textContent = label;
+    counters.rival.show = (n) => {
+        const label = `${(name || 'Rival').toUpperCase()} ${n}`;
+        document.getElementById('rival-display').textContent = label;
+        document.getElementById('rival-view-label').textContent = label;
+    };
+    counters.rival.target = points;
+    if (points <= counters.rival.shown) { counters.rival.shown = points; counters.rival.show(points); }
 }
 
 // tierName is '', 'HEATING UP', 'ON FIRE' or 'INFERNO'; hint is e.g. "1 more for ON FIRE"
@@ -57,12 +77,16 @@ function updateStreak(count, tierName, hint) {
     streakDisplay.textContent = tierName ? `${tierName} x${count}` : `Streak x${count}`;
     streakDisplay.className = tierName ? 'tier-' + tierName.toLowerCase().replace(' ', '-') : '';
     document.getElementById('streak-hint').textContent = hint || '';
+    // glowing border around the screen that changes with the tier
+    document.getElementById('glow').className = streakDisplay.className;
 }
 
 function updateTime(secondsLeft, overtime) {
     const minutes = Math.floor(secondsLeft / 60);
     const seconds = secondsLeft % 60;
     timeDisplay.textContent = `${overtime ? 'OT' : 'TIME'} ${minutes}:${seconds.toString().padStart(2, '0')}`;
+    // last 10 seconds: the timer turns red and pulses
+    timeDisplay.className = secondsLeft <= 10 && secondsLeft > 0 ? 'urgent' : '';
 }
 
 function updateSpot(current, total) {
@@ -78,6 +102,8 @@ function updatePowerMeter(percentage) {
     const fill = Math.max(0, Math.min(percentage, 100));
     powerBarFill.style.height = `${fill}%`;
     powerMeter.setAttribute('aria-valuenow', fill);
+    // the meter pulses, faster near full
+    powerMeter.className = fill > 75 ? 'pulse-fast' : fill > 0 ? 'pulse' : '';
 }
 
 // ---------- Match HUD: banner, toast, power-ups ----------
@@ -225,4 +251,37 @@ function updateWind(side, along) {
     if (text === windShown) return;
     windShown = text;
     document.getElementById('wind-display').textContent = text;
+}
+
+
+// ---------- Game feel: hype meter, floating text, screen flash ----------
+
+// fraction is 0..1
+let hypeShown = -1;
+function updateHype(fraction) {
+    const percent = Math.round(fraction * 100);
+    if (percent === hypeShown) return;
+    hypeShown = percent;
+    document.getElementById('hype-fill').style.width = percent + '%';
+}
+
+// Text that floats up from a spot on the screen and fades (x, y in canvas pixels).
+// kind: 'points', 'swish', 'bank', 'close' or 'bad' (sets the color in style.css)
+const popupsEl = document.getElementById('popups');
+function showPopup(text, x, y, kind) {
+    const el = document.createElement('div');
+    el.className = 'popup ' + (kind || '');
+    el.textContent = text;
+    el.style.left = Math.max(40, Math.min(760, x)) + 'px';
+    el.style.top = Math.max(60, Math.min(560, y)) + 'px';
+    popupsEl.appendChild(el);
+    setTimeout(() => el.remove(), 1100);
+}
+
+// A quick flash over the whole screen. color: 'white', 'orange' or 'gold'
+const flashEl = document.getElementById('flash');
+function flashScreen(color) {
+    flashEl.className = '';
+    void flashEl.offsetWidth;                   // restart the CSS animation
+    flashEl.className = 'show ' + color;
 }

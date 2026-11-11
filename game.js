@@ -25,7 +25,8 @@ const Game = (function () {
         oddsMode: 'campaign',       // which rarity odds table to use (see powerups.js)
         courtGap: 15,               // the rival's hoop stands this far to the right (meters)
         shotCooldown: 0.15,         // shortest time between two of your shots
-        maxBalls: 12                // most balls one shooter can have in the air
+        maxBalls: 12,               // most balls one shooter can have in the air
+        moneyRackLength: 10         // surprise bonus round: every make pays double for 10 seconds
     };
     // For testing and demos, add these to the page address:
     //   ?length=30          play a short game (seconds)
@@ -111,6 +112,8 @@ const Game = (function () {
         result: null,                   // 'win', 'lose' or 'tie' when the game is over
         court: CourtList.byId('ymca'),  // the court being played (see courts.js)
         wind: [0, 0, 0],                // sideways push on balls in the air right now (m/s^2)
+        moneyRackAt: 0,                 // when the Money Rack bonus round starts (seconds played)
+        moneyRack: 0,                   // seconds of Money Rack left (0 = not running)
         followBall: null,               // your newest ball (for the Ball Follow camera)
         shotDir: [0, 0, -1],            // which way it was thrown
         player: player,
@@ -208,6 +211,7 @@ const Game = (function () {
         let points = tier ? base * tier.multiplier + tier.bonus : base;
         if (info && info.bank) points += PU.level(shooter, 'glass');    // Glass Cleaner
         if (PU.has(shooter, 'golden')) points *= 2;                     // Golden Ball
+        if (state.moneyRack > 0) points *= 2;                           // Money Rack bonus round
         return points;
     }
 
@@ -280,6 +284,8 @@ const Game = (function () {
         ball.bonus = !!bonus;
         ball.resolved = false;          // becomes true once it counts as a make or a miss
         ball.wind = state.wind.slice(); // the wind at the moment of release stays with the ball
+        // streak tier when thrown: 0 none, 1 Heating Up, 2 On Fire, 3 Inferno (for trails and fire)
+        ball.heat = TIERS.filter((t) => shooter.streak >= t.makes).length;
         Physics.launch(ball, pos, vel);
         shooter.balls.push(ball);
         return ball;
@@ -514,6 +520,10 @@ const Game = (function () {
         state.pick = null;
         state.result = null;
         state.followBall = null;
+        // one surprise Money Rack per game, somewhere in the middle
+        // (not in very short test games)
+        state.moneyRackAt = state.timeLeft >= 60 ? state.timeLeft * randomBetween(0.35, 0.75) : 0;
+        state.moneyRack = 0;
 
         // ?test=... cards (they last 10 minutes so there is time to look at them)
         for (const id of TEST_CARDS) {
@@ -625,6 +635,16 @@ const Game = (function () {
             }
         }
 
+        // Money Rack: a surprise 10 seconds where every make pays double
+        if (state.moneyRack > 0) {
+            state.moneyRack = Math.max(0, state.moneyRack - dt);
+        } else if (!state.overtime && !state.buzzer && state.moneyRackAt > 0 && state.elapsed >= state.moneyRackAt) {
+            state.moneyRackAt = 0;
+            state.moneyRack = SETTINGS.moneyRackLength;
+            hud('showBanner', 'MONEY RACK', 'money');
+            emit('moneyrack');
+        }
+
         // the wind changes slowly through the match
         state.wind[0] = CourtList.windAt(state.court.rules, state.elapsed);
 
@@ -641,7 +661,9 @@ const Game = (function () {
         if (typeof window !== 'undefined') {
             window.chargeSpeedScale = Math.pow(0.8, PU.level(player, 'steady')) * (PU.has(player, 'fast') ? 1.3 : 1);
         }
-        hud('updateEffects', PU.describe(player));
+        const chips = PU.describe(player);
+        if (state.moneyRack > 0) chips.unshift({ name: 'Money Rack: makes pay double', side: 'buff', label: Math.ceil(state.moneyRack) + 's' });
+        hud('updateEffects', chips);
         showWind();
 
         if (state.buzzer) {

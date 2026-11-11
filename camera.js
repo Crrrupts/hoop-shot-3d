@@ -56,7 +56,9 @@ const Camera = (function () {
     function update(dt) {
         if (!orbitDragging) orbitAngle += 0.2 * dt;
         const m = mode();
-        const target = m === 1 ? followView() : m === 2 ? orbitView() : shooterView();
+        // when the game is over the camera pulls back to the wide orbit view
+        const over = Game.state.mode === 'gameover';
+        const target = m === 1 && !over ? followView() : m === 2 || over ? orbitView() : shooterView();
         const k = 1 - Math.exp(-SMOOTH * dt);
         for (let i = 0; i < 3; i++) {
             eye[i] += (target.eye[i] - eye[i]) * k;
@@ -66,7 +68,14 @@ const Camera = (function () {
         if (Game.state.mode === 'playing' && PowerUps.has(Game.player, 'heckler')) {
             for (let i = 0; i < 3; i++) at[i] += (Math.random() - 0.5) * 0.12;
         }
+        // tiny shake when you score (effects.js)
+        const shake = Effects.getShake();
+        for (let i = 0; i < 3; i++) at[i] += (Math.random() - 0.5) * shake;
+        // slow push-in while charging a shot: the lens narrows a little
+        const charge = (typeof charging !== 'undefined' && charging) ? power / 100 : 0;
+        fov += ((FOV - 3 * charge) - fov) * k;
     }
+    let fov = FOV;
 
     // Fixed camera in front of the rival's hoop (for the small inset view)
     function rivalView() {
@@ -94,5 +103,5 @@ const Camera = (function () {
         }
     }
 
-    return { FOV, NEAR, FAR, eye, at, up, update, rivalView };
+    return { FOV, NEAR, FAR, eye, at, up, update, rivalView, getFov: function () { return fov; } };
 })();

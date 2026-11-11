@@ -160,7 +160,19 @@
 
         lighting = { ambient: look.ambient, lights: look.lights };
         resetWeather(look.weather);
+
+        // Crowd: place the fans and paint one cut-out image per shirt color
+        Crowd.build(look, ARENA.x0, ARENA.x1, [Game.player.hoop.base[0], Game.rival.hoop.base[0]]);
+        for (const m of fanMaterials) gl.deleteTexture(m.texture);
+        const skin = Crowd.skinColors();
+        fanMaterials = Crowd.shirtColors().map((shirt, i) => ({
+            color: [0.8, 0.8, 0.8],         // a little dimmer than the court so the crowd stays in the background
+            texture: makeTexture(Textures.fan(shirt, skin[i % skin.length], Crowd.isGlow()), false),
+            unlit: Crowd.isGlow()           // Neon Arcade fans glow instead of being lit
+        }));
+        MATERIALS.bleachers = { color: look.pole.map((c) => c * 0.8 + 0.05) };
     }
+    let fanMaterials = [];
 
     // ---------- Lights ----------
     // Up to 3 lights. cone = [inner, outer] angle in degrees for a spotlight,
@@ -348,7 +360,9 @@
         transform(translate(0, 0, armLength));
         transform(rotateX(hoopAnim.boardTilt.value));
         transform(translate(0, boardCenter[1] - armY, boardSize[2] / 2));
-        setMaterial(MATERIALS.board);
+        // the board lights up for a moment on a bank shot
+        const flash = 1 + 0.9 * Effects.getBoardFlash(hoop);
+        setMaterial(Object.assign({}, MATERIALS.board, { color: [flash, flash, flash] }));
         drawBox(boardSize[0], boardSize[1], boardSize[2]);
 
         // RIM (origin at the rim's center). It shakes around the point where
@@ -387,7 +401,7 @@
 
     // The rim's material. effects.js can make a rim glow (Inferno streak).
     function rimMaterial(hoop) {
-        if (typeof Effects !== 'undefined' && Effects.rimGlow(hoop) > 0) {
+        if (Effects.rimGlow(hoop) > 0) {
             return { color: [1, 0.45, 0.1], unlit: true };
         }
         return MATERIALS.rim;
@@ -496,6 +510,43 @@
         }
     }
 
+    // ---------- Crowd: bleachers and fans ----------
+    // Each fan is one flat card (the front face of the unit cube) with a
+    // cut-out person image, moved up and down by crowd.js.
+    function drawCrowd(time) {
+        setMaterial(MATERIALS.bleachers);
+        for (const step of Crowd.getBleachers()) {
+            pushMatrix();
+            transform(translate(step.center[0], step.center[1], step.center[2]));
+            drawBox(step.size[0], step.size[1], step.size[2]);
+            popMatrix();
+        }
+        const hype = Effects.getHype(), cheer = Effects.getCheer(), stomp = Effects.intense();
+        for (const fan of Crowd.getFans()) {
+            const up = Crowd.jumpHeight(fan, time, hype, cheer, stomp);
+            const tall = 1.4 * fan.size, wide = 0.7 * fan.size;
+            pushMatrix();
+            transform(translate(fan.x, fan.y + up + tall / 2, fan.z));
+            transform(scalem(wide, tall, 0.02));
+            setMaterial(fanMaterials[fan.shirt]);
+            drawMesh(meshes.cube, 6, 0);            // only the front face
+            popMatrix();
+        }
+    }
+
+    // ---------- Effects: ball trails, confetti, fire and smoke (from effects.js) ----------
+    function drawEffects() {
+        for (const trail of Effects.ballTrails()) {
+            drawLines(dynamicBuffer, trail.points, gl.LINE_STRIP, trail.color, trail.alpha);
+        }
+        for (const group of Effects.dots()) {
+            // fire adds its light to what is behind it; confetti and smoke cover it
+            if (group.additive) gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
+            drawDots(group.points, group.size, group.color, group.alpha, group.shape);
+            if (group.additive) gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+        }
+    }
+
     // ---------- Weather: rain, snow and wind-blown dust ----------
     // Simple particles that fall through a box over both courts and wrap around.
     const WEATHER_BOX = { x0: ARENA.x0 - 2, x1: ARENA.x1 + 2, z0: ARENA.z0 - 1, z1: ARENA.z1 + 1, top: 11 };
@@ -567,6 +618,7 @@
         const projection = perspective(cam.fov, rect.width / rect.height, cam.near, cam.far);
         gl.uniformMatrix4fv(uniform.uView, false, flatten(view));
         gl.uniformMatrix4fv(uniform.uProjection, false, flatten(projection));
+        if (rect.width === canvas.width) { mainView = view; mainProjection = projection; }
         gl.uniform1f(uniform.uNormalSign, 1);
         gl.uniform1f(uniform.uFogDensity, fogDensity);
         gl.uniform3fv(uniform.uFogColor, fogColor);
@@ -579,6 +631,7 @@
 
         // 1. solid objects
         drawArena();
+        drawCrowd(time);
         for (const hoop of scene.hoops) drawHoop(hoop, time);
         for (const ball of scene.balls) drawBall(ball);
 
@@ -594,9 +647,25 @@
         drawSpots(scene.state.rival, [1, 0.35, 0.3]);
         for (const ball of scene.balls) drawShadow(ball);
         drawWeather(wind);
+        drawEffects();
         gl.depthMask(true);
         gl.disable(gl.BLEND);
     }
+
+    // Where a point in the world lands on the main view, in canvas pixels
+    // (used to place floating text like "+2" over the rim).
+    let mainView = mat4(), mainProjection = mat4();
+    function timesPoint(m, p) {                 // 4x4 matrix times a point [x, y, z, w]
+        return m.map((row) => row[0] * p[0] + row[1] * p[1] + row[2] * p[2] + row[3] * p[3]);
+    }
+    window.worldToScreen = function (p) {
+        const clip = timesPoint(mainProjection, timesPoint(mainView, [p[0], p[1], p[2], 1]));
+        return {
+            x: (clip[0] / clip[3] * 0.5 + 0.5) * canvas.width,
+            y: (1 - (clip[1] / clip[3] * 0.5 + 0.5)) * canvas.height,
+            visible: clip[3] > 0
+        };
+    };
 
     // The small rival view sits inside the #rival-view box from index.html
     const insetBox = document.getElementById('rival-view');

@@ -10,6 +10,7 @@
 //   scene.aimPath    array of [x, y, z] points for the aim arc (may be empty)
 //   scene.fog        true while the Fog Machine power-up is on you
 //   scene.blackout   true while the Blackout power-up is on you
+//   scene.tint       [r, g, b] multiplies the picture's colors (Inferno turns it red-orange)
 //   scene.state      Game.state (mode, player, rival, ...)
 
 (function () {
@@ -46,15 +47,18 @@
     }
 
     function frame(now) {
-        const dt = Math.min((now - last) / 1000, 0.1);
+        // slow motion for buzzer beaters (effects.js decides when)
+        const dt = Math.min((now - last) / 1000, 0.1) * Effects.timeScale();
         last = now;
 
         Game.update(dt);
+        if (Game.state.mode !== 'picking') Effects.update(dt);
         Camera.update(dt);
         updateSweetZone();
 
         const player = Game.player, rival = Game.rival;
         playerHand.pos = Game.spotPosition(player.spot, player);
+        if (charging) playerHand.pos[1] -= 0.12 * power / 100;      // the ball dips in your hands as you charge
         rivalHand.pos = Game.spotPosition(rival.spot, rival);
         const balls = [playerHand, rivalHand].concat(player.balls, rival.balls);
 
@@ -64,12 +68,13 @@
                 hoops: [player.hoop, rival.hoop],
                 camera: {
                     eye: Camera.eye, at: Camera.at, up: Camera.up,
-                    fov: Camera.FOV, near: Camera.NEAR, far: Camera.FAR
+                    fov: Camera.getFov(), near: Camera.NEAR, far: Camera.FAR
                 },
                 inset: Camera.rivalView(),
                 aimPath: aimPath(),
                 fog: PowerUps.has(player, 'fog'),
                 blackout: PowerUps.has(player, 'blackout'),
+                tint: Effects.getTint(),
                 state: Game.state
             });
         }

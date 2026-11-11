@@ -336,3 +336,113 @@ body {
 #top-center {
     text-shadow: 0 1px 3px #000, 0 0 6px rgba(0, 0, 0, 0.8);
 }
+
+/* ---------- Game feel ---------- */
+#hype-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    color: #bbb;
+    margin-top: 3px;
+}
+
+#hype-bar {
+    flex: 1;
+    height: 6px;
+    min-width: 90px;
+    background: rgba(255, 255, 255, 0.18);
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+#hype-fill {
+    width: 0%;
+    height: 100%;
+    background: linear-gradient(90deg, #ffd27a, #ff6a2b);
+    transition: width 0.2s;
+}
+
+.popup {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    font-size: 30px;
+    font-weight: 900;
+    color: #fff;
+    text-shadow: 0 0 8px rgba(0, 0, 0, 0.9), 0 2px 0 #000;
+    white-space: nowrap;
+    animation: popup-float 1.1s ease-out forwards;
+}
+
+.popup.points { color: #ffe066; font-size: 36px; }
+.popup.swish  { color: #7fe8ff; }
+.popup.bank   { color: #b9ff8a; }
+.popup.close  { color: #ffb347; font-size: 24px; }
+.popup.bad    { color: #ff7a6e; font-size: 24px; }
+
+@keyframes popup-float {
+    0%   { opacity: 0; margin-top: 10px; transform: translate(-50%, -50%) scale(0.6); }
+    15%  { opacity: 1; transform: translate(-50%, -50%) scale(1.15); }
+    100% { opacity: 0; margin-top: -60px; transform: translate(-50%, -50%) scale(1); }
+}
+
+#flash, #glow {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+}
+
+#flash.show   { animation: flash-fade 0.5s ease-out; }
+#flash.white  { background: #fff; }
+#flash.orange { background: #ff8a2b; }
+#flash.gold   { background: #ffd34d; }
+
+@keyframes flash-fade {
+    0%   { opacity: 0.55; }
+    100% { opacity: 0; }
+}
+
+/* glowing screen border for the streak tiers */
+#glow { transition: opacity 0.4s, box-shadow 0.4s; border-radius: 8px; }
+#glow.tier-heating-up { opacity: 1; box-shadow: inset 0 0 30px 4px rgba(255, 179, 71, 0.55); }
+#glow.tier-on-fire    { opacity: 1; box-shadow: inset 0 0 46px 8px rgba(255, 106, 43, 0.75); }
+#glow.tier-inferno    { opacity: 1; box-shadow: inset 0 0 64px 14px rgba(255, 59, 59, 0.85); animation: glow-pulse 0.7s infinite alternate; }
+
+@keyframes glow-pulse {
+    0%   { opacity: 0.7; }
+    100% { opacity: 1; }
+}
+
+/* last 10 seconds */
+#time-display.urgent {
+    color: #ff5a4f;
+    font-weight: bold;
+    animation: urgent-pulse 0.5s infinite alternate;
+}
+
+@keyframes urgent-pulse {
+    0%   { transform: scale(1); }
+    100% { transform: scale(1.12); }
+}
+
+/* power meter pulses while charging, faster near full */
+#power-bar-bg.pulse      { animation: meter-pulse 0.5s infinite alternate; }
+#power-bar-bg.pulse-fast { animation: meter-pulse 0.14s infinite alternate; }
+
+@keyframes meter-pulse {
+    0%   { box-shadow: 0 0 0 rgba(255, 255, 255, 0); }
+    100% { box-shadow: 0 0 12px rgba(255, 255, 255, 0.9); }
+}
+
+#banner.money { color: #7dff9b; }
+
+/* the game-over card slides in */
+#menu-overlay h1 { animation: slide-in 0.45s ease-out; }
+
+@keyframes slide-in {
+    0%   { opacity: 0; transform: translateY(-40px); }
+    100% { opacity: 1; transform: translateY(0); }
+}
