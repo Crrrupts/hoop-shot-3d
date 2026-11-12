@@ -14,6 +14,7 @@ The code in this repo is AI-generated (Claude), directed and reviewed by Justin 
 ## Tech
 Plain WebGL with our own GLSL shaders and MV.js (no 3D engine).
 `Common/MV.js` and `Common/initShaders.js` are the class libraries by Edward Angel.
+`index.html` also loads Howler.js from a CDN for future sound. Nothing uses it yet; the game runs without it.
 
 ## Run
 Open index.html with a local web server (e.g. VS Code Live Server).
@@ -70,6 +71,11 @@ The wind when you release is the wind that ball gets. The HUD shows it for the s
 - Makes throw confetti and float "+2" from the rim; swishes, bank shots, rim-outs ("SO CLOSE!") and air balls get their own text.
 - Heating Up gives the ball an orange trail, On Fire covers it in fire and burns the net, Inferno turns the lights red-orange and makes the rim glow. Losing the streak puffs out smoke.
 - The last 10 seconds turn the timer red. A shot still in the air after the buzzer drops in slow motion.
+
+## Docs
+- [docs/how-it-works.md](docs/how-it-works.md): plain-language notes on rendering, physics, input and UI, so each teammate can explain their part.
+- [docs/next-steps.md](docs/next-steps.md): the current task list and decisions.
+- [docs/design-bible.md](docs/design-bible.md): the full design. Its "What is built" table says which parts are in the game.
 
 ## Graded requirements checklist
 The 9 graded requirements, where each one is in the code, and how to see it in the game. Recheck this list after every change. Last checked on 2026-11-12 (all 9 seen working in the browser).

@@ -1,6 +1,29 @@
 # Hoop Shot 3D — Design Bible
 
-Exported Nov 11, 2026 from the live doc: https://claude.ai/artifact/PtSqWJ1oB9T9DCjnBMMoy2 (the live doc is the latest version).
+Exported Nov 11, 2026 from the live doc: https://claude.ai/artifact/PtSqWJ1oB9T9DCjnBMMoy2. This repo copy was updated on Nov 12, 2026 to match the code on `main`: rule numbers were corrected, and the table below says what is built and what is still only an idea. Newer decisions are in [next-steps.md](next-steps.md), which wins where the two disagree.
+
+## What is built
+
+Everything in this doc is a design. This table is the truth about the game on `main` today. Anything in the right-hand column is **not in the game**.
+
+| Area | In the game now | Not built (ideas only) |
+| --- | --- | --- |
+| Graded requirements | All 9, see the checklist in the README | |
+| Match rules | Live race against an AI rival, shoot as fast as you want, 2-minute games, 1-minute overtime when within 10 points, power-up picks, moving hoop as a power-up | Home court in campaign (the crowd always backs you); power-ups carrying between matches |
+| Courts | All 7 courts with their own floor, walls or sky, lights and gameplay rules (soft rim, double rim, wind, rain, snow) | The signature details: swaying banners, string lights, jumbotron replays, Ferris wheel as a 3D object (it is painted on the sky), pulsing floor grid, fogged breath, light that changes during a match |
+| Crowd | Cut-out fans that bob, jump on your makes, bounce with the hype meter and stomp together in intense moments | All crowd sound (cheers, chants, "AIR BALL", counting down), camera flashes, fans standing up, the crowd backing the other player |
+| Ball designs | 9 ball skins as cards (texture and shine only) | Glow and Lava do not glow in the dark; Snowball sheds no flakes |
+| Cards and upgrades | Chests from campaign wins, duplicates plus gold level a card up (max level 5), Headband, Shooting Sleeve and Wristband gear | Shoes; perks on balls; card art |
+| Hoop designs | Each court colors the backboard, rim, pole and net | Glass or fan-shaped backboards, chain net sound, LED strip, shot clock, towel, icicles, breakaway rim as a separate part |
+| Animations | Power meter pulse, ball dip while charging, camera push-in, ball trail, "+2" and confetti, SWISH / BANK / SO CLOSE / AIR BALL text, backboard flash, rim shake, net stretch, red timer in the last 10 seconds, slow-motion buzzer beater, squash on floor bounces, backspin | All sounds; swish zoom on the net; orbit camera on a buzzer beater; stats counting up on the game-over card; a ball rolling around the rim; the release rising from chest to head (there is no shooter model yet) |
+| Heating up | The three tiers at 2, 4 and 7 makes with their scoring, banner, orange trail, fire on the ball and net, screen glow, red-orange lights and glowing rim, smoke when the streak ends | Announcer lines, faster music, crowd chants |
+| Casino feel | Hype meter, streak hint ("1 more for ON FIRE"), scores that count up, bigger celebrations for bigger shots, "SO CLOSE!", Money Rack, tier colors on the screen, cards that flash through rarities before landing | Court lights pulsing with hype, slow motion on every on-target shot, a chime that rises with the streak (the hook exists, there is no sound), music layers |
+| Campaign | 7 stages, one boss race per court with its twist, stars, gold, chests, the tutorial | Rival personalities and habits, several matches per court, Archero-style runs, permanent upgrades bought with gold, daily challenge |
+| Sandbox | Everything listed in the Sandbox section | |
+| Multiplayer | Two players on one computer, split screen | Online play |
+| Power-ups | The 20 cards in the list below | Mythic cards (overtime cards are legendary until they are designed) |
+| Sound | Nothing. The game calls `window.playSound(name)` for every event, but no sounds exist yet | All audio |
+| Playable link | A private preview artifact | GitHub Pages (needs the repo setting turned on) |
 
 ## Graded requirements come first
 
@@ -18,15 +41,15 @@ The features below are what gets graded, so they are built first and must stay w
 
 | Requirement | How we meet it | Owner | Status |
 | --- | --- | --- | --- |
-| Own 3D geometry (Ch. 2–3) | Sphere ball, torus rim, cube backboard and pole, plane court, line net, all generated in code | Isaiah | Not started |
-| Transformations (Ch. 4) | Ball moves and spins each frame; one unit cube scaled into board and pole | Isaiah | Not started |
-| lookAt camera (Ch. 5) | Perspective + lookAt; shooter, ball-follow and orbit views (camera math written, needs the renderer) | Justin | In progress |
-| Interaction (Ch. 3) | Mouse aim, Space power, A/D spot, C camera, R restart, difficulty slider (on Amit's branch, not merged) | Amit | In progress |
-| Animation (Ch. 3) | Frame loop, ball flight, power meter, net sway, moving hoop | Justin, Isaiah | In progress |
-| Lighting (Ch. 6) | Phong shading: overhead spotlight + ambient; shiny rim, matte court | Isaiah | Not started |
-| Advanced: collisions and physics | Gravity, floor/board/rim bounces, basket detection (on justin-physics, not merged) | Justin | In progress |
-| Advanced: texture mapping | Ball leather, wood court, backboard square, with our own UVs | Isaiah | Not started |
-| Advanced: hierarchical modeling | Pole → board → rim → net with a matrix stack; only the root moves when the Moving Hoop power-up is on | Isaiah | Not started |
+| Own 3D geometry (Ch. 2–3) | Sphere ball, torus rim, cube backboard and pole, plane court, line net, all generated in code | Isaiah | Done |
+| Transformations (Ch. 4) | Ball moves and spins each frame; one unit cube scaled into board and pole | Isaiah | Done |
+| lookAt camera (Ch. 5) | Perspective + lookAt; shooter, ball-follow and orbit views | Justin | Done |
+| Interaction (Ch. 3) | Mouse crosshair aim, Space power, A/D spot, C camera, R restart, difficulty slider | Amit | Done |
+| Animation (Ch. 3) | Frame loop, ball flight, power meter, net sway, moving hoop | Justin, Isaiah | Done |
+| Lighting (Ch. 6) | Phong shading: overhead spotlights + ambient (lights set per court); shiny rim, matte court | Isaiah | Done |
+| Advanced: collisions and physics | Gravity, floor/board/rim bounces, basket detection | Justin | Done |
+| Advanced: texture mapping | Ball leather, wood court, backboard square, with our own UVs | Isaiah | Done |
+| Advanced: hierarchical modeling | Pole → arm → board → rim → net with a matrix stack; only the root moves when the Moving Hoop power-up is on | Isaiah | Done |
 
 **Keeping them done:** after every merge, run the physics tests and play one full game to check each row still works. A new feature that breaks a graded row gets fixed or pulled before anything else.
 
@@ -44,13 +67,13 @@ The features below are what gets graded, so they are built first and must stay w
 These are the decided rules for how a match plays.
 
 - **Live race:** you and your opponent shoot at the same time at your own hoops, and both scores show live. Campaign always has an AI opponent.
-- **Shoot as fast as you want:** a new ball is ready as soon as the last one leaves your hands, so several balls can be in the air at once. (The current code waits for each shot to finish, so this needs changing.)
-- **Home court:** a coin flip at the start decides home court. In campaign the player chooses; in multiplayer it's random between the two players. Idea: the home crowd cheers your makes and gets loud during your opponent's shots.
-- **Power-ups last the whole game.** In multiplayer they reset after every match; in campaign we'll test whether they carry from match to match.
-- **Moving hoop is a power-up**, not a difficulty setting. (The current code ties it to Hard, so this needs changing.)
-- **Game length:** 3–4 minutes, with a 1-minute overtime on a tie.
+- **Shoot as fast as you want:** a new ball is ready as soon as the last one leaves your hands, so several balls can be in the air at once.
+- **Home court:** in two-player a coin flip at the start decides home court, and the crowd cheers that player's makes. Against the AI the crowd always backs you. (Ideas not built: the player choosing in campaign, and the crowd getting loud during your opponent's shots.)
+- **Power-ups last the whole game** and reset after every match, in every mode. (Carrying them between campaign matches is not built.)
+- **Moving hoop is a power-up**, not a difficulty setting.
+- **Game length:** 2 minutes, with a 1-minute overtime when the scores are within 10 points at the end. After overtime whoever is ahead wins.
 
-**Multiplayer** starts as local only: two players on the same computer. Online play will be decided later. Multiplayer is the fast-paced mode, with better power-up odds than campaign.
+**Multiplayer** is local only: two players on the same computer, split screen. There is no online play. Multiplayer is the fast-paced mode, with better power-up odds than campaign.
 
 ## Courts and fan atmosphere
 
@@ -116,14 +139,14 @@ Balls and player gear are earned like cards in Clash Royale: you win chests, col
 3. Duplicate cards plus gold level a card up.
 4. Higher levels give bigger perks.
 
-**Gear ideas.** The headband is decided; the rest are ideas to pick from.
+**Gear.** Three gear cards are in the game. Balls only change the look.
 
-| Gear | What leveling it up does |
+| Gear | What leveling it up does in the game |
 | --- | --- |
-| Headband | Steadier aim: less wobble each level |
-| Shooting sleeve | Wider perfect-power zone on the meter |
-| Wristband | Heating Up survives one miss at max level |
-| Shoes | Faster switching between spots |
+| Headband | Steadier aim: 12% less wobble per level |
+| Shooting sleeve | Your rim counts 1.2% bigger per level, which widens the power that scores. (It does not draw a wider zone on the meter by itself.) |
+| Wristband | Once a game, a miss may keep your streak: 20% chance per level, so always at level 5 |
+| Shoes | Not built. Switching spots is already instant |
 
 ## Hoop designs
 
@@ -200,7 +223,7 @@ The goal is the constant energy of a casino floor: something is always moving, e
 
 ## Campaign (main mode)
 
-Campaign is the main game mode and multiplayer is a side mode. Every game runs 3–4 minutes, with a 1-minute overtime on a tie. The campaign gets its competition from AI rivals and Archero-style runs. Decided: every campaign match is a live race against an AI opponent. The rest are options to test.
+Campaign is the main game mode and multiplayer is a side mode. Every game runs 2 minutes, with a 1-minute overtime when the scores are within 10 points (the first stage is a 60-second practice race). The campaign gets its competition from AI rivals and Archero-style runs. Decided: every campaign match is a live race against an AI opponent. The rest are options to test.
 
 - **Every match is against an AI rival** who shoots at their own hoop, with their score shown live. Every match is a race, and the sabotage card has a real target in solo play.
 - **Rivals have personalities:** an accuracy level, a shooting speed, and a signature habit (always banks shots, sabotages often, gets hot late).
@@ -244,13 +267,13 @@ Sandbox mode is a free shootaround with no timer and no pressure, where you can 
 
 ## Power-up system
 
-A power-up pick comes every 30–45 seconds: the game pauses and you choose one of two cards, like the level-up picks in Archero. The left card buffs you and the right card hurts your opponent. Your first pick comes early, as soon as you make 2 shots, if that happens before the 30-second mark. A 3–4 minute game gives about 5–8 picks, plus more in overtime.
+A power-up pick comes every 20–30 seconds: the game pauses and you choose one of two cards, like the level-up picks in Archero. The left card buffs you and the right card hurts your opponent. Your first pick comes early, as soon as you make 2 shots, if that happens before the 20-second mark. A 2-minute game gives about 4–5 picks, plus one or two in overtime.
 
 **How a pick works:**
 
-1. Every 30–45 seconds (or at your 2nd make, for the first pick) the clock freezes and two cards spin up, slot-machine style, before landing on their rarity.
+1. Every 20–30 seconds (or at your 2nd make, for the first pick) the clock freezes and two cards spin up, slot-machine style, before landing on their rarity.
 2. The left card is a **buff** for you; the right card is a **sabotage** for your opponent.
-3. You have 8 seconds to choose, or one is picked at random.
+3. You have 5 seconds to choose. If you do not, you get no card, but your next pick's odds move one step toward rarer cards.
 4. Picking a power-up you already have levels it up (stronger or longer), like Archero.
 5. The clock restarts.
 
@@ -262,16 +285,16 @@ A power-up pick comes every 30–45 seconds: the game pauses and you choose one 
 | Rare | Blue | Clearly helps |
 | Epic | Purple | Changes how you play for a while |
 | Legendary | Gold | Game-swinging, with a big flashy reveal |
-| Mythic | Red with a rainbow shimmer | Game-deciding; only late in the game |
+| Mythic | Red with a rainbow shimmer | Game-deciding; overtime only. None are designed yet |
 
-**Odds get better every pick.** Each pick shifts the chances toward rarer cards. Mythics only appear in the last 2 minutes, at 5% or less. In overtime both cards are mythic, for both players. This first table is for multiplayer, the fast-paced mode. Campaign uses lower odds (second table). Stacking rules are the same in both. All numbers are a starting point to tune in testing:
+**Odds get better every pick.** Each pick shifts the chances toward rarer cards, and a skipped pick moves your next one a step further. Mythics only appear in overtime, where both cards are mythic for both players; none are designed yet, so overtime cards are legendary for now. This first table is for multiplayer, the fast-paced mode. Campaign uses lower odds (second table). All numbers are a starting point to tune in testing:
 
 | When | Common | Rare | Epic | Legendary | Mythic |
 | --- | --- | --- | --- | --- | --- |
 | Pick 1 | 70% | 22% | 7% | 1% | 0% |
 | Pick 2–3 | 58% | 27% | 12% | 3% | 0% |
 | Pick 4 or later | 48% | 30% | 16% | 6% | 0% |
-| Last 2 minutes | 42% | 30% | 17% | 6% | 5% |
+| Best step (pick 4 or later after a skip) | 42% | 30% | 17% | 11% | 0% |
 | Overtime | — | — | — | — | 100% (both cards) |
 
 **Campaign odds (lower):**
@@ -281,7 +304,7 @@ A power-up pick comes every 30–45 seconds: the game pauses and you choose one 
 | Pick 1 | 80% | 16% | 4% | 0% | 0% |
 | Pick 2–3 | 70% | 21% | 8% | 1% | 0% |
 | Pick 4 or later | 62% | 24% | 11% | 3% | 0% |
-| Last 2 minutes | 58% | 25% | 12% | 3% | 2% |
+| Best step (pick 4 or later after a skip) | 58% | 25% | 12% | 5% | 0% |
 | Overtime | — | — | — | — | 100% (both cards) |
 
 **Durations:** each power-up is one of three kinds:
@@ -292,20 +315,20 @@ A power-up pick comes every 30–45 seconds: the game pauses and you choose one 
 
 ## Power-up list
 
-These are 20 starting ideas for us to build on, not a final list. Mark each one Keep / Maybe / Cut in the live doc, then add your own and we'll balance them together.
+These 20 cards are all in the game. They are starting ideas to build on, not a final list. Mark each one Keep / Maybe / Cut in the live doc, then add your own and we'll balance them together.
 
 | Name | Side | Rarity | Effect |
 | --- | --- | --- | --- |
 | Steady Hands | Buff | Common | Your power meter charges 20% slower for the rest of the game |
-| Sweet Spot | Buff | Common | The perfect-power zone shows on your meter for 3 shots |
-| Guide Line | Buff | Common | The aim arc shows for your next 3 shots |
+| Sweet Spot | Buff | Common | The green and grey power zones show on your meter for 3 shots |
+| Guide Line | Buff | Common | A golden dot shows where to aim for your next 3 shots |
 | Glass Cleaner | Buff | Common | Bank shots are worth +1 for the rest of the game |
 | Golden Ball | Buff | Rare | Your next make is worth double |
 | Hot Hand | Buff | Rare | Your streak jumps to 3 (instant Heating Up) |
 | Second Chance | Buff | Rare | Your next miss doesn't break your streak |
 | Wide Rim | Buff | Epic | Your rim is 20% wider for 15 seconds |
 | Double Ball | Buff | Epic | Your next shot throws 2 balls at once |
-| Time Freeze | Buff | Legendary | Your clock stops for 10 seconds while you keep shooting |
+| Time Freeze | Buff | Legendary | The clock and your opponent stop for 10 seconds while you keep shooting |
 | Moneyball | Buff | Legendary | Every make is worth 3 for 20 seconds |
 | Fast Meter | Sabotage | Common | Opponent's meter charges 30% faster for 3 shots |
 | Shaky Hands | Sabotage | Common | Opponent's aim wobbles for 3 shots |
@@ -321,12 +344,12 @@ These are 20 starting ideas for us to build on, not a final list. Mark each one 
 
 The class deadline is 12/10, so the biggest call is what goes into the graded version and what waits until after. A realistic graded version is 2 courts, the heating-up tiers and the core animations; power-ups and 1v1 make a strong stretch goal.
 
-- [ ] Which 2 courts make the graded version?
-- [ ] Exactly 3 or 4 minutes per game? And does the switch from 60 seconds happen before or after the class deadline?
-- [ ] What does home court give, beyond the crowd being on your side?
-- [ ] Campaign: does the player always pick the court, or does a coin flip still decide?
-- [ ] Campaign: do power-ups carry from match to match? (We'll test it.)
-- [ ] Do balls give small perks as they level up, or only change the look?
-- [ ] Which gear besides the headband can be upgraded?
-- [ ] Do the heating-up tiers replace the current +1 bonus at 3 in a row?
+- [x] Which 2 courts make the graded version? All 7 are in.
+- [x] Exactly 3 or 4 minutes per game? 2 minutes (decided Nov 12), with overtime when within 10 points.
+- [ ] What does home court give, beyond the crowd being on your side? Nothing yet. The fan meter in next-steps.md is the plan.
+- [ ] Campaign: does the player always pick the court, or does a coin flip still decide? Today each stage has a fixed court.
+- [ ] Campaign: do power-ups carry from match to match? Today they do not.
+- [x] Do balls give small perks as they level up, or only change the look? Only the look.
+- [x] Which gear besides the headband can be upgraded? Shooting Sleeve and Wristband. Shoes are not built.
+- [x] Do the heating-up tiers replace the current +1 bonus at 3 in a row? Yes.
 - [ ] Design the mythic power-ups together.
