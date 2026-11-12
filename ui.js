@@ -222,7 +222,7 @@ function hidePick() {
     pick2Choose = null;
 }
 
-// fraction goes from 1 (8 seconds left) down to 0
+// fraction goes from 1 (5 seconds left) down to 0
 function updatePickTimer(fraction) {
     document.getElementById('pick-timer-fill').style.width = (fraction * 100) + '%';
     document.getElementById('pick2-timer-fill').style.width = (fraction * 100) + '%';

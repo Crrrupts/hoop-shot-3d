@@ -1,7 +1,7 @@
 # Hoop Shot 3D
 
 A 3D basketball shooting game built in WebGL for CMPSC 457.
-Aim with the mouse, hold Space to charge, release to shoot. Race an AI rival who shoots at their own hoop: most points in 3 minutes wins.
+Aim with the mouse, hold Space to charge, release to shoot. Race an AI rival who shoots at their own hoop: most points in 2 minutes wins.
 
 ## Team
 The code in this repo is AI-generated (Claude), directed and reviewed by Justin Leddo, with the team's permission to update everyone's files. Every AI session is recorded in [GA1_AI_Use_Log.md](GA1_AI_Use_Log.md).
@@ -41,8 +41,8 @@ Mouse: move the crosshair (on the rim = perfect aim; it jumps to a new place aft
 - **Shoot as fast as you want.** A new ball is ready as soon as the last one leaves your hands, so several balls can be in the air.
 - **Scoring.** 2 points, 3 from the corner spots.
 - **Streak tiers.** 2 makes in a row = Heating Up (+1 per basket), 4 = On Fire (+2), 7 = Inferno (points x2, then +2). One miss drops you to zero.
-- **Power-up picks.** Every 30–45 seconds (the first one comes early, at your 2nd make) the game pauses and you pick one of two cards: a buff for you or a sabotage for the rival. You have 8 seconds. Picking a card you already have levels it up. The 20 cards and the rarity odds are in `powerups.js`.
-- **Clock.** 3 minutes. Shots in the air at the buzzer still count. A tie goes to a 1-minute overtime that starts with a pick.
+- **Power-up picks.** Every 20–30 seconds (the first one comes early, at your 2nd make, if that is in the first 20 seconds) the game pauses and you pick one of two cards: a buff for you or a sabotage for the rival. You have 5 seconds. If you do not pick, you get no card, but your next pick's odds move one step toward rarer cards. Picking a card you already have levels it up. Mythic cards only appear in overtime; none are designed yet, so overtime cards are legendary for now. The 20 cards and the rarity odds are in `powerups.js`.
+- **Clock.** 2 minutes. Shots in the air at the buzzer still count. If the scores are within 10 points when the clock ends, there is a 1-minute overtime that starts with a pick. After overtime, whoever is ahead wins (level scores are a tie).
 - **Difficulty slider.** Easy / Medium / Hard changes the meter speed, your aim wobble and the rival (how often it scores, how fast it shoots, which cards it can pick). Easy also shows the golden aim dot and the meter zones.
 - **Power meter.** The green zone is the power that scores with perfect aim from your spot; it does not move when you aim. The grey zone on each side is a buffer: a little early or late is saved 15–35% of the time. The buffer is wider on Easy (9) than Medium (6) or Hard (3). The zones are visible on Easy or with the Sweet Spot card, but the buffer always works.
 - **Aiming.** The golden dot (Easy, or the Guide Line card) marks where to put the crosshair. In wind it sits to one side of the rim.
@@ -71,18 +71,20 @@ The wind when you release is the wind that ball gets. The HUD shows it for the s
 - Heating Up gives the ball an orange trail, On Fire covers it in fire and burns the net, Inferno turns the lights red-orange and makes the rim glow. Losing the streak puffs out smoke.
 - The last 10 seconds turn the timer red. A shot still in the air after the buzzer drops in slow motion.
 
-## Where each graded requirement lives
-| Requirement | Where to look |
-|---|---|
-| Own 3D geometry | `geometry.js`: sphere (ball), torus (rim), unit cube (board, pole, arm, arena, bleachers, crowd cards), plane (court), disc, line net |
-| Transformations | `renderer.js`: `drawBall` (translate, rotate, scale), `drawBox` (one unit cube scaled into every box) |
-| lookAt camera | `camera.js` picks eye/at/up for the 3 views; `renderer.js` calls `lookAt` and `perspective` |
-| Interaction | `input.js`: mouse aim, Space power, A/D, C, R, difficulty slider |
-| Animation | `main.js` frame loop; ball flight, net sway and stretch, rim shake, backboard wobble, moving hoop (the Moving Hoop power-up; open `index.html?test=moving` to see it right away) |
-| Lighting | Phong shading in the fragment shader in `index.html`: ambient + up to 3 lights (overhead spotlights, sun or moon, lamp posts, set per court in `courts.js`); shiny rim, matte court |
-| Advanced: collisions and physics | `physics.js` (several balls and two hoops), tested by `tests/physics.test.js` |
-| Advanced: texture mapping | `textures.js` paints the ball, court floors, backboards, walls, skies and crowd images; UVs come from `geometry.js` |
-| Advanced: hierarchical modeling | `renderer.js` `drawHoop`: pole → arm → backboard → rim → net on a matrix stack; only the root moves for the Moving Hoop power-up |
+## Graded requirements checklist
+The 9 graded requirements, where each one is in the code, and how to see it in the game. Recheck this list after every change. Last checked on 2026-11-12 (all 9 seen working in the browser).
+
+| # | Requirement | Where it is in the code | How to see it in the game |
+|---|---|---|---|
+| 1 | Own 3D geometry | `geometry.js` builds every shape from numbers: `sphere` (ball), `torus` (rim), `cube` (backboard, pole, arm, walls, bleachers, crowd cards), `plane` (court), `disc` (shadows, spot markers), `netLines` (net). No model files | Start any match. Everything on screen is one of these shapes |
+| 2 | Transformations | `renderer.js`: `drawBall` translates, rotates (spin) and scales the unit sphere; `drawBox` scales one unit cube into the backboard, pole, arm and bleachers | Shoot: the ball moves and spins. The backboard and the pole are the same cube at different sizes |
+| 3 | lookAt camera, 3 views | `camera.js` works out eye / at / up for the Shooter, Ball Follow and Orbit views; `renderer.js` `drawView` calls `lookAt` and `perspective` | Press C during a match to switch between the 3 views. In Orbit, drag the mouse |
+| 4 | Interaction | `input.js`: mouse (crosshair), Space (power), A / D (spot), C (camera), R (restart), the difficulty slider | Use each control in a Quick Match |
+| 5 | Animation | `main.js` frame loop (`requestAnimationFrame`); `physics.js` ball flight; `renderer.js` springs for the net, rim and backboard; `game.js` `updateHoop` slides the hoop | Shoot and watch the ball fly, the net stretch on a make, and the rim and board shake on a hit. For the moving hoop open `index.html?test=moving`, or tick Moving Hoop in the Sandbox |
+| 6 | Lighting (Phong) | The fragment shader in `index.html`: ambient + diffuse + specular for up to 3 lights, with spotlight cones. Lights are set per court in `courts.js`; materials in `renderer.js` | Home Gym: the spotlight pool on the floor and the bright highlight on the rim. The Blackout card (Sandbox) leaves one spotlight on the hoop |
+| 7 | Advanced: collisions and physics | `physics.js`: gravity with a fixed 240 Hz step, sphere against floor, backboard and pole (boxes) and rim (torus), basket detection. Checked by `tests/physics.test.js` | Miss on purpose: the ball bounces off the rim, the board and the floor. A make only counts when the ball drops through the rim |
+| 8 | Advanced: texture mapping | `textures.js` paints the images (ball, court floors, backboards, walls, skies, crowd); the texture coordinates come from `geometry.js`; `renderer.js` `makeTexture` uploads them | The ball's seams, the court lines and the backboard square. Change court on the menu to see different floors and skies |
+| 9 | Advanced: hierarchical modeling | `renderer.js` `drawHoop`: pole → arm → backboard → rim → net, drawn with a matrix stack (`pushMatrix` / `popMatrix`) | A hard shot off the backboard wobbles the board, and the rim and net move with it. With Moving Hoop (`index.html?test=moving`) only the root moves and every part follows |
 
 ## Code layout
 | File | Role area | What it does |

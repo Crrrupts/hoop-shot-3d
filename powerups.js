@@ -63,33 +63,38 @@ const PowerUps = (function () {
     ];
 
     // ---------- Rarity odds (percent): common, rare, epic, legendary, mythic ----------
-    // The row depends on which pick this is. Campaign odds are lower;
-    // multiplayer is the fast-paced mode with better odds.
+    // The odds get better with every pick: each mode has 4 steps, used in order.
+    // Campaign odds are lower; multiplayer is the fast-paced mode with better odds.
+    // Mythic cards only appear in overtime.
     const ODDS = {
         campaign: {
-            pick1:    [80, 16, 4, 0, 0],
-            pick2to3: [70, 21, 8, 1, 0],
-            pick4up:  [62, 24, 11, 3, 0],
-            last2min: [58, 25, 12, 3, 2],
+            steps: [
+                [80, 16, 4, 0, 0],      // pick 1
+                [70, 21, 8, 1, 0],      // picks 2-3
+                [62, 24, 11, 3, 0],     // pick 4 or later
+                [58, 25, 12, 5, 0]      // the best step: only reached with a skip bonus
+            ],
             overtime: [0, 0, 0, 0, 100]
         },
         multiplayer: {
-            pick1:    [70, 22, 7, 1, 0],
-            pick2to3: [58, 27, 12, 3, 0],
-            pick4up:  [48, 30, 16, 6, 0],
-            last2min: [42, 30, 17, 6, 5],
+            steps: [
+                [70, 22, 7, 1, 0],
+                [58, 27, 12, 3, 0],
+                [48, 30, 16, 6, 0],
+                [42, 30, 17, 11, 0]
+            ],
             overtime: [0, 0, 0, 0, 100]
         }
     };
 
     // Which odds row applies. pickNumber starts at 1.
-    function oddsRow(mode, pickNumber, timeLeft, overtime) {
+    // boost: how many picks in a row this player skipped (let the timer run
+    // out). Each skip moves their next pick one step toward rarer cards.
+    function oddsRow(mode, pickNumber, overtime, boost) {
         const table = ODDS[mode] || ODDS.campaign;
         if (overtime) return table.overtime;
-        if (timeLeft <= 120) return table.last2min;
-        if (pickNumber <= 1) return table.pick1;
-        if (pickNumber <= 3) return table.pick2to3;
-        return table.pick4up;
+        const step = (pickNumber <= 1 ? 0 : pickNumber <= 3 ? 1 : 2) + (boost || 0);
+        return table.steps[Math.min(step, table.steps.length - 1)];
     }
 
     // Roll a rarity from an odds row. rand is a number from 0 to 1.

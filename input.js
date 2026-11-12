@@ -28,7 +28,7 @@ const DIFFICULTY_SETTINGS = {
 };
 let difficulty = 2;
 
-const GAME_SECONDS = 180;
+const GAME_SECONDS = 120;
 const gameCanvas = document.getElementById('game-canvas');
 const diffSlider = document.getElementById('difficulty-slider');
 

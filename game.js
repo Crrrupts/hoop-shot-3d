@@ -16,12 +16,13 @@ const Game = (function () {
 
     // ---------- Settings (starting values, easy to change) ----------
     const SETTINGS = {
-        gameLength: 180,            // seconds (3 minutes)
-        overtimeLength: 60,         // one extra minute if the score is tied
-        pickGapMin: 30,             // a power-up pick comes every 30-45 seconds...
-        pickGapMax: 45,
+        gameLength: 120,            // seconds (2 minutes)
+        overtimeLength: 60,         // one extra minute...
+        overtimeMargin: 10,         // ...when the scores are within this many points at the end
+        pickGapMin: 20,             // a power-up pick comes every 20-30 seconds...
+        pickGapMax: 30,
         earlyPickMakes: 2,          // ...but the first one comes early, at your 2nd make
-        pickChooseTime: 8,          // seconds to choose before a card is picked for you
+        pickChooseTime: 5,          // seconds to choose; after that you get no card (but better odds next time)
         oddsMode: 'campaign',       // which rarity odds table to use (see powerups.js)
         courtGap: 15,               // the rival's hoop stands this far to the right (meters)
         shotCooldown: 0.15,         // shortest time between two of your shots
@@ -484,9 +485,10 @@ const Game = (function () {
     // ---------- Power-up picks ----------
     function startPick() {
         state.pickNumber++;
-        // two-player is the fast-paced mode: it uses the better multiplayer odds
-        const row = PU.oddsRow(state.twoPlayer ? 'multiplayer' : SETTINGS.oddsMode,
-            state.pickNumber, state.timeLeft, state.overtime);
+        // two-player is the fast-paced mode: it uses the better multiplayer odds.
+        // A player who skipped their last pick gets better odds this time.
+        const mode = state.twoPlayer ? 'multiplayer' : SETTINGS.oddsMode;
+        const row = PU.oddsRow(mode, state.pickNumber, state.overtime, player.pickBoost);
         state.pick = {
             buff: PU.rollCard('buff', row),
             sabotage: PU.rollCard('sabotage', row),
@@ -495,7 +497,8 @@ const Game = (function () {
         };
         if (state.twoPlayer) {
             // Player 2 gets their own two cards; the game waits for both players
-            state.pick.p2 = { buff: PU.rollCard('buff', row), sabotage: PU.rollCard('sabotage', row) };
+            const row2 = PU.oddsRow(mode, state.pickNumber, state.overtime, rival.pickBoost);
+            state.pick.p2 = { buff: PU.rollCard('buff', row2), sabotage: PU.rollCard('sabotage', row2) };
             state.pick.chosen = { player: null, rival: null };
         }
         state.mode = 'picking';         // the game pauses until a card is chosen
@@ -506,7 +509,8 @@ const Game = (function () {
         hud(state.twoPlayer ? 'showPick2' : 'showPick', state.pick, choosePick);
     }
 
-    // side is 'buff' (left card) or 'sabotage' (right card).
+    // side is 'buff' (left card), 'sabotage' (right card) or 'skip' (the
+    // timer ran out: no card, but better odds at your next pick).
     // who is the shooter choosing (two-player); it defaults to you.
     function choosePick(side, who) {
         if (state.mode !== 'picking') return;
@@ -517,10 +521,10 @@ const Game = (function () {
             state.pick.chosen[key] = side;
             hud('markPick2', key, side);
             if (!state.pick.chosen.player || !state.pick.chosen.rival) return;     // wait for the other player
-            applyCard(state.pick[state.pick.chosen.player], player);
-            applyCard(state.pick.p2[state.pick.chosen.rival], rival);
+            takeCard(player, state.pick, state.pick.chosen.player);
+            takeCard(rival, state.pick.p2, state.pick.chosen.rival);
         } else {
-            applyCard(state.pick[side], player);
+            takeCard(player, state.pick, side);
             if (side === 'sabotage') player.sabotagesUsed++;    // campaign: a star for winning without sabotage
             // the rival picks a card at the same time
             if (rival.ai && rival.ai.maxRarity) {
@@ -535,6 +539,17 @@ const Game = (function () {
         state.mode = 'playing';
         state.nextPickAt = state.elapsed + randomBetween(SETTINGS.pickGapMin, SETTINGS.pickGapMax);
         hud('hidePick');
+    }
+
+    // Give a shooter the card they chose, or the skip bonus if they chose nothing
+    function takeCard(shooter, cards, side) {
+        if (side === 'skip') {
+            shooter.pickBoost++;                // next pick: odds one step toward rarer cards
+            if (shooter === player && !state.twoPlayer) hud('showToast', 'No pick: better odds next time', 'buff');
+        } else {
+            shooter.pickBoost = 0;
+            applyCard(cards[side], shooter);
+        }
     }
 
     // Give a card to whoever picked it. Buffs land on the user, sabotages on
@@ -614,6 +629,8 @@ const Game = (function () {
         state.twist = options.twist || null;
         if (options.court && options.court !== state.court.id) setCourt(options.court);
         player.sabotagesUsed = 0;
+        player.pickBoost = 0;           // skipped picks in a row (better odds next time)
+        rival.pickBoost = 0;
         player.freeMissUsed = false;
         for (const s of [player, rival]) {
             s.spotStats = SPOTS.map(() => ({ made: 0, attempts: 0 }));
@@ -702,8 +719,9 @@ const Game = (function () {
 
     // The clock reached 0 and every ball has landed
     function endOfClock() {
-        if (player.score === rival.score && !state.overtime) {
-            // tie: one minute of overtime, starting with a power-up pick
+        const close = Math.abs(player.score - rival.score) <= SETTINGS.overtimeMargin;
+        if (close && !state.overtime) {
+            // a close game (within 10 points): one minute of overtime, starting with a power-up pick
             state.overtime = true;
             state.buzzer = false;
             state.timeLeft = SETTINGS.overtimeLength;
@@ -737,10 +755,9 @@ const Game = (function () {
             state.pick.timeLeft -= dt;
             hud('updatePickTimer', Math.max(0, state.pick.timeLeft / SETTINGS.pickChooseTime));
             if (state.pick.timeLeft <= 0) {
-                // time is up: pick at random for anyone who has not chosen
-                const randomSide = () => (Math.random() < 0.5 ? 'buff' : 'sabotage');
-                choosePick(randomSide(), player);
-                if (state.twoPlayer) choosePick(randomSide(), rival);
+                // time is up: anyone who has not chosen skips this pick
+                choosePick('skip', player);
+                if (state.twoPlayer) choosePick('skip', rival);
             }
             return;
         }

@@ -100,23 +100,32 @@ check('all three rapid-fire shots count', player.made === 3 && player.balls.leng
 
 // ---------- Power-up odds ----------
 let sums = true;
-for (const mode in PowerUps.ODDS) for (const row in PowerUps.ODDS[mode]) {
-    if (PowerUps.ODDS[mode][row].reduce((x, y) => x + y) !== 100) sums = false;
+let noMythic = true;
+for (const mode in PowerUps.ODDS) {
+    for (const row of PowerUps.ODDS[mode].steps.concat([PowerUps.ODDS[mode].overtime])) {
+        if (row.reduce((x, y) => x + y) !== 100) sums = false;
+    }
+    for (const row of PowerUps.ODDS[mode].steps) if (row[4] !== 0) noMythic = false;
 }
 check('every odds row adds up to 100%', sums);
-check('no mythic chance before the last 2 minutes',
-    PowerUps.oddsRow('campaign', 1, 170, false)[4] === 0 && PowerUps.oddsRow('campaign', 5, 121, false)[4] === 0);
-check('mythic chance in the last 2 minutes is 5% or less',
-    PowerUps.oddsRow('campaign', 5, 100, false)[4] <= 5 && PowerUps.oddsRow('multiplayer', 5, 100, false)[4] <= 5);
-check('overtime cards are always mythic', PowerUps.oddsRow('campaign', 9, 60, true)[4] === 100);
+check('mythic cards only appear in overtime', noMythic &&
+    PowerUps.oddsRow('campaign', 9, false, 5)[4] === 0 && PowerUps.oddsRow('multiplayer', 9, false, 5)[4] === 0);
+check('overtime cards are always mythic', PowerUps.oddsRow('campaign', 9, true, 0)[4] === 100);
+const steps = PowerUps.ODDS.campaign.steps;
+check('odds improve with the pick number: pick 1, picks 2-3, pick 4 or later',
+    PowerUps.oddsRow('campaign', 1, false, 0) === steps[0] && PowerUps.oddsRow('campaign', 3, false, 0) === steps[1] &&
+    PowerUps.oddsRow('campaign', 4, false, 0) === steps[2] && steps[0][0] > steps[1][0] && steps[1][0] > steps[2][0] && steps[2][0] > steps[3][0]);
+check('a skipped pick moves the next pick one step toward rarer cards',
+    PowerUps.oddsRow('campaign', 1, false, 1) === steps[1] && PowerUps.oddsRow('campaign', 4, false, 1) === steps[3] &&
+    PowerUps.oddsRow('campaign', 4, false, 3) === steps[3]);
 const tally = { common: 0, rare: 0, epic: 0, legendary: 0, mythic: 0 };
-for (let i = 0; i < 20000; i++) tally[PowerUps.rollRarity(PowerUps.ODDS.campaign.pick1, Math.random())]++;
+for (let i = 0; i < 20000; i++) tally[PowerUps.rollRarity(PowerUps.ODDS.campaign.steps[0], Math.random())]++;
 check('rolled rarities match the table (pick 1: 80/16/4/0/0)',
     Math.abs(tally.common / 200 - 80) < 2 && Math.abs(tally.rare / 200 - 16) < 2 && tally.legendary === 0 && tally.mythic === 0,
     `common ${tally.common / 200}%, rare ${tally.rare / 200}%, epic ${tally.epic / 200}%`);
 let sidesOk = true;
 for (let i = 0; i < 500; i++) {
-    const row = PowerUps.ODDS.multiplayer.last2min;
+    const row = PowerUps.ODDS.multiplayer.steps[3];
     const buff = PowerUps.rollCard('buff', row), sab = PowerUps.rollCard('sabotage', row);
     if (!buff || !sab || buff.side !== 'buff' || sab.side !== 'sabotage') sidesOk = false;
     if (PowerUps.rollCard('buff', row, 'rare').rarity === 'epic') sidesOk = false;
@@ -212,19 +221,34 @@ run(0.1);
 check('first pick comes early at the 2nd make', state.mode === 'picking' && state.pickNumber === 1,
     'mode ' + state.mode + ' at ' + state.elapsed.toFixed(1) + ' s');
 const clock = state.timeLeft;
-run(3);
+run(1);
 check('the clock is frozen during a pick', state.timeLeft === clock);
 check('a pick shows one buff and one sabotage', state.pick.buff.side === 'buff' && state.pick.sabotage.side === 'sabotage');
-let waited = 3;
+let waited = 1;
 while (state.mode === 'picking' && waited < 20) { Game.update(1 / 60); waited += 1 / 60; }
-check('after 8 seconds a card is picked for you', state.mode === 'playing' && state.pick === null && waited < 8.1,
-    'picked after at most ' + waited.toFixed(1) + ' s');
+check('the pick ends after 5 seconds at most', state.mode === 'playing' && state.pick === null && waited < 5.1,
+    'ended after at most ' + waited.toFixed(1) + ' s');
+check('skipping a pick gives no card, but a bonus for the next pick',
+    Object.keys(player.effects).length === 0 && player.streak === 2 && player.pickBoost === 1);
 const gap = state.nextPickAt - state.elapsed;
-check('next pick is 30-45 seconds later', gap >= 29.9 && gap <= 45, gap.toFixed(1) + ' s');
+check('next pick is 20-30 seconds later', gap >= 19.9 && gap <= 30, gap.toFixed(1) + ' s');
+Game.forcePick();
+check('the pick after a skip uses the next odds step', state.pick.row === PowerUps.ODDS.campaign.steps[2],
+    'pick 2 with a skip bonus -> step for pick 4 or later');
+Game.choosePick('buff');
+check('choosing a card uses up the skip bonus', player.pickBoost === 0);
 
+Game.start({ rival: noCards });
+check('a game is 2 minutes', state.timeLeft === 120 && Game.SETTINGS.gameLength === 120);
+run(19);
+check('without 2 makes there is no pick in the first 20 seconds', state.pickNumber === 0);
+run(12);
+check('...and the first pick comes at 20-30 seconds', state.pickNumber === 1);
 Game.start({ rival: noCards, length: 180 });
-run(46);
-check('without 2 makes the first pick comes at 30-45 seconds', state.pickNumber === 1);
+state.elapsed = 21;                 // pretend 21 seconds have gone by with no makes
+state.nextPickAt = Infinity;
+playerShot(true); playerShot(true);
+check('the early pick only happens before 20 seconds', state.pickNumber === 0);
 
 // ---------- The AI rival ----------
 Game.start({ rival: { name: 'Bot', accuracy: 0.5, pace: 0.5, maxRarity: null }, length: 100000 });
@@ -252,12 +276,13 @@ check('Tiny Rim really lowers the rival\'s accuracy', tinyMakes < normalMakes * 
 // ---------- Clock, overtime and game over ----------
 Game.start({ rival: noCards, length: 5 });
 state.nextPickAt = Infinity; state.pickNumber = 99;
+player.score = 15;      // far enough ahead that the game does not go to overtime
 run(4.5);
 Game.throwBall(player, goodPower(player), 0, 0, 0);     // released before the buzzer
 run(1);
 check('no new shots after the buzzer', state.buzzer && state.mode === 'playing');
 run(3);
-check('a shot in the air at the buzzer still counts', player.score === 2 && state.mode === 'gameover' && state.result === 'win',
+check('a shot in the air at the buzzer still counts', player.score === 17 && state.mode === 'gameover' && state.result === 'win',
     `score ${player.score}, mode ${state.mode}, result ${state.result}`);
 
 Game.start({ rival: noCards, length: 3 });
@@ -265,6 +290,25 @@ state.nextPickAt = Infinity; state.pickNumber = 99;
 run(4);
 check('a tie goes to a 1-minute overtime that starts with a pick',
     state.overtime && state.mode === 'picking' && state.timeLeft === 60);
+// overtime also happens when the scores are within 10 points
+function endWithScores(you, them) {
+    Game.start({ rival: noCards, length: 2 });
+    state.nextPickAt = Infinity; state.pickNumber = 99;
+    player.score = you; rival.score = them;
+    run(3);
+    return state;
+}
+check('10 points apart at the end: overtime', endWithScores(30, 20).overtime && state.mode === 'picking');
+check('behind by 10 at the end: overtime too', endWithScores(12, 22).overtime);
+check('11 points apart at the end: game over, no overtime', !endWithScores(31, 20).overtime && state.mode === 'gameover' && state.result === 'win');
+endWithScores(25, 20);
+Game.choosePick('skip');
+state.nextPickAt = Infinity;
+run(62);
+check('after overtime whoever is ahead wins, even by less than 10', state.mode === 'gameover' && state.result === 'win' && state.overtime);
+Game.start({ rival: noCards, length: 3 });
+state.nextPickAt = Infinity; state.pickNumber = 99;
+run(4);
 check('overtime cards are the rarest that exist (legendary until mythics are designed)',
     state.pick.buff.rarity === 'legendary' && state.pick.sabotage.rarity === 'legendary');
 Game.choosePick('buff');
@@ -365,7 +409,7 @@ Game.setCourt('home');
 // ---------- Two players on one computer ----------
 Game.start({ twoPlayer: true, court: 'home', length: 180 });
 state.moneyRackAt = 0;
-run(20);
+run(10);
 check('two-player: the second hoop has no AI (nobody shoots for Player 2)', rival.attempts === 0 && rival.ai === null);
 check('two-player: home court goes to one of the two players', state.home === player || state.home === rival);
 Game.shoot2(goodPower(rival), 0, 0);
@@ -385,11 +429,17 @@ let multiOdds = true;
 for (let i = 0; i < 4; i++) {
     Game.start({ twoPlayer: true, court: 'home', length: 180 });
     Game.forcePick();
-    if (state.pick.row !== PowerUps.ODDS.multiplayer.pick1) multiOdds = false;
-    run(9);         // nobody picks: after 8 seconds cards are chosen for both
-    if (state.mode !== 'playing') multiOdds = false;
+    if (state.pick.row !== PowerUps.ODDS.multiplayer.steps[0]) multiOdds = false;
+    run(6);         // nobody picks: after 5 seconds both players skip
+    if (state.mode !== 'playing' || player.pickBoost !== 1 || rival.pickBoost !== 1) multiOdds = false;
+    if (Object.keys(player.effects).length || Object.keys(rival.effects).length) multiOdds = false;
 }
-check('two-player uses the multiplayer odds, and the timer picks for both players', multiOdds);
+check('two-player uses the multiplayer odds; when the timer runs out both players skip and get the bonus', multiOdds);
+Game.start({ twoPlayer: true, court: 'home', length: 180 });
+Game.forcePick();
+Game.choosePick('buff', player);
+run(6);
+check('two-player: one player can pick while the other skips', state.mode === 'playing' && player.pickBoost === 0 && rival.pickBoost === 1);
 Game.start({ rival: noCards, court: 'home', length: 60 });
 check('a normal match after two-player has an AI rival again', !state.twoPlayer && rival.ai !== null && player.name === 'You');
 Game.shoot2(50, 0, 0);
