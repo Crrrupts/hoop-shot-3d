@@ -54,8 +54,7 @@
     function resetCrosshair(shooter, index) {
         const r = viewRect(index), target = aimTarget(shooter, index);
         for (let tries = 0; tries < 20; tries++) {
-            crosshairs[index].x = r.x + r.width * (0.25 + Math.random() * 0.5);
-            crosshairs[index].y = r.y + r.height * (0.22 + Math.random() * 0.45);
+            moveCrosshair(index, r.x + r.width * (0.25 + Math.random() * 0.5), r.y + r.height * (0.22 + Math.random() * 0.45));
             if (Math.hypot(crosshairs[index].x - target.x, crosshairs[index].y - target.y) > 90) break;
         }
     }
@@ -64,7 +63,9 @@
         if (name === 'shoot' && data.shooter === Game.rival && Game.state.twoPlayer) resetCrosshair(Game.rival, 1);
         if (name === 'start') {
             // start each match with the crosshairs in the middle of each view
-            for (const i of [0, 1]) { const r = viewRect(i); crosshairs[i].x = r.x + r.width / 2; crosshairs[i].y = r.height * 0.6; }
+            for (const i of [0, 1]) { const r = viewRect(i); moveCrosshair(i, r.x + r.width / 2, r.height * 0.6); }
+            // keep the mouse inside the game while you play (not in the sandbox: its panel needs the mouse)
+            if (Game.state.options.mode !== 'sandbox') lockPointer();
         }
     });
 

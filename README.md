@@ -19,7 +19,7 @@ Plain WebGL with our own GLSL shaders and MV.js (no 3D engine).
 Open index.html with a local web server (e.g. VS Code Live Server).
 
 ## Controls
-Mouse: move the crosshair (on the rim = perfect aim; it jumps to a new place after every shot) | hold Space: charge power, release to shoot | A/D: change spot | C: change camera | R: restart | slider: difficulty. The Orbit camera swings in front of the hoop from corner to corner (never behind it); drag the mouse to turn it. On a power-up pick: click a card, or Left arrow / 1 for the left card and Right arrow / 2 for the right card.
+Mouse: move the crosshair (on the rim = perfect aim; it jumps to a new place after every shot; the game keeps the mouse inside itself while you play, press Esc to free it, click the game to lock it again) | hold Space: charge power, release to shoot | A/D: change spot | C: change camera | R: restart | slider: difficulty. The Orbit camera swings in front of the hoop from corner to corner (never behind it); drag the mouse to turn it. On a power-up pick: click a card, or Left arrow / 1 for the left card and Right arrow / 2 for the right card.
 
 ## Modes
 - **Campaign** (main mode): 7 stages, one per court, easiest to hardest. Each is a race against that court's boss, who has a twist (listed on the campaign screen). A win earns 1–3 stars (win, win by 10+, win without picking a sabotage), gold and a chest, and unlocks the next stage. The first stage starts with a 6-step tutorial and a 60-second practice race.

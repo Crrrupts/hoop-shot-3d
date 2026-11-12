@@ -134,19 +134,93 @@ function keepCrosshairInView(index) {
     c.y = Math.max(r.y + 8, Math.min(r.y + r.height - 8, c.y));
 }
 
-// The mouse moves the crosshair by how far the mouse moved (not to where the
-// pointer is), which is what lets the crosshair jump after a shot.
+// Move a crosshair to a new place (main.js does this after every shot)
+function moveCrosshair(index, x, y) {
+    crosshairs[index].x = x;
+    crosshairs[index].y = y;
+    keepCrosshairInView(index);
+    if (index === 0) {
+        // remember how far the crosshair now is from the real mouse pointer
+        drift.x = crosshairs[0].x - mouseSpot.x;
+        drift.y = crosshairs[0].y - mouseSpot.y;
+    }
+}
+
+// Player 1's mouse. There are two ways it can drive the crosshair:
+//
+// 1. Pointer lock (the normal way). The browser hides the pointer and keeps
+//    it inside the game, and tells us only how far the mouse moved. The
+//    pointer can never leave the game or hit the edge of the screen.
+//    Press Esc to get the mouse back.
+//
+// 2. No lock (the browser refused, or you pressed Esc). The crosshair sits at
+//    the mouse pointer plus a "drift". A jump after a shot sets the drift, and
+//    the drift then fades away in about a second, so the crosshair always
+//    comes back to the pointer and you can never get stuck.
+const mouseSpot = { x: 400, y: 300 };       // where the real pointer is, in canvas pixels
+const drift = { x: 0, y: 0 };               // crosshair minus pointer (only used without the lock)
+let wantLock = false;                       // lock again at the next key or click (after a pick)
+
+function pointerLocked() {
+    return document.pointerLockElement === gameCanvas;
+}
+function lockPointer() {
+    if (pointerLocked() || !gameCanvas.requestPointerLock) return;
+    try {
+        const asked = gameCanvas.requestPointerLock();
+        if (asked && asked.catch) asked.catch(() => {});       // refused: we carry on without the lock
+    } catch (e) { /* refused */ }
+}
+function unlockPointer() {
+    if (pointerLocked()) document.exitPointerLock();
+}
+
 document.addEventListener('mousemove', (e) => {
-    if (typeof Game === 'undefined' || Game.state.mode !== 'playing') return;
-    crosshairs[0].x += e.movementX;
-    crosshairs[0].y += e.movementY;
+    const rect = gameCanvas.getBoundingClientRect();
+    if (pointerLocked()) {
+        if (typeof Game === 'undefined' || Game.state.mode !== 'playing') return;
+        crosshairs[0].x += e.movementX;
+        crosshairs[0].y += e.movementY;
+    } else {
+        mouseSpot.x = e.clientX - rect.left;
+        mouseSpot.y = e.clientY - rect.top;
+        crosshairs[0].x = mouseSpot.x + drift.x;
+        crosshairs[0].y = mouseSpot.y + drift.y;
+    }
     keepCrosshairInView(0);
+});
+
+// Clicking the game locks the pointer. A match also locks it when it starts
+// (main.js), except in the sandbox, where you need the mouse for the panel.
+gameCanvas.addEventListener('mousedown', () => {
+    if (typeof Game !== 'undefined' && Game.state.mode === 'playing') lockPointer();
+});
+// After a power-up pick the lock comes back at your next key press
+document.addEventListener('keydown', () => {
+    if (wantLock && typeof Game !== 'undefined' && Game.state.mode === 'playing') { wantLock = false; lockPointer(); }
+});
+// When the lock ends, carry on from where the crosshair is
+document.addEventListener('pointerlockchange', () => {
+    if (!pointerLocked()) { drift.x = 0; drift.y = 0; mouseSpot.x = crosshairs[0].x; mouseSpot.y = crosshairs[0].y; }
 });
 
 // ---------- Loop ----------
 function inputLoop(time) {
     const dt = (time - lastTime) / 1000;
     lastTime = time;
+
+    // Free the mouse whenever a match is not being played (menus, power-up picks, results)
+    const playing = typeof Game !== 'undefined' && Game.state.mode === 'playing';
+    if (!playing && pointerLocked()) { unlockPointer(); wantLock = true; }
+    // Without the lock, the crosshair drifts back to the real pointer
+    if (!pointerLocked() && (drift.x || drift.y)) {
+        const keep = Math.exp(-Math.min(dt, 0.1) / 0.45);
+        drift.x *= keep; drift.y *= keep;
+        if (Math.abs(drift.x) < 0.5 && Math.abs(drift.y) < 0.5) { drift.x = 0; drift.y = 0; }
+        crosshairs[0].x = mouseSpot.x + drift.x;
+        crosshairs[0].y = mouseSpot.y + drift.y;
+        keepCrosshairInView(0);
+    }
 
     if (charging) {
         // game.js sets chargeSpeedScale for the Steady Hands and Fast Meter power-ups
