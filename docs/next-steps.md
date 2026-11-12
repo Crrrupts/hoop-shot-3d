@@ -17,11 +17,14 @@ Games are now **2 minutes**, with a 1-minute overtime when the scores are within
 | Time to pick | 8 s, game paused | 5 s at most, game paused |
 | Skipping a pick | A random card is picked for you | No card, but your next pick's odds move one step toward rarer cards |
 | Mythic cards | In the last 2 minutes | Overtime only (none are designed yet, so overtime steps down to legendary until they exist) |
-| Green power zone | Easy mode or the Sweet Spot card | Always on and moves with your aim; off on Hard and while the new Blind Meter sabotage is on you |
-| Shooting spots | Move freely with A/D | 5 shots at a spot, then the game moves you to the next spot |
-| Crowd | Always cheers for you | Starts on the home team's side and can switch to the other player if they play great |
+| Green power zone | Easy mode or the Sweet Spot card | Always on and moves with your aim; off on Hard and while the new Blind Meter sabotage is on you. A release in green always goes in |
+| Shooting spots | Move freely with A/D | Spots 1 to 5 in order, 5 shots at each; the game moves you on after the 5th shot |
+| Money spot | None | Before the game each player picks one spot where every make counts double, like the money rack in a 3-point contest |
+| Crowd | Always cheers for you | A fan meter starts on the home team's side and swings toward whoever is playing great; the crowd cheers that player and boos the other |
+| Fan meter effect | None | Leaning your way makes your green zone bigger. Full meter: you stay On Fire until you miss or your opponent catches fire, and your opponent's green zone shrinks (green still always goes in, it is just smaller) |
 | Crowd size | Similar on every court | Matches the court: a handful at the YMCA, a packed house at the Pro Arena |
-| Shooter | A floating ball | A visible 3D player whose shooting motion follows the power bar |
+| Crosshair jump after a shot | In the game | Kept as it is, for difficulty |
+| Shooter | A floating ball | A visible 3D player whose shooting motion follows the power bar. Skin tone and hair can be changed; shirt, pants and shoes are fixed for now (future upgrades) |
 | Screen size | Fixed 800×600 | Fills the window |
 
 Also decided: AI-written code is allowed by the teacher. Keep the AI Use Log accurate and keep the team's credits in the README.
@@ -42,25 +45,25 @@ Work top to bottom: priority 1 must be finished before priority 2 starts, and so
 | 6 | 2 Shot feel | Green power zone always on, worked out for where you are aiming right now, so it moves and resizes as you aim. Off on Hard and while Blind Meter is on you | Moving the crosshair visibly moves the zone; a release in green goes in nearly every time |
 | 7 | 2 Shot feel | New sabotage card, Blind Meter (rare): hides the opponent's green zone for 3 shots | Shows up in picks and in the sandbox |
 | 8 | 2 Shot feel | Tune how the ball goes in and out: rim and backboard bounces, rolls around the rim, so close shots look fair | The team agrees makes and rim-outs look believable in a playtest |
-| 9 | 2 Shot feel | 5 shots per spot, then the game moves you to the next spot with a short camera move. HUD shows "Shot 3 of 5" | Spot changes on its own after the 5th shot |
-| 10 | 2 Shot feel | Make the crosshair jump after each shot smaller, or an option that is off by default | Aiming the next shot takes under a second |
+| 9 | 2 Shot feel | Spots 1 to 5 in order, 5 shots per spot, then the game moves you to the next spot with a short camera move. HUD shows "Spot 2, shot 3 of 5" | Spot changes on its own after the 5th shot |
+| 10 | 2 Shot feel | Money spot: before the game each player picks one spot where every make counts double; the spot is marked on the floor and in the HUD | A make at the money spot scores double; other spots score normally |
 | 11 | 3 Shooter | A 3D shooter built from our own shapes in a matrix-stack hierarchy (torso → arms → hands, head, legs). This also strengthens the graded hierarchical modeling | The player stands at the spot and holds the ball |
 | 12 | 3 Shooter | Shooting animation tied to the power bar: knees bend and the ball rises as the bar fills, release exactly when Space is let go, then follow-through | The motion matches the bar at every point, at any meter speed |
-| 13 | 3 Shooter | Customize the shooter: skin tone and hair style. Pants and shoes stay fixed for now (future upgrade cards) | A picker in the menu; the choice is saved |
+| 13 | 3 Shooter | Customize the shooter: skin tone and hair style. Shirt, pants and shoes stay fixed for now (future upgrade cards) | A picker in the menu; the choice is saved |
 | 14 | 4 Crowd and audio | Audio now: placeholder sounds made in code (Web Audio, no files) for every sound the game asks for, including rim, board, swish, floor bounce, cheer, groan, boo, stomp, buzzer and the streak chime. Team files replace them later by dropping them into sounds/ | Every event in a game makes a sound; a file in sounds/ with the same name replaces it |
-| 15 | 4 Crowd and audio | Fan meter: a bar showing which player the crowd backs. It starts on the home team's side; strong play by the other player (streaks, swishes, a run of points) pulls it over. When it crosses the middle the crowd switches: it cheers them and boos you | The crowd can switch sides during a game, and you can see and hear it |
+| 15 | 4 Crowd and audio | Fan meter: a bar showing which player the crowd backs. It starts on the home team's side; strong play (streaks, swishes, a run of points) pulls it over, and the crowd cheers that player and boos the other. Leaning your way makes your green zone bigger. Full meter: you stay On Fire until you miss or your opponent catches fire, and your opponent's green zone shrinks (green still always goes in) | The crowd can switch sides during a game, you can see and hear it, and the green zones change with it |
 | 16 | 4 Crowd and audio | Crowd size by court: about 5 at the YMCA, 30 at Home Gym, 40 at Neon Arcade, 150 or more at the Pro Arena (drawn in batches so it stays fast), a few standing at the outdoor courts | Each court's crowd looks right for the place |
 | 17 | 5 Casino pick | Make the power-up pick feel like a slot machine: the cards spin like reels and slow down one at a time, tease a higher rarity before landing, tick and glow in the rarity's color, and give rare-or-better cards a flash and fanfare. All within the 5 s limit | The pick feels like a jackpot moment in a playtest |
 | 18 | 6 Screen and graphics | Fill the window: canvas and HUD scale together to the window size, keeping the shape, plus a fullscreen button | Fills a 1080p screen; still works with browser zoom at 125% |
 | 19 | 6 Screen and graphics | Graphics pass: shinier floors, softer shadows, more detail on the ball and hoop, better arena and sky, lighting tuned per court | Clearly better-looking courts, still 60 fps |
-| 20 | 7 Match flow | Cap stacking score multipliers (Inferno, Money Rack, Golden Ball, Moneyball) | No single basket is worth more than about 12 points |
+| 20 | 7 Match flow | Cap stacking score multipliers (Inferno, money spot, Money Rack, Golden Ball, Moneyball) | No single basket is worth more than about 12 points |
 | 21 | 7 Match flow | Rival reacts to the score: shoots a little better when behind, a little worse when far ahead | Close games happen more often in playtests |
 | 22 | 7 Match flow | Streaks resolve in shot order when several balls are in the air | A later make never counts before an earlier miss |
 | 23 | 7 Match flow | A race bar at the top showing both scores, or a bigger rival view | You can follow the race at a glance |
 | 24 | 8 Performance | Stop re-running about 100 shot simulations when the wind shifts or the aim moves (the moving green zone makes this matter more) | No frame over 20 ms on Boardwalk and Frozen Lake |
 | 25 | 8 Performance | Cut per-frame matrix work (batched crowd, fewer normal-matrix inverses) | Pro Arena with its full crowd holds 60 fps on the slowest team laptop |
 | 26 | 8 Performance | Paint court textures once per court and keep them | Switching courts takes under half a second |
-| 27 | 9 Tutorial | Update the tutorial for everything above: the shooter and power bar, the moving green zone, 5 shots per spot, the fan meter, the 5 s pick and the skip bonus | A new player can finish it and understands each feature |
+| 27 | 9 Tutorial | Update the tutorial for everything above: the shooter and power bar, the moving green zone, 5 shots per spot, the money spot, the fan meter, the 5 s pick and the skip bonus | A new player can finish it and understands each feature |
 
 ## How to work
 
@@ -81,9 +84,6 @@ Keep the code readable for students: plain JS, short comments that explain what 
 
 If one of these comes up, pick the simplest option, keep it easy to change, and list it in your note.
 
-- [ ] Shirt or jersey: customizable now, or fixed like pants and shoes (a future upgrade)?
-- [ ] After 5 shots the game moves you on: in a fixed order (spot 1 to 5), or can players still pick their next spot with A/D?
-- [ ] Does the fan meter change gameplay (for example, a small boost for whoever the crowd backs), or only the sound and visuals?
-- [ ] Is the crosshair jump after each shot worth keeping as an option, or removed?
 - [ ] Which laptop is the slowest on the team, for the performance targets?
 - [ ] Does campaign stage 1 (the tutorial race) stay at 60 seconds, or drop to match the shorter games?
+- [ ] How does the AI rival pick its money spot (random, or its best spot)?
