@@ -63,7 +63,7 @@ Work top to bottom: priority 1 must be finished before priority 2 starts, and so
 | 24 | 8 Performance | Stop re-running about 100 shot simulations when the wind shifts or the aim moves (the moving green zone makes this matter more) | No frame over 20 ms on Boardwalk and Frozen Lake |
 | 25 | 8 Performance | Cut per-frame matrix work (batched crowd, fewer normal-matrix inverses) | Pro Arena with its full crowd holds 60 fps on the slowest team laptop |
 | 26 | 8 Performance | Paint court textures once per court and keep them | Switching courts takes under half a second |
-| 27 | 9 Tutorial | Update the tutorial for everything above: the shooter and power bar, the moving green zone, 5 shots per spot, the money spot, the fan meter, the 5 s pick and the skip bonus. The tutorial race is a normal 2-minute game. The tutorial rival is scripted to stay within 10 points no matter what, so the race always goes to overtime; the player gets a mythic card in the overtime pick and is set up to win, to show that overtime and mythics exist. Needs at least one mythic buff card (design it with Justin, or a clearly marked placeholder until then) | A new player can finish it, understands each feature, and always reaches overtime, gets a mythic and wins |
+| 27 | 9 Tutorial | Update the tutorial for everything above: the shooter and power bar, the moving green zone, 5 shots per spot, the money spot, the fan meter, the 5 s pick and the skip bonus. The tutorial race is a normal 2-minute game. The tutorial rival is scripted to stay within 10 points no matter what, so the race always goes to overtime; the player gets a mythic card in the overtime pick and is set up to win, to show that overtime and mythics exist. Use a placeholder mythic buff card, named and marked as a placeholder, until Justin designs the real mythics | A new player can finish it, understands each feature, and always reaches overtime, gets a mythic and wins |
 
 ## How to work
 
@@ -85,4 +85,3 @@ Keep the code readable for students: plain JS, short comments that explain what 
 If one of these comes up, pick the simplest option, keep it easy to change, and list it in your note.
 
 - [ ] Which laptop is the slowest on the team, for the performance targets?
-- [ ] Which mythic card does the tutorial hand out? (Justin is designing power-ups; until then use a placeholder.)
