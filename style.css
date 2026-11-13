@@ -882,3 +882,34 @@ body {
 }
 @keyframes card-flash { 0% { opacity: 0.85; } 100% { opacity: 0; } }
 #flash.purple { background: #a24dff; }
+
+/* ---------- Race bar ---------- */
+#race-bar {
+    display: grid;
+    grid-template-columns: 40px 220px 40px;
+    grid-template-rows: auto auto;
+    justify-content: center;
+    align-items: center;
+    column-gap: 6px;
+    margin: -12px 0 2px;
+    text-shadow: 0 1px 3px #000;
+}
+.race-score { font-size: 22px; font-weight: 900; }
+#race-left { color: #7dff9b; text-align: right; }
+#race-right { color: #ff8a7a; text-align: left; }
+#race-track {
+    position: relative;
+    height: 12px;
+    background: #d9473a;                    /* the rival's share */
+    border: 1px solid #eee;
+    border-radius: 6px;
+    overflow: hidden;
+}
+#race-fill { height: 100%; width: 50%; background: #3fcf6f; transition: width 0.4s; }    /* your share */
+#race-mid { position: absolute; left: 50%; top: 0; width: 2px; height: 100%; margin-left: -1px; background: rgba(255, 255, 255, 0.8); }
+#race-lead { grid-column: 1 / 4; font-size: 11px; font-weight: bold; color: #ddd; }
+#race-lead.left { color: #7dff9b; }
+#race-lead.right { color: #ff8a7a; }
+/* two-player: below the clock in the middle */
+.two-player #race-bar { margin-top: 30px; }
+.two-player #wind-display { margin-top: 2px; }

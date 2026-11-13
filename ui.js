@@ -441,3 +441,18 @@ function updateFans(value, leftName, rightName) {
     fill.className = value >= 0 ? 'left' : 'right';
     document.getElementById('fan-meter').className = Math.abs(value) >= 0.999 ? 'full' : '';
 }
+
+
+// ---------- Race bar ----------
+// Both scores at the top of the screen. The bar is split by each player's
+// share of the points (half and half at 0-0), and the label says who leads.
+function updateRace(left, right, leftName, rightName) {
+    document.getElementById('race-left').textContent = left;
+    document.getElementById('race-right').textContent = right;
+    const share = (left + 1) / (left + right + 2);          // +1 each so 0-0 is an even split
+    document.getElementById('race-fill').style.width = (share * 100) + '%';
+    const lead = document.getElementById('race-lead');
+    if (left === right) { lead.textContent = 'TIED'; lead.className = ''; }
+    else if (left > right) { lead.textContent = `${leftName} +${left - right}`; lead.className = 'left'; }
+    else { lead.textContent = `${rightName.toUpperCase()} +${right - left}`; lead.className = 'right'; }
+}

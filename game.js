@@ -29,6 +29,10 @@ const Game = (function () {
         maxBalls: 12,               // most balls one shooter can have in the air
         moneyRackLength: 10,        // surprise bonus round: every make pays double for 10 seconds
         shotsPerSpot: 5,            // you shoot this many times from a spot, then move to the next one
+        maxBasket: 12,              // no single basket is worth more than this, however the bonuses stack
+        rivalCatchUp: 0.008,        // the AI rival shoots this much better per point it is behind...
+        rivalEaseOff: 0.008,        // ...and this much worse per point it leads by beyond 10...
+        rivalSwingMax: 0.10,        // ...but never more than 10% either way
 
         // The fan meter: which player the crowd backs, from -1 (all for the
         // rival / Player 2) to +1 (all for you / Player 1). Strong play pulls
@@ -108,6 +112,7 @@ const Game = (function () {
             score: 0, streak: 0, bestStreak: 0, made: 0, attempts: 0,
             spot: 3,
             balls: [],                  // balls in the air or bouncing
+            queue: [],                  // balls waiting to be counted, in throw order (see settle)
             pending: [],                // delayed throws (Double Ball's second ball)
             effects: {},                // active power-ups (see powerups.js)
             hoopClock: 0,
@@ -156,7 +161,8 @@ const Game = (function () {
     // Other files (renderer, effects, crowd) can listen for game events:
     //   Game.on(function (name, data) { ... })
     //   'shoot'    { shooter, ball }
-    //   'basket'   { shooter, ball, swish, bank, points, vel }
+    //   'through'  { shooter, ball, swish, bank, vel }  a ball dropped through the rim (right away)
+    //   'basket'   { shooter, ball, swish, bank, points, vel }  the make is counted (in shot order)
     //   'miss'     { shooter, ball, airball, lostTier }
     //   'bounce'   { ball, surface, speed }
     //   'tier'     { shooter, tier }            reached a new streak tier
@@ -409,7 +415,9 @@ const Game = (function () {
         if (PU.has(shooter, 'golden')) points *= 2;                     // Golden Ball
         if (state.moneyRack > 0) points *= 2;                           // Money Rack bonus round
         if (spot && spot === shooter.moneySpot) points *= 2;            // the shooter's money spot
-        return points;
+        // the doubles multiply together (Inferno x Golden Ball x Money Rack x money
+        // spot could reach 64), so a single basket is capped
+        return Math.min(points, SETTINGS.maxBasket);
     }
 
     function showScores() {
@@ -419,6 +427,8 @@ const Game = (function () {
         const next = TIERS.find((t) => t.makes > player.streak && (!tier || t.makes > tier.makes));
         hud('updateStreak', player.streak, tier ? tier.name : '',
             next ? (next.makes - player.streak) + ' more for ' + next.name : '');
+        // the race bar at the top: both scores at a glance
+        hud('updateRace', player.score, rival.score, state.twoPlayer ? 'P1' : 'YOU', rival.name);
         // two-player: Player 2's streak
         const tier2 = heatTier(rival);
         hud('updateStreak2', rival.streak, tier2 ? tier2.name : '');
@@ -439,9 +449,39 @@ const Game = (function () {
         }
     }
 
+    // ---------- Makes and misses, in the order the shots were taken ----------
+    // With several balls in the air, a later shot can land before an earlier
+    // one. Each shooter keeps their balls in a queue in throw order (launchBall),
+    // and a result only counts once every earlier shot has a result too. So a
+    // later make never counts before an earlier miss, and the streak follows
+    // the shots in order. The net, the swish sound and the rim still react the
+    // moment a ball goes through; only the scoring waits.
+
+    // The ball dropped through the rim (from physics.js)
+    function ballThrough(ball, info) {
+        ball.resolved = true;
+        ball.outcome = { make: true, info: info };
+        sound(info.swish ? 'swish' : 'score');
+        emit('through', { shooter: ball.owner, ball: ball, swish: info.swish, bank: info.bank, vel: ball.vel.slice() });
+        settle(ball.owner);
+    }
+    // The ball reached the floor without going in
+    function ballMissed(ball) {
+        ball.resolved = true;
+        ball.outcome = { make: false };
+        settle(ball.owner);
+    }
+    // Count every result at the front of the queue that is ready, in order
+    function settle(shooter) {
+        while (shooter.queue.length && shooter.queue[0].outcome) {
+            const ball = shooter.queue.shift();
+            if (ball.outcome.make) basket(ball, ball.outcome.info);
+            else miss(ball);
+        }
+    }
+
     function basket(ball, info) {
         const shooter = ball.owner;
-        ball.resolved = true;
         shooter.made++;
         if (ball.spot) shooter.spotStats[ball.spot - 1].made++;
         setStreak(shooter, shooter.streak + 1);
@@ -455,7 +495,6 @@ const Game = (function () {
         pullFans(shooter, fan.make + (info.swish ? fan.swish : 0) + (ball.points >= 3 ? fan.three : 0) +
             (shooter.run >= fan.runPoints ? fan.run : 0));
         showScores();
-        sound(info.swish ? 'swish' : 'score');
         emit('basket', {
             shooter: shooter, ball: ball, swish: info.swish, bank: info.bank,
             points: points, vel: ball.vel.slice()
@@ -464,7 +503,6 @@ const Game = (function () {
 
     function miss(ball) {
         const shooter = ball.owner;
-        ball.resolved = true;
         if (ball.bonus) return;                     // Double Ball's extra ball can only help
         if (shooter.streak > 0 && PU.useOne(shooter, 'second')) return;     // Second Chance
         // Wristband gear: once a game, a miss may keep your streak
@@ -486,7 +524,7 @@ const Game = (function () {
         });
     }
 
-    Physics.onBasket = basket;
+    Physics.onBasket = ballThrough;
     Physics.onBounce = function (ball, surface, speed) {
         sound(surface);                 // 'rim', 'board', 'floor', 'pole'
         emit('bounce', { ball: ball, surface: surface, speed: speed });
@@ -508,8 +546,10 @@ const Game = (function () {
         // streak tier when thrown: 0 none, 1 Heating Up, 2 On Fire, 3 Inferno (for trails and fire)
         const heat = heatTier(shooter);
         ball.heat = heat ? TIERS.indexOf(heat) + 1 : 0;
+        ball.outcome = null;            // { make, info } once it has gone in or landed
         Physics.launch(ball, pos, vel);
         shooter.balls.push(ball);
+        shooter.queue.push(ball);       // results count in this order (see settle)
         return ball;
     }
 
@@ -581,6 +621,11 @@ const Game = (function () {
 
     function rivalMakeChance() {
         let chance = rival.ai.accuracy;
+        // the score: behind, the rival tries harder; far ahead (more than 10), it eases off.
+        // This keeps more games close.
+        const behind = player.score - rival.score;
+        if (behind > 0) chance += Math.min(SETTINGS.rivalSwingMax, behind * SETTINGS.rivalCatchUp);
+        if (behind < -10) chance -= Math.min(SETTINGS.rivalSwingMax, (-behind - 10) * SETTINGS.rivalEaseOff);
         // the crowd: backing the rival helps it, your full meter hurts it
         chance += 0.06 * Math.max(0, lean(rival));
         if (player.crowdFire) chance -= 0.05;
@@ -799,7 +844,7 @@ const Game = (function () {
         for (const s of [player, rival]) {
             s.spotStats = SPOTS.map(() => ({ made: 0, attempts: 0 }));
             s.score = 0; s.streak = 0; s.bestStreak = 0; s.made = 0; s.attempts = 0;
-            s.balls = []; s.pending = []; s.effects = {};
+            s.balls = []; s.pending = []; s.effects = {}; s.queue = [];
             s.hoopClock = 0; s.cooldown = 0;
             s.hoop.offset[0] = 0; s.hoop.slippery = false;
         }
@@ -889,7 +934,7 @@ const Game = (function () {
         for (const ball of shooter.balls) {
             Physics.update(ball, dt);
             // a ball that reaches the floor without scoring is a miss
-            if (!ball.resolved && (ball.touchedFloor || Physics.shotOver(ball))) miss(ball);
+            if (!ball.resolved && (ball.touchedFloor || Physics.shotOver(ball))) ballMissed(ball);
             if (Physics.shotOver(ball)) ball.dead = true;
         }
         shooter.balls = shooter.balls.filter((b) => !b.dead);
@@ -922,9 +967,9 @@ const Game = (function () {
 
     // Sandbox and tutorial helpers
     function forcePick() { if (state.mode === 'playing') startPick(); }
-    function clearBalls() { player.balls = []; player.pending = []; }
+    function clearBalls() { player.balls = []; player.pending = []; player.queue = []; }
     // Leave the match and go back to the menus
-    function quit() { state.mode = 'menu'; player.balls = []; rival.balls = []; hud('updateEffects', []); }
+    function quit() { state.mode = 'menu'; player.balls = []; rival.balls = []; player.queue = []; rival.queue = []; hud('updateEffects', []); }
 
     // Called every frame by main.js
     function update(dt) {

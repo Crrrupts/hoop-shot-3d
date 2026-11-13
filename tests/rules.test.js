@@ -335,6 +335,9 @@ check('the early pick only happens before 20 seconds', state.pickNumber === 0);
 // out of it: its pulls are set to 0 here and put back afterwards.
 const savedFanSettings = Object.assign({}, Game.SETTINGS.fans);
 for (const key of ['make', 'swish', 'three', 'tier', 'run', 'miss', 'airball']) Game.SETTINGS.fans[key] = 0;
+// ...and the rival's reaction to the score is switched off the same way
+const savedSwing = Game.SETTINGS.rivalSwingMax;
+Game.SETTINGS.rivalSwingMax = 0;
 Game.start({ freeSpots: true, rival: { name: 'Bot', accuracy: 0.5, pace: 0.5, maxRarity: null }, length: 100000 });
 state.nextPickAt = Infinity; state.pickNumber = 99;
 run(600);
@@ -342,6 +345,7 @@ const rate = rival.made / rival.attempts;
 check('a 50% rival makes about half its shots', rival.attempts > 600 && rate > 0.44 && rate < 0.56,
     `${rival.made}/${rival.attempts} = ${(rate * 100).toFixed(0)}%`);
 Object.assign(Game.SETTINGS.fans, savedFanSettings);
+Game.SETTINGS.rivalSwingMax = savedSwing;
 check('the rival scores on its own scoreboard', rival.score > 0 && player.score === 0);
 
 // Tiny Rim on the rival: count how many of its "make" throws still go in
@@ -455,11 +459,13 @@ check('Boardwalk wind keeps one direction, Frozen Lake wind gusts both ways',
 
 // the rival aims into the wind, so it still scores on a windy court
 for (const key of ['make', 'swish', 'three', 'tier', 'run', 'miss', 'airball']) Game.SETTINGS.fans[key] = 0;
+Game.SETTINGS.rivalSwingMax = 0;
 Game.start({ freeSpots: true, rival: { name: 'Bot', accuracy: 0.5, pace: 0.5, maxRarity: null }, court: 'lake', length: 100000 });
 state.nextPickAt = Infinity; state.pickNumber = 99;
 run(400);
 const windyRate = rival.made / rival.attempts;
 Object.assign(Game.SETTINGS.fans, savedFanSettings);   // (kept out of the windy test too)
+Game.SETTINGS.rivalSwingMax = savedSwing;
 check('a 50% rival still makes 35-56% in gusting wind', windyRate > 0.35 && windyRate < 0.56,
     `${rival.made}/${rival.attempts} = ${(windyRate * 100).toFixed(0)}%`);
 Game.setCourt('home');
@@ -663,6 +669,68 @@ fanStart({ practice: true });
 playerShot(false); playerShot(false);
 check('no crowd swings in practice (tutorial, sandbox)', state.fans === FAN.start);
 Game.setCourt('home');
+
+// ---------- Score cap (row 20) ----------
+quietStart();
+player.spot = 1;                                   // a corner three...
+player.moneySpot = 1;                              // ...on your money spot...
+player.streak = 7;                                 // ...in Inferno...
+player.effects.golden = { level: 1, left: 1 };     // ...with Golden Ball...
+state.moneyRack = 10;                              // ...during Money Rack
+const uncapped = 3 * 2 + 2;                        // Inferno: 8, then x2 x2 x2 = 64
+Game.throwBall(player, Game.makeWindow(player, 1, 0, 0).best, 0, 0, 0);
+run(3);
+check('no single basket is worth more than 12 points, however the bonuses stack', player.score === 12,
+    'would have been ' + uncapped * 8 + ', scored ' + player.score);
+quietStart();
+check('ordinary baskets are not touched by the cap', (playerShot(true), player.score === 2) && Game.pointsFor(player, 3, {}, 1) <= 12);
+
+// ---------- The rival reacts to the score (row 21) ----------
+function rivalRateWhen(scoreGap) {
+    const saved = Object.assign({}, Game.SETTINGS.fans);
+    for (const key of ['make', 'swish', 'three', 'tier', 'run', 'miss', 'airball']) Game.SETTINGS.fans[key] = 0;   // keep the crowd out of it
+    Game.start({ freeSpots: true, rival: { name: 'Bot', accuracy: 0.45, pace: 0.4, maxRarity: null }, length: 100000 });
+    state.nextPickAt = Infinity; state.pickNumber = 99; state.moneyRackAt = 0;
+    state.fans = 0;
+    let made = 0, tried = 0;
+    for (let i = 0; i < 60 * 300; i++) {
+        // hold the score gap steady: you are scoreGap points ahead of the rival
+        player.score = rival.score + scoreGap;
+        const before = rival.attempts, madeBefore = rival.made;
+        Game.update(1 / 60);
+        state.fans = 0;
+        tried += rival.attempts - before; made += rival.made - madeBefore;
+    }
+    Object.assign(Game.SETTINGS.fans, saved);
+    return { rate: rival.made / rival.attempts, n: rival.attempts };
+}
+const level = rivalRateWhen(0), trailing = rivalRateWhen(15), leading = rivalRateWhen(-25);
+check('behind by 15, the rival shoots better than when level', trailing.rate > level.rate + 0.05,
+    `level ${(level.rate * 100).toFixed(0)}%, behind ${(trailing.rate * 100).toFixed(0)}%`);
+check('ahead by 25, the rival eases off', leading.rate < level.rate - 0.05,
+    `ahead ${(leading.rate * 100).toFixed(0)}%`);
+check('the swing is never more than 10% either way', trailing.rate < level.rate + 0.16 && leading.rate > level.rate - 0.16);
+
+// ---------- Streaks resolve in shot order (row 22) ----------
+quietStart();
+player.streak = 3;                                 // Heating Up, one away from On Fire
+const slowMiss = Game.throwBall(player, 100, 0, 1, 0);         // a very high, long shot that misses...
+run(0.15);
+const quickMake = Game.throwBall(player, goodPower(player), 0, 0, 0);   // ...then a make that lands first
+let throughFirst = null;
+for (let i = 0; i < 600 && !slowMiss.resolved; i++) {
+    Game.update(1 / 60);
+    if (quickMake.resolved && throughFirst === null) throughFirst = { streak: player.streak, score: player.score, missLanded: slowMiss.resolved };
+}
+run(2);
+check('test setup: the later make went through before the earlier miss landed', throughFirst && !throughFirst.missLanded && quickMake.outcome.make && !slowMiss.outcome.make);
+check('the later make is not counted while the earlier shot is still in the air', throughFirst.streak === 3 && throughFirst.score === 0);
+check('then the miss counts first (streak to 0), then the make (streak 1, plain 2 points)', player.streak === 1 && player.score === 2,
+    `streak ${player.streak}, score ${player.score} (in landing order it would be streak 0, score 4)`);
+quietStart();
+for (let i = 0; i < 4; i++) { Game.throwBall(player, goodPower(player), 0, 0, 0); run(0.2); }
+run(4);
+check('rapid makes still all count, in order', player.made === 4 && player.streak === 4 && player.queue.length === 0);
 
 // A whole 3-minute match against the Medium rival, with picks
 Game.start({ freeSpots: true, rival: Game.RIVALS.Medium, length: 180 });

@@ -330,7 +330,7 @@
     // game.js tells us when a ball hits something or goes in, and when the court changes
     Game.on(function (name, data) {
         if (name === 'court') loadCourt(data.court);
-        if (name !== 'bounce' && name !== 'basket') return;
+        if (name !== 'bounce' && name !== 'through') return;
         const anim = animFor(data.ball.hoop);
         if (name === 'bounce' && data.surface === 'rim') {
             // a very hard shot bends the rim down further before it springs back
@@ -341,7 +341,7 @@
         if (name === 'bounce' && data.surface === 'board') {
             anim.boardTilt.speed -= Math.min(data.speed, 8) * 9;
         }
-        if (name === 'basket') {
+        if (name === 'through') {
             // the ball drags the net down and sideways; a swish snaps harder
             anim.netStretch.speed += data.swish ? 6.5 : 4.5;
             anim.netX.speed += data.vel[0] * 0.5;

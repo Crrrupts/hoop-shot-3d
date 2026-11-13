@@ -1,6 +1,6 @@
 # Hoop Shot 3D — Review checklist and known gaps
 
-What the team needs to check by playing, and what is known to be missing or rough. Updated Nov 13, 2026, after work-list rows 1–19 of [next-steps.md](next-steps.md).
+What the team needs to check by playing, and what is known to be missing or rough. Updated Nov 13, 2026, after work-list rows 1–23 of [next-steps.md](next-steps.md).
 
 The game was only tested in a headless browser (no graphics card, no speakers, scripted key presses). It has never been played by a person at full speed. Everything under "Needs a playtest" needs a person; everything under "Known gaps" is already known and does not need reporting again.
 
@@ -16,7 +16,7 @@ When you check something, write your initials and what you found in the Result c
 | Shot feel | Do makes and rim-outs look believable? Watch soft shots off the front and back of the rim from the Ball Follow camera | 8 | |
 | Shot feel | Starting every game at spot 1 (a corner three, the hardest shot): good or bad? | 9 | |
 | Shot feel | Is the half-second camera glide between spots enough of a "move"? | 9 | |
-| Scoring | Are scores too high? The money spot stacks with streak bonuses and Money Rack. The cap is row 20 | 10, 20 | |
+| Scoring | Are scores still too high, or is the 12-point cap on one basket about right? | 10, 20 | |
 | Shooter | Does the shooting motion look natural? Hold Space and watch from the Orbit camera | 12 | |
 | Shooter | With the camera further back, is aiming harder? Does the body block the view from the corners? | 11 | |
 | Shooter | Do the hair styles read from behind (that is the view you see most)? | 13 | |
@@ -25,6 +25,9 @@ When you check something, write your initials and what you found in the Result c
 | Crowd | Does the Pro Arena (160 fans) run smoothly on the slowest team laptop? | 16, 25 | |
 | Picks | Does the pick feel like a jackpot moment? Is 5 seconds (3.5 after the cards land) enough to read and choose? | 1, 17 | |
 | Match | Do too many games go to overtime with "within 10 points"? | 1 | |
+| Match | Are games against the AI closer now that it reacts to the score? Does it feel fair, or like rubber-banding? | 21 | |
+| Match | Can you follow the race at a glance with the race bar? | 23 | |
+| Match | With several balls in the air, a make can now show its +2 a moment after the net moves (it waits for earlier shots). Does that feel odd? | 22 | |
 | Two players | Is mouse aiming against arrow-key aiming fair? | | |
 | Two players | Can your keyboard register both players' keys at once (both charging while Player 2 holds an arrow)? | | |
 | Two players | Are the split-screen halves readable (hoop size, both power meters)? | | |
@@ -71,8 +74,8 @@ When you check something, write your initials and what you found in the Result c
 - **No mythic cards exist yet.** Overtime cards step down to legendary until Justin designs them.
 - **The fan meter is frozen in the tutorial and sandbox.**
 - **The tutorial is out of date.** It does not teach the shooter, moving green zone, money spot, fan meter, 5-second pick or skip bonus. Row 27 rebuilds it.
-- **AI rival:** it never skips a pick, and does not react to the score yet (row 21).
-- **Score multipliers are not capped yet** (row 20). **Streaks can resolve out of shot order** when several balls are in the air (row 22).
+- **AI rival:** it never skips a pick.
+- **The score cap is a plain cut-off at 12.** Bonuses past it are lost; the popup shows +12.
 
 ### Project
 - **No GitHub Pages link yet.** The repo is private; turning Pages on needs GitHub Pro (free with the student pack) or a public repo.
