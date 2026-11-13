@@ -320,7 +320,7 @@ These 20 cards are all in the game. They are starting ideas to build on, not a f
 | Name | Side | Rarity | Effect |
 | --- | --- | --- | --- |
 | Steady Hands | Buff | Common | Your power meter charges 20% slower for the rest of the game |
-| Sweet Spot | Buff | Common | The green and grey power zones show on your meter for 3 shots |
+| Sweet Spot | Buff | Common | Your green power zone shows for 3 shots, even on Hard or under Blind Meter |
 | Guide Line | Buff | Common | A golden dot shows where to aim for your next 3 shots |
 | Glass Cleaner | Buff | Common | Bank shots are worth +1 for the rest of the game |
 | Golden Ball | Buff | Rare | Your next make is worth double |

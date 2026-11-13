@@ -1,6 +1,15 @@
 // ---------- State ----------
 let charging = false;
 let power = 0;
+
+// Power comes from how long the key has been held, measured with the
+// browser's clock, not counted up frame by frame. So holding for the same
+// time always gives the same power, even if the game drops frames.
+let chargeStart = 0;            // when Space went down (milliseconds)
+let chargeRate = 0;             // percent per second for this charge
+function chargedPower(start, rate, now) {
+    return Math.max(0, Math.min(100, (now - start) / 1000 * rate));
+}
 let lastTime = 0;
 
 // Aim: -1 (left/down) to 1 (right/up), 0 = center
@@ -17,14 +26,14 @@ let currentCamera = 0;
 
 // Difficulty (1 = Easy, 2 = Medium, 3 = Hard)
 // These numbers are starting values, we tune them later.
-// Harder = faster meter, shakier aim and a stronger rival (see RIVALS in game.js).
-// Easy also shows the golden aim dot and the meter zones. The moving hoop is now a power-up, not part of Hard.
+// Harder = faster meter and a stronger rival (see RIVALS in game.js).
+// Easy also shows the golden aim dot. Hard hides the meter's green zone.
+// The moving hoop is a power-up, not part of Hard.
 const DIFFICULTY_SETTINGS = {
-    // buffer = width of the grey zone on each side of the meter's green zone (in % of the meter).
-    // Letting go in the grey still has a chance (up to 35%) of going in.
-    1: { name: 'Easy',   chargeSpeed: 60,  aimWobble: 0.00, buffer: 9 },
-    2: { name: 'Medium', chargeSpeed: 80,  aimWobble: 0.02, buffer: 6 },
-    3: { name: 'Hard',   chargeSpeed: 110, aimWobble: 0.05, buffer: 3 }
+    // chargeSpeed = how fast the power meter fills, in percent per second
+    1: { name: 'Easy',   chargeSpeed: 60 },
+    2: { name: 'Medium', chargeSpeed: 80 },
+    3: { name: 'Hard',   chargeSpeed: 110 }
 };
 let difficulty = 2;
 
@@ -43,7 +52,12 @@ document.addEventListener('keydown', (e) => {
         e.preventDefault();
         // only charge while a game is running (not in menus or a power-up pick)
         const playing = typeof Game === 'undefined' || Game.state.mode === 'playing';
-        if (!e.repeat && playing) charging = true;
+        if (!e.repeat && playing) {
+            charging = true;
+            chargeStart = e.timeStamp;
+            // game.js sets chargeSpeedScale for the Steady Hands and Fast Meter power-ups
+            chargeRate = getDifficultySettings().chargeSpeed * (window.chargeSpeedScale || 1);
+        }
     }
 
     // A = previous spot, D = next spot (wraps around)
@@ -61,6 +75,7 @@ document.addEventListener('keyup', (e) => {
     if (e.code === 'Space') {
         if (!charging) return;          // Space was not charging a shot
         charging = false;
+        power = chargedPower(chargeStart, chargeRate, e.timeStamp);     // exactly how long it was held
         // Hand the shot to the game code (game.js)
         if (typeof window.onShoot === 'function') window.onShoot(power, aimX, aimY);
         power = 0;
@@ -223,9 +238,7 @@ function inputLoop(time) {
     }
 
     if (charging) {
-        // game.js sets chargeSpeedScale for the Steady Hands and Fast Meter power-ups
-        const scale = window.chargeSpeedScale || 1;
-        power = Math.min(100, power + getDifficultySettings().chargeSpeed * scale * dt);
+        power = chargedPower(chargeStart, chargeRate, performance.now());
         updatePowerMeter(power);
     }
     requestAnimationFrame(inputLoop);
@@ -236,6 +249,8 @@ requestAnimationFrame(inputLoop);
 // Arrow keys: move the crosshair | hold Enter: power, release to shoot | J / L: change spot
 let charging2 = false;
 let power2 = 0;
+let chargeStart2 = 0;           // Player 2's charge, timed the same way as Player 1's
+let chargeRate2 = 0;
 let aim2X = 0;                  // -1..1 like aimX / aimY (set by main.js from Player 2's crosshair)
 let aim2Y = 0;
 let currentSpot2 = 3;
@@ -251,7 +266,11 @@ document.addEventListener('keydown', (e) => {
     if (e.code in held2 || e.code === 'Enter') e.preventDefault();      // no page scrolling or button presses
     if (!twoPlayerPlaying()) return;
     if (e.code in held2) held2[e.code] = true;
-    if (e.code === 'Enter' && !e.repeat) charging2 = true;
+    if (e.code === 'Enter' && !e.repeat) {
+        charging2 = true;
+        chargeStart2 = e.timeStamp;
+        chargeRate2 = getDifficultySettings().chargeSpeed * (window.chargeSpeedScale2 || 1);
+    }
     if (!e.repeat && e.code === 'KeyJ') changeSpot2(-1);
     if (!e.repeat && e.code === 'KeyL') changeSpot2(1);
 });
@@ -261,6 +280,7 @@ document.addEventListener('keyup', (e) => {
     if (e.code === 'Enter') {
         if (!charging2) return;
         charging2 = false;
+        power2 = chargedPower(chargeStart2, chargeRate2, e.timeStamp);
         if (typeof window.onShoot2 === 'function') window.onShoot2(power2, aim2X, aim2Y);
         power2 = 0;
         updatePowerMeter2(power2);
@@ -283,8 +303,7 @@ function inputLoop2(time) {
         crosshairs[1].y += ((held2.ArrowDown ? 1 : 0) - (held2.ArrowUp ? 1 : 0)) * AIM2_SPEED * dt;
         keepCrosshairInView(1);
         if (charging2) {
-            const scale = window.chargeSpeedScale2 || 1;
-            power2 = Math.min(100, power2 + getDifficultySettings().chargeSpeed * scale * dt);
+            power2 = chargedPower(chargeStart2, chargeRate2, performance.now());
             updatePowerMeter2(power2);
         }
     }

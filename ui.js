@@ -136,23 +136,15 @@ function updateEffects(effects) {
 }
 
 // Sweet Spot power-up: green band on the power meter from lo% to hi% (null hides it)
-// zone = { lo, hi, buffer } in percent, or null to hide. Green from lo to hi
-// (the power that scores), grey for `buffer` on each side (a smaller chance).
+// zone = { lo, hi } in percent, or null to hide: the green band on the
+// meter, the power that scores for where you are aiming right now.
 // which: 0 = your meter, 1 = Player 2's meter
 function setSweetZone(zone, which) {
-    const suffix = which ? '-2' : '';
-    const green = document.getElementById('sweet-zone' + suffix);
-    const below = document.getElementById('buffer-low' + suffix);
-    const above = document.getElementById('buffer-high' + suffix);
-    for (const el of [green, below, above]) el.style.display = zone ? 'block' : 'none';
+    const green = document.getElementById(which ? 'sweet-zone-2' : 'sweet-zone');
+    green.style.display = zone ? 'block' : 'none';
     if (!zone) return;
     green.style.bottom = zone.lo + '%';
     green.style.height = Math.max(2, zone.hi - zone.lo) + '%';
-    const low = Math.max(0, zone.lo - zone.buffer), high = Math.min(100, zone.hi + zone.buffer);
-    below.style.bottom = low + '%';
-    below.style.height = (zone.lo - low) + '%';
-    above.style.bottom = zone.hi + '%';
-    above.style.height = (high - zone.hi) + '%';
 }
 
 // ---------- Crosshair and golden aim dot ----------

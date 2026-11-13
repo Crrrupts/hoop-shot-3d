@@ -68,9 +68,7 @@
         <div id="power-meter-container">
             <div id="power-label">Power</div>
             <div id="power-bar-bg" role="meter" aria-labelledby="power-label" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
-                <div id="buffer-low" class="buffer-zone"></div>
                 <div id="sweet-zone"></div>
-                <div id="buffer-high" class="buffer-zone"></div>
                 <div id="power-bar-fill"></div>
             </div>
         </div>
@@ -78,9 +76,7 @@
         <!-- two-player: Player 2's power meter, aim marker and power-ups -->
         <div id="power-meter-container-2">
             <div id="power-bar-bg-2">
-                <div id="buffer-low-2" class="buffer-zone"></div>
                 <div id="sweet-zone-2"></div>
-                <div id="buffer-high-2" class="buffer-zone"></div>
                 <div id="power-bar-fill-2"></div>
             </div>
         </div>
@@ -209,7 +205,7 @@
             <label>Court <select id="sandbox-court"></select></label>
             <label>Ball <select id="sandbox-ball"></select></label>
             <label><input type="checkbox" id="sandbox-arc"> Golden aim dot</label>
-            <label><input type="checkbox" id="sandbox-zone"> Power zones</label>
+            <label><input type="checkbox" id="sandbox-zone"> Show green zone (on Hard)</label>
             <label><input type="checkbox" id="sandbox-slow"> Slow motion</label>
             <button id="sandbox-reset">Reset balls</button>
             <button id="sandbox-exit">Exit sandbox</button>

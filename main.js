@@ -38,7 +38,10 @@
     // Turn a crosshair's position into aimX / aimY (-1..1) and show the HUD marks
     function updateAim(shooter, index) {
         const playing = Game.state.mode === 'playing';
-        const target = aimTarget(shooter, index), cross = crosshairs[index];
+        const target = aimTarget(shooter, index), spot = crosshairs[index];
+        // Shaky Hands and rain make the crosshair shake. The aim is exactly where it is drawn.
+        const shake = playing ? Game.aimShake(shooter) : 0, t = performance.now() / 1000;
+        const cross = { x: spot.x + shake * Math.sin(t * 9.1 + index), y: spot.y + shake * Math.cos(t * 7.3 + index) };
         const clamp = (v) => Math.max(-1, Math.min(1, v));
         const ax = clamp((cross.x - target.rimX) / AIM_PIXELS);
         const ay = clamp(-(cross.y - target.y) / AIM_PIXELS);       // up on the screen = a higher arc
@@ -69,13 +72,26 @@
         }
     });
 
-    // ---------- Power meter zones ----------
-    // The green zone and grey buffer show on Easy or with the Sweet Spot power-up.
+    // ---------- Power meter zone ----------
+    // The green zone is the power that scores for where you are aiming right
+    // now, so it moves and changes size as you move the crosshair. It is
+    // hidden on Hard and under the Blind Meter sabotage.
     const zoneKeys = ['', ''];
+    const zoneAims = ['', ''], zoneTimes = [0, 0];
     function updateZones(shooter, which) {
-        const show = Game.state.mode === 'playing' &&
-            (getDifficultySettings().name === 'Easy' || PowerUps.has(shooter, 'sweet'));
-        const zone = show ? Game.powerZone(shooter) : null;
+        const show = Game.state.mode === 'playing' && Game.zoneVisible(shooter);
+        const aim = which === 0 ? [aimX, aimY] : [aim2X, aim2Y];
+        // Working out a zone for a new aim takes a few milliseconds, so while
+        // the crosshair is moving do it at most 20 times a second. (The shot
+        // itself always uses the exact aim at release.)
+        const now = performance.now();
+        const aimKey = aim[0].toFixed(2) + ',' + aim[1].toFixed(2);
+        if (show && aimKey !== zoneAims[which]) {
+            if (now - zoneTimes[which] < 50) return;
+            zoneTimes[which] = now;
+            zoneAims[which] = aimKey;
+        }
+        const zone = show ? Game.aimZone(shooter, aim[0], aim[1]) : null;
         const key = JSON.stringify(zone);
         if (key === zoneKeys[which]) return;        // nothing changed
         zoneKeys[which] = key;

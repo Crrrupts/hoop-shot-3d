@@ -62,7 +62,7 @@ On a hit, the ball is pushed back out and its velocity is reflected off the surf
 
 **Baskets.** A make counts when the ball's center crosses the rim's height going down while inside the rim circle (`checkBasket`). The ball also remembers if it touched the rim or board, which is how the game knows a swish from a bank shot.
 
-**Shots.** `game.js` turns the power (0–100) and the aim into a starting velocity (`shotVelocity`): more power means more speed (6 to 9 m/s), aiming up or down changes the arc, aiming left or right turns the shot. `Physics.wouldScore` runs a whole shot instantly without drawing it; the game uses it to find the power range that scores (`makeWindow`), which gives the meter's green zone and the rival's aim.
+**Shots.** `game.js` turns the power (0–100) and the aim into a starting velocity (`shotVelocity`): more power means more speed (6 to 9 m/s), aiming up or down changes the arc, aiming left or right turns the shot. `Physics.wouldScore` runs a whole shot instantly without drawing it; the game uses it to find the power range that scores (`makeWindow`), which gives the meter's green zone and the rival's aim. The green zone is worked out for where you are aiming right now (`aimZone`), and a release inside it is checked so it always goes in (`surePower`). Nothing in a shot is random.
 
 **The match.** `game.js` holds two shooters (you and the rival), each with their own hoop, balls, score, streak and power-ups. `update` runs the clock, lets the rival shoot, moves the balls and decides makes and misses.
 - Scoring: 2 points, 3 from the corners. Streak tiers add bonuses at 2, 4 and 7 makes in a row (`TIERS`); one miss resets the streak.
@@ -85,13 +85,13 @@ File: `input.js` (and the aiming part of `main.js`).
 
 **Keys.** `keydown` and `keyup` listeners on the page handle everything: Space starts and ends a charge, A / D change spot, C changes camera, R restarts. In two-player, Player 2 uses Enter to charge, the arrow keys to move their crosshair and J / L to change spot. `e.repeat` is checked so holding a key does not fire it many times, and `preventDefault` stops Space or the arrows from scrolling the page.
 
-**Power.** While Space is held, `inputLoop` raises `power` every frame by the difficulty's charge speed. On release, `input.js` hands the power and aim to the game with `window.onShoot(power, aimX, aimY)` and resets the meter. Power-ups can change the charge speed through `window.chargeSpeedScale`.
+**Power.** When Space goes down, `input.js` remembers the time (`chargeStart`). Power is worked out from how long the key has been held (`chargedPower`), using the browser's clock and the key event's own timestamp, not counted up frame by frame. So the same hold always gives the same power, even if the game drops frames. On release, `input.js` hands the power and aim to the game with `window.onShoot(power, aimX, aimY)` and resets the meter. Power-ups can change the charge speed through `window.chargeSpeedScale`.
 
 **Aiming.** Each player has a crosshair, stored as a position in canvas pixels (`crosshairs`). `main.js` (`updateAim`) finds where the rim is on the screen and turns the crosshair's distance from it into `aimX` and `aimY` between -1 and 1. Crosshair on the rim is perfect aim (a little to one side in wind). After every shot the crosshair jumps to a random place so you have to aim again.
 
 **Pointer lock.** While you play, the browser hides the mouse pointer and keeps it inside the game (`lockPointer`), and reports only how far the mouse moved. That way the pointer can never hit the edge of the screen. The lock is released for menus, power-up picks and results; Esc releases it; a click on the game locks it again. If the browser refuses the lock, the crosshair follows the pointer instead.
 
-**Difficulty.** The slider picks one row of `DIFFICULTY_SETTINGS`: how fast the meter charges, how much random wobble is added to your aim, and how wide the meter's grey buffer is. `game.js` also uses the difficulty to choose the rival.
+**Difficulty.** The slider picks one row of `DIFFICULTY_SETTINGS`: how fast the meter charges. `game.js` also uses the difficulty to choose the rival, to show the golden aim dot on Easy and to hide the green zone on Hard.
 
 **Talking to the rest of the game.** `input.js` does not know the rules. It keeps a few plain variables (`power`, `charging`, `currentSpot`, `currentCamera`, `aimX`, `aimY`) that other files read, and it calls three hooks: `window.onShoot`, `window.onShoot2` and `window.onRestart`.
 
@@ -109,7 +109,7 @@ Files: `index.html`, `style.css`, `ui.js`, `menus.js`, plus `effects.js` and `cr
 
 **The scoreboard matches the court.** Each court in `courts.js` has scoreboard colors, border and font. `showCourt` copies them into CSS variables (`--sb-bg`, `--sb-text`, ...) and `style.css` uses those variables, so one set of HTML gets a different look per court.
 
-**The power meter.** The fill's height is the power percent. The green zone and the grey buffer are extra boxes placed by `setSweetZone` using percentages from the game.
+**The power meter.** The fill's height is the power percent. The green zone is an extra box placed by `setSweetZone` using percentages from the game (`Game.aimZone`), updated as the crosshair moves.
 
 **Power-up pick.** `showPick` shows two cards and flashes them through the rarity colors before landing (a small slot-machine effect), with a timer bar. Click a card or use the keys. Two-player has its own screen with two cards per player.
 

@@ -21,7 +21,7 @@ const PowerUps = (function () {
         { id: 'steady',   name: 'Steady Hands',  side: 'buff', rarity: 'common',    kind: 'game',
           text: 'Your power meter charges 20% slower for the rest of the game' },
         { id: 'sweet',    name: 'Sweet Spot',    side: 'buff', rarity: 'common',    kind: 'shots', amount: 3,
-          text: 'The green and grey power zones show on your meter for 3 shots' },
+          text: 'Your green power zone shows for 3 shots, even on Hard or under Blind Meter' },
         { id: 'guide',    name: 'Guide Line',    side: 'buff', rarity: 'common',    kind: 'shots', amount: 3,
           text: 'A golden dot shows where to aim for your next 3 shots' },
         { id: 'glass',    name: 'Glass Cleaner', side: 'buff', rarity: 'common',    kind: 'game',

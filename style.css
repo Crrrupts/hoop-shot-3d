@@ -738,7 +738,7 @@ body {
 #versus-keys { border-collapse: collapse; font-size: 14px; margin: 6px 0; }
 #versus-keys th, #versus-keys td { border: 1px solid #666; padding: 3px 12px; }
 
-/* ---------- Crosshair, golden aim dot and the meter's grey buffer ---------- */
+/* ---------- Crosshair and golden aim dot ---------- */
 .crosshair {
     display: none;
     position: absolute;
@@ -778,12 +778,3 @@ body {
 /* hide the normal mouse pointer over the game; the crosshair replaces it */
 #game-canvas { cursor: none; }
 
-.buffer-zone {
-    display: none;
-    position: absolute;
-    left: 0;
-    width: 100%;
-    background: rgba(190, 190, 195, 0.6);
-    box-sizing: border-box;
-    z-index: 2;
-}

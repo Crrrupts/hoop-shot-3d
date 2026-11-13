@@ -78,7 +78,6 @@ const Game = (function () {
     // Moving Hoop power-up: the hoop slides side to side
     const HOOP_SWING = 1.0;             // meters each way
     const HOOP_SPEED = 0.9;             // radians per second
-    const SHAKY_WOBBLE = 0.05;          // extra aim error (radians) from Shaky Hands
 
     // ---------- The two shooters ----------
     function makeShooter(id, hoopX) {
@@ -150,7 +149,7 @@ const Game = (function () {
 
     function difficulty() {
         if (typeof getDifficultySettings === 'function') return getDifficultySettings();
-        return { name: 'Medium', aimWobble: 0.02 };
+        return { name: 'Medium' };
     }
     function inputSpot() {
         return (typeof currentSpot !== 'undefined') ? currentSpot : player.spot;
@@ -192,13 +191,21 @@ const Game = (function () {
     // options (optional): { rimScale, wind } passed on to Physics.wouldScore.
     function makeWindow(shooter, spotNumber, aimX, aimY, options) {
         const pos = spotPosition(spotNumber, shooter);
-        let best = null, start = null;
-        for (let p = 0; p <= 101; p++) {
-            const scores = p <= 100 &&
+        function scores(p) {
+            return p >= 0 && p <= 100 &&
                 Physics.wouldScore(shooter.hoop, pos, shotVelocity(spotNumber, p, aimX, aimY, 0), options);
-            if (scores && start === null) start = p;
-            if (!scores && start !== null) {
-                if (!best || p - 1 - start > best.hi - best.lo) best = { lo: start, hi: p - 1 };
+        }
+        // Try every second power value, then check one step past each end of
+        // a scoring run. That halves the work of trying all 101 values.
+        let best = null, start = null;
+        for (let p = 0; p <= 102; p += 2) {
+            const hit = scores(p);
+            if (hit && start === null) start = p;
+            if (!hit && start !== null) {
+                let lo = start, hi = p - 2;
+                if (scores(lo - 1)) lo--;
+                if (scores(hi + 1)) hi++;
+                if (!best || hi - lo > best.hi - best.lo) best = { lo: lo, hi: hi };
                 start = null;
             }
         }
@@ -219,7 +226,6 @@ const Game = (function () {
     // The best aim and the power meter's zones for a shooter's current spot:
     //   aimX          the sideways aim that works best (0 with no wind). The golden dot marks it.
     //   green lo..hi  the power that scores with that aim
-    //   grey          `buffer` wide on each side: a little early or late still has a chance
     // These depend on the spot, the rim and the wind, not on where you are aiming.
     // Working them out takes a few milliseconds, so the answer is kept until something changes.
     const zoneCache = {};
@@ -245,13 +251,65 @@ const Game = (function () {
         const guide = shotGuide(shooter);
         return guide ? guide.aimX : 0;
     }
+    // The green zone for the golden-dot aim (used by tests and the tutorial)
     function powerZone(shooter) {
         const guide = shotGuide(shooter);
-        if (!guide) return null;
-        return { lo: guide.lo, hi: guide.hi, buffer: difficulty().buffer || 5 };
+        return guide ? { lo: guide.lo, hi: guide.hi } : null;
     }
-    const BUFFER_BEST_CHANCE = 0.35;    // chance of a save right next to the green zone...
-    const BUFFER_WORST_CHANCE = 0.15;   // ...falling to this at the far edge of the grey zone
+
+    // The green zone for where a shooter is aiming RIGHT NOW: the range of
+    // power { lo, hi } that scores with this aim, or null if no power scores.
+    // It moves and changes size as the aim moves. A release inside it goes in.
+    // The aim is rounded a little so the answer can be reused while the
+    // crosshair is nearly still (working it out takes a few milliseconds).
+    const aimZones = {};                // per shooter: answers for recent aims
+    function aimZone(shooter, aimX, aimY) {
+        const ax = Math.round(aimX * 50) / 50, ay = Math.round(aimY * 50) / 50;     // to the nearest 0.02
+        const wind = [Math.round(state.wind[0] * 20) / 20, 0, 0];
+        const setup = [shooter.spot, shooter.hoop.rimScale, wind[0], state.court.id].join('|');
+        let cache = aimZones[shooter.id];
+        if (!cache || cache.setup !== setup) cache = aimZones[shooter.id] = { setup: setup, zones: new Map() };
+        const key = ax + ',' + ay;
+        if (!cache.zones.has(key)) {
+            if (cache.zones.size > 400) cache.zones.clear();
+            const zone = makeWindow(shooter, shooter.spot, ax, ay, { wind: wind });
+            cache.zones.set(key, zone ? { lo: zone.lo, hi: zone.hi } : null);
+        }
+        return cache.zones.get(key);
+    }
+
+    // Is the green zone drawn on a shooter's meter? Always, except on Hard
+    // and while the Blind Meter sabotage is on them. The Sweet Spot card shows it anyway.
+    function zoneVisible(shooter) {
+        if (PU.has(shooter, 'sweet')) return true;
+        return difficulty().name !== 'Hard' && !PU.has(shooter, 'blind');
+    }
+
+    // A release in the green zone must go in. The zone is worked out for a
+    // slightly rounded aim and wind and only every second power value, so
+    // the exact throw can just miss. This checks the exact throw and, if
+    // needed, uses the nearest power inside the zone that does score.
+    function surePower(shooter, power, aimX, aimY, zone) {
+        const pos = spotPosition(shooter.spot, shooter);
+        const scores = (p) => Physics.wouldScore(shooter.hoop, pos, shotVelocity(shooter.spot, p, aimX, aimY, 0), { wind: state.wind });
+        // look further and further from the released power, on both sides
+        for (let off = 0; off <= zone.hi - zone.lo; off += 0.5) {
+            if (power - off >= zone.lo && scores(power - off)) return power - off;
+            if (off > 0 && power + off <= zone.hi && scores(power + off)) return power + off;
+        }
+        return power;
+    }
+
+    // How much a shooter's crosshair shakes, in pixels (main.js moves the
+    // crosshair). Shaky Hands and a wet ball in the rain shake it; the
+    // Headband gear steadies it. The aim is always exactly where the
+    // crosshair is drawn, so nothing about a shot is left to chance.
+    function aimShake(shooter) {
+        // the Rooftop boss makes the rain heavier as it scores
+        const rain = state.court.rules.slip * (state.twist === 'heavierRain' ? 1 + rival.score / 40 : 1);
+        const pixels = (PU.has(shooter, 'shaky') ? 16 : 0) + rain * 250;
+        return pixels * (shooter === player ? gear().wobbleScale : 1);
+    }
 
     // ---------- Scoring ----------
     // The streak tier for a number of makes in a row (null below 2)
@@ -401,25 +459,16 @@ const Game = (function () {
     function shootAs(shooter, power, aimX, aimY) {
         if (!canShoot(shooter)) return;
         shooter.spot = shooter === player ? inputSpot() : shooter.spot;
-        // Grey buffer zone: letting go a little early or late is sometimes
-        // saved (the throw is nudged into the green zone). Never better than 35%.
-        const zone = powerZone(shooter);
-        if (zone) {
-            const off = power < zone.lo ? zone.lo - power : power > zone.hi ? power - zone.hi : 0;
-            if (off > 0 && off <= zone.buffer) {
-                const chance = BUFFER_BEST_CHANCE - (BUFFER_BEST_CHANCE - BUFFER_WORST_CHANCE) * off / zone.buffer;
-                if (Math.random() < chance) {
-                    const quarter = (zone.hi - zone.lo) / 4;
-                    power = power < zone.lo ? zone.lo + quarter : zone.hi - quarter;
-                }
-            }
+        // A release in the green zone always goes in (see surePower).
+        // Nothing here is random: the same power and aim give the same throw.
+        const zone = aimZone(shooter, aimX, aimY);
+        if (zone && power >= zone.lo && power <= zone.hi) {
+            // use the same rounded aim the zone was worked out for
+            aimX = Math.round(aimX * 50) / 50;
+            aimY = Math.round(aimY * 50) / 50;
+            power = surePower(shooter, power, aimX, aimY, zone);
         }
-        // aim error: difficulty + Shaky Hands + a wet ball in the rain
-        // (the Rooftop boss makes the rain heavier as it scores; the Headband gear steadies you)
-        const rain = state.court.rules.slip * (state.twist === 'heavierRain' ? 1 + rival.score / 40 : 1);
-        const wobble = (difficulty().aimWobble + (PU.has(shooter, 'shaky') ? SHAKY_WOBBLE : 0) + rain) *
-            (shooter === player ? gear().wobbleScale : 1);
-        throwBall(shooter, power, aimX, aimY, wobble);
+        throwBall(shooter, power, aimX, aimY, 0);
     }
 
     // ---------- The AI rival ----------
@@ -840,7 +889,7 @@ const Game = (function () {
     return {
         state, player, rival, SPOTS, SETTINGS, TIERS, RIVALS,
         start, shoot, shoot2, update, on,
-        spotPosition, shotVelocity, makeWindow, tierFor, pointsFor, perfectAim, powerZone,
+        spotPosition, shotVelocity, makeWindow, tierFor, pointsFor, perfectAim, powerZone, aimZone, zoneVisible, aimShake,
         throwBall, applyCard, choosePick, opponentOf, setCourt, forcePick, clearBalls, quit
     };
 })();

@@ -54,29 +54,71 @@ player.spot = 3;
 check('mouse right aims right, mouse left aims left',
     Game.shotVelocity(3, 50, 1, 0, 0)[0] > 0 && Game.shotVelocity(3, 50, -1, 0, 0)[0] < 0);
 
-// ---------- Power meter zones ----------
+// ---------- Power meter: the green zone ----------
 quietStart();
 const zone = Game.powerZone(player);
-check('the meter has a green zone and a grey buffer on each side', zone.hi > zone.lo && zone.buffer > 0, JSON.stringify(zone));
-function makeRate(power, tries) {
-    let makes = 0;
-    for (let i = 0; i < tries; i++) {
-        quietStart();
-        Game.shoot(power, 0, 0);
-        run(3);
-        makes += player.made;
-    }
-    return makes / tries;
+check('the meter has a green zone for perfect aim', zone.hi > zone.lo, JSON.stringify(zone));
+// Shoot through the real path (Game.shoot) and report if it went in
+function shotGoesIn(power, ax, ay) {
+    quietStart();
+    Game.shoot(power, ax, ay);
+    run(3);
+    return player.made === 1;
 }
-const greenRate = makeRate((zone.lo + zone.hi) / 2, 20);
-const nearRate = makeRate(zone.hi + 1, 150), edgeRate = makeRate(zone.hi + zone.buffer, 150);
-const outsideRate = makeRate(zone.hi + zone.buffer + 3, 30);
-check('green zone with perfect aim goes in', greenRate > 0.9, (greenRate * 100).toFixed(0) + '%');
-check('grey zone has a decent chance, always under 40%', nearRate > 0.15 && nearRate < 0.5 && edgeRate > 0.03 && edgeRate < 0.3,
-    `${(nearRate * 100).toFixed(0)}% next to green, ${(edgeRate * 100).toFixed(0)}% at the far edge`);
-check('past the grey zone the shot misses', outsideRate < 0.1, (outsideRate * 100).toFixed(0) + '%');
-const zoneAtCenter = JSON.stringify(Game.powerZone(player));
-check('the zones do not change with where you aim (only spot, rim and wind)', zoneAtCenter === JSON.stringify(zone));
+// the same power and aim always give the same result (nothing is random)
+let sameEveryTime = true;
+for (const [p, ax] of [[zone.lo - 4, 0], [zone.hi + 2, 0.1], [(zone.lo + zone.hi) / 2, 0], [50, 0.5]]) {
+    const first = shotGoesIn(p, ax, 0);
+    for (let i = 0; i < 8; i++) if (shotGoesIn(p, ax, 0) !== first) sameEveryTime = false;
+}
+check('the same power and aim always give the same result', sameEveryTime);
+check('just outside the green zone is always a miss (no random save)',
+    !shotGoesIn(zone.lo - 1.5, 0, 0) && !shotGoesIn(zone.hi + 1.5, 0, 0));
+// the zone follows the aim
+quietStart();
+const centered = Game.aimZone(player, 0, 0), higher = Game.aimZone(player, 0, 0.6), wide = Game.aimZone(player, 0.9, 0);
+check('the green zone moves when you aim higher', higher && (higher.lo !== centered.lo || higher.hi !== centered.hi),
+    `centered ${centered.lo}-${centered.hi}, higher arc ${higher.lo}-${higher.hi}`);
+check('aiming far off the rim leaves no green zone', wide === null);
+// a release anywhere in green goes in: try many aims, at both edges and the middle
+let greenShots = 0, greenMakes = 0;
+for (let i = 0; i < 40; i++) {
+    quietStart();
+    player.spot = 1 + (i % 5);
+    const ax = (Math.random() - 0.5) * 0.5, ay = (Math.random() - 0.5) * 1.2;
+    const z = Game.aimZone(player, ax, ay);
+    if (!z) continue;
+    for (const p of [z.lo, (z.lo + z.hi) / 2, z.hi, z.lo + Math.random() * (z.hi - z.lo)]) {
+        quietStart();
+        player.spot = 1 + (i % 5);
+        Game.shoot(p, ax, ay);      // (in the node tests the shot uses player.spot)
+        run(3);
+        greenShots++; greenMakes += player.made;
+    }
+}
+player.spot = 3;
+check('a release in the green zone always goes in, at any aim and spot', greenShots > 40 && greenMakes === greenShots,
+    `${greenMakes} of ${greenShots} green releases scored`);
+// when the zone is drawn
+quietStart();
+check('the green zone shows by default', Game.zoneVisible(player));
+player.effects.blind = { level: 1, left: 3 };
+check('Blind Meter hides it', !Game.zoneVisible(player));
+player.effects.sweet = { level: 1, left: 3 };
+check('Sweet Spot shows it anyway', Game.zoneVisible(player));
+globalThis.getDifficultySettings = () => ({ name: 'Hard', chargeSpeed: 110 });
+quietStart();
+check('Hard hides the green zone', !Game.zoneVisible(player));
+delete globalThis.getDifficultySettings;
+// Shaky Hands and rain shake the crosshair instead of adding random error
+quietStart();
+check('no crosshair shake normally', Game.aimShake(player) === 0);
+player.effects.shaky = { level: 1, left: 3 };
+check('Shaky Hands shakes the crosshair', Game.aimShake(player) > 5);
+Game.start({ rival: noCards, court: 'rooftop', length: 60 });
+check('rain shakes the crosshair a little', Game.aimShake(player) > 0 && Game.aimShake(player) < 10);
+Game.setCourt('home');
+
 Game.start({ rival: noCards, court: 'boardwalk', length: 100000 });
 state.nextPickAt = Infinity; state.pickNumber = 99;
 run(5);

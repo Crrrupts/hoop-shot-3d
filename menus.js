@@ -175,7 +175,7 @@ const Menus = (function () {
     const tutorialBox = $('tutorial-box');
     let tutorial = null;            // { step, startSpot, startCamera, picked } while it runs
     const TUTORIAL_STEPS = [
-        { text: 'Move the crosshair onto the golden dot at the rim. Hold Space to fill the power meter and let go in the green zone (grey has a small chance). The crosshair jumps after every shot.',
+        { text: 'Move the crosshair onto the golden dot at the rim. Hold Space to fill the power meter and let go in the green zone: green always goes in. The zone moves as you aim, and the crosshair jumps after every shot.',
           done: (t) => Game.player.attempts >= 1 },
         { text: 'Press A or D to move to another spot (corners are worth 3). Press C to change the camera.',
           done: (t) => {
@@ -229,10 +229,9 @@ const Menus = (function () {
     setInterval(() => {
         if (!tutorial) return;
         if (Game.state.options.mode !== 'tutorial') { hideTutorial(); return; }
-        // the golden aim dot and the power zones stay on while you learn
+        // the golden aim dot stays on while you learn (the green zone is always on)
         if (Game.state.mode === 'playing') {
             Game.player.effects.guide = { level: 1, left: 99 };
-            Game.player.effects.sweet = { level: 1, left: 99 };
         }
         if (TUTORIAL_STEPS[tutorial.step].done(tutorial)) nextTutorialStep();
     }, 150);
