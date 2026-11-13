@@ -39,6 +39,7 @@ Mouse: move the crosshair (on the rim = perfect aim; it jumps to a new place aft
 ## How a match works
 - **Live race.** You and the rival shoot at the same time at your own hoops. The small box on the left is a live camera on the rival's hoop.
 - **Shoot as fast as you want.** A new ball is ready as soon as the last one leaves your hands, so several balls can be in the air.
+- **The shooter.** Each player is a 3D figure standing on their spot and holding the ball. The motion follows the power bar: the knees bend and the ball rises from the chest as the bar fills (it is above the head from 60% power), the ball leaves when you let go, and the shooter follows through with a small hop and arms up. The AI rival winds up before each of its shots.
 - **Spots.** Everyone starts at spot 1 (left corner) and shoots 5 times from each spot, 1 to 5 in order and around again. The game moves you after the 5th shot. The HUD shows "Spot 2, shot 3 of 5".
 - **Scoring.** 2 points, 3 from the corner spots.
 - **Money spot.** Before the game each player picks one spot (on the menu) where every make counts double. It has a green ring on the floor and shows in the HUD. The AI rival picks its spot at random.
@@ -84,15 +85,15 @@ The 9 graded requirements, where each one is in the code, and how to see it in t
 
 | # | Requirement | Where it is in the code | How to see it in the game |
 |---|---|---|---|
-| 1 | Own 3D geometry | `geometry.js` builds every shape from numbers: `sphere` (ball), `torus` (rim), `cube` (backboard, pole, arm, walls, bleachers, crowd cards), `plane` (court), `disc` (shadows, spot markers), `netLines` (net). No model files | Start any match. Everything on screen is one of these shapes |
+| 1 | Own 3D geometry | `geometry.js` builds every shape from numbers: `sphere` (ball, the shooter's head and hands), `torus` (rim), `cube` (backboard, pole, arm, walls, bleachers, crowd cards, the shooter's body), `plane` (court), `disc` (shadows, spot markers), `netLines` (net). No model files | Start any match. Everything on screen is one of these shapes |
 | 2 | Transformations | `renderer.js`: `drawBall` translates, rotates (spin) and scales the unit sphere; `drawBox` scales one unit cube into the backboard, pole, arm and bleachers | Shoot: the ball moves and spins. The backboard and the pole are the same cube at different sizes |
 | 3 | lookAt camera, 3 views | `camera.js` works out eye / at / up for the Shooter, Ball Follow and Orbit views; `renderer.js` `drawView` calls `lookAt` and `perspective` | Press C during a match to switch between the 3 views. In Orbit, drag the mouse |
 | 4 | Interaction | `input.js`: mouse (crosshair), Space (power), C (camera), R (restart), the difficulty slider, and A / D (spot) in the Sandbox | Use the mouse, Space, C, R and the slider in a Quick Match. Use A / D in the Sandbox (in a match the game moves you between spots) |
-| 5 | Animation | `main.js` frame loop (`requestAnimationFrame`); `physics.js` ball flight; `renderer.js` springs for the net, rim and backboard; `game.js` `updateHoop` slides the hoop | Shoot and watch the ball fly, the net stretch on a make, and the rim and board shake on a hit. For the moving hoop open `index.html?test=moving`, or tick Moving Hoop in the Sandbox |
+| 5 | Animation | `main.js` frame loop (`requestAnimationFrame`); `physics.js` ball flight; `renderer.js` springs for the net, rim and backboard; `shooter.js` shooting motion; `game.js` `updateHoop` slides the hoop | Shoot and watch the ball fly, the net stretch on a make, and the rim and board shake on a hit. For the moving hoop open `index.html?test=moving`, or tick Moving Hoop in the Sandbox |
 | 6 | Lighting (Phong) | The fragment shader in `index.html`: ambient + diffuse + specular for up to 3 lights, with spotlight cones. Lights are set per court in `courts.js`; materials in `renderer.js` | Home Gym: the spotlight pool on the floor and the bright highlight on the rim. The Blackout card (Sandbox) leaves one spotlight on the hoop |
 | 7 | Advanced: collisions and physics | `physics.js`: gravity with a fixed 240 Hz step, sphere against floor, backboard and pole (boxes) and rim (torus), basket detection. Checked by `tests/physics.test.js` | Miss on purpose: the ball bounces off the rim, the board and the floor. A make only counts when the ball drops through the rim |
 | 8 | Advanced: texture mapping | `textures.js` paints the images (ball, court floors, backboards, walls, skies, crowd); the texture coordinates come from `geometry.js`; `renderer.js` `makeTexture` uploads them | The ball's seams, the court lines and the backboard square. Change court on the menu to see different floors and skies |
-| 9 | Advanced: hierarchical modeling | `renderer.js` `drawHoop`: pole → arm → backboard → rim → net, drawn with a matrix stack (`pushMatrix` / `popMatrix`) | A hard shot off the backboard wobbles the board, and the rim and net move with it. With Moving Hoop (`index.html?test=moving`) only the root moves and every part follows |
+| 9 | Advanced: hierarchical modeling | `renderer.js`, drawn with a matrix stack (`pushMatrix` / `popMatrix`). `drawHoop`: pole → arm → backboard → rim → net. `drawShooter`: hips → thigh → shin → foot, and torso → head, and upper arm → forearm → hand; the joint angles come from `shooter.js` | A hard shot off the backboard wobbles the board, and the rim and net move with it. With Moving Hoop (`index.html?test=moving`) only the root moves and every part follows. Hold Space: the shooter's knees, elbows and shoulders bend, and each lower part follows the part above it (Orbit camera shows it best) |
 
 ## Code layout
 | File | Role area | What it does |
@@ -108,12 +109,13 @@ The 9 graded requirements, where each one is in the code, and how to see it in t
 | cards.js | Justin, Bom | Ball and gear cards, chests, upgrades, saved progress |
 | campaign.js | Justin | The 7 campaign stages (rival numbers, boss twists), stars and rewards |
 | menus.js | Bom | Menu screens, result and chest opening, tutorial steps, sandbox panel |
+| shooter.js | Isaiah | The 3D player's pose: joint angles for the shooting motion, driven by the power bar |
 | camera.js | Justin | Shooter, Ball Follow and Orbit views (eye/at/up for lookAt), one camera rig per player, plus the fixed rival camera |
 | main.js | Justin | Frame loop; calls `window.renderScene(scene)` every frame |
 | geometry.js | Isaiah | Builds every mesh in code (positions, normals, texture coordinates, triangles) |
 | textures.js | Isaiah, Bom | Placeholder textures painted on 2D canvases (swap in real art here) |
 | renderer.js | Isaiah | WebGL setup, materials, lights, matrix stack, draws the main view and the small rival view, or a split screen for two players |
-| tests/ | Amit | `physics.test.js`, `rules.test.js` and `cards.test.js`, run with node |
+| tests/ | Amit | `physics.test.js`, `rules.test.js`, `cards.test.js` and `shooter.test.js`, run with node |
 
 Units are meters, y is up, the rim is above x = 0, z = 0 and the shooter is on +z. Sizes shared by physics and drawing are in `Physics` (`RIM_HEIGHT`, `RIM_RADIUS`, `BOARD`, `POLE`, ...).
 
@@ -126,6 +128,7 @@ Units are meters, y is up, the rim is above x = 0, z = 0 and the shooter is on +
 node tests/physics.test.js
 node tests/rules.test.js
 node tests/cards.test.js
+node tests/shooter.test.js
 ```
 The first checks that every spot can be scored, the collisions, and frame-rate independence. The second checks the match rules: streak tiers, rapid fire, power-up odds and effects, the rival's accuracy, the buzzer, overtime, the court rules (soft rim, double rim, rain, wind), practice mode, boss twists, two-player rules and a whole simulated match. The third checks chests, upgrades, gear and campaign stars and unlocks.
 

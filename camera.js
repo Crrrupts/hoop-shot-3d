@@ -36,7 +36,8 @@ const Camera = (function () {
             const dx = p[0] - rim[0], dz = p[2] - rim[2];
             const d = Math.hypot(dx, dz) || 1;
             return {
-                eye: [p[0] + dx / d * 2.6, 2.85, p[2] + dz / d * 2.6],
+                // far enough back to see the shooter's head, shoulders and arms
+                eye: [p[0] + dx / d * 3.5, 3.05, p[2] + dz / d * 3.5],
                 at: [rim[0], 2.45, rim[2]]
             };
         }

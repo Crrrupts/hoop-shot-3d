@@ -19,7 +19,7 @@ Units are meters and seconds. Y is up. Your rim is above x = 0, z = 0 and you st
 
 ## Rendering (Isaiah)
 
-Files: `geometry.js`, `textures.js`, `renderer.js`, `camera.js`, and the two shaders inside `index.html`.
+Files: `geometry.js`, `textures.js`, `renderer.js`, `shooter.js`, `camera.js`, and the two shaders inside `index.html`.
 
 **Shapes.** `geometry.js` builds every shape from numbers. Each function returns four lists: positions (the points), normals (which way the surface faces at each point, for lighting), texture coordinates (where each point sits on an image) and indices (which three points make each triangle).
 
@@ -33,6 +33,8 @@ Files: `geometry.js`, `textures.js`, `renderer.js`, `camera.js`, and the two sha
 **Transformations.** Every object is drawn by building a model matrix from translate, rotate and scale (from `MV.js`) and sending it to the shader. `drawBall` translates to the ball's position, rotates by its spin, then scales the unit sphere to the ball's radius. `drawBox` scales the one unit cube to any box size.
 
 **Hierarchy (matrix stack).** `drawHoop` draws pole → arm → backboard → rim → net. Each part's matrix is built on top of its parent's, using `pushMatrix` and `popMatrix` to save and restore. That is why wobbling the backboard also moves the rim and net, and why the Moving Hoop power-up only has to move the root.
+
+**The shooter (a second hierarchy).** `drawShooter` builds each player the same way: root (feet, turned to face the hoop) → hips → thigh → shin → foot for each leg, and torso → head, and upper arm → forearm → hand for each arm. `shooter.js` supplies the joint angles for the current moment: the knees bend and the ball rises as the power bar fills, and after a release the arms reach up for a follow-through. The arm angles come from the law of cosines on the triangle shoulder–elbow–hand (`reachArm`), so the hands always end up on the ball.
 
 **Camera.** `camera.js` works out three things for each view: `eye` (where the camera is), `at` (what it looks at) and `up`. The renderer turns those into a view matrix with `lookAt`, and uses `perspective` (45° field of view) for the lens. There are three view types, switched with C: Shooter (behind you), Ball Follow (behind your newest ball) and Orbit (swings in front of the hoop from corner to corner). The camera eases toward its target each frame so it never jumps.
 

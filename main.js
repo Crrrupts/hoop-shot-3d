@@ -113,12 +113,13 @@
         updateZones(player, 0);
         if (two) updateZones(rival, 1);
 
-        // the ball dips in your hands as you charge
-        playerHand.pos = Game.spotPosition(player.spot, player);
-        if (charging) playerHand.pos[1] -= 0.12 * power / 100;
-        rivalHand.pos = Game.spotPosition(rival.spot, rival);
-        if (two && charging2) rivalHand.pos[1] -= 0.12 * power2 / 100;
-        const balls = [playerHand, rivalHand].concat(player.balls, rival.balls);
+        // the ball in each shooter's hands follows their pose (shooter.js).
+        // For a moment after a release the hands are empty.
+        const balls = player.balls.concat(rival.balls);
+        playerHand.pos = Shooter.ballPosition(player);
+        rivalHand.pos = Shooter.ballPosition(rival);
+        if (Shooter.holdingBall(player)) balls.push(playerHand);
+        if (Shooter.holdingBall(rival)) balls.push(rivalHand);
 
         // which pictures to draw
         function viewOf(shooter, rig, rect) {

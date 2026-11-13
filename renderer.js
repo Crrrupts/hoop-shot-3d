@@ -14,6 +14,7 @@
 //
 // The hoop is a hierarchy drawn with a matrix stack:
 //   hoop root -> pole -> arm -> backboard -> rim -> net
+// The shooters are a second hierarchy: hips -> legs, torso -> head and arms -> hands.
 // Moving or shaking a parent moves everything below it.
 
 (function () {
@@ -423,6 +424,113 @@
         return MATERIALS.rim;
     }
 
+    // ---------- The shooter: a 3D player built from boxes and spheres ----------
+    // A hierarchy on the matrix stack, like the hoop. Each part is drawn in
+    // its parent's space, so bending a joint moves everything below it:
+    //   root (feet, facing the hoop) -> hips -> each leg: thigh -> shin -> foot
+    //                                        -> torso -> head -> hair
+    //                                                 -> each arm: upper arm -> forearm -> hand
+    // The joint angles come from shooter.js and follow the power bar.
+    function drawShooter(shooter) {
+        const pose = Shooter.poseOf(shooter), B = Shooter.BODY, look = Shooter.lookOf(shooter);
+        const spot = Game.spotPosition(shooter.spot, shooter);
+        const deg = (radians) => radians * 180 / Math.PI;
+        const cloth = (color) => setMaterial({ color: color, specular: [0.06, 0.06, 0.06], shininess: 8 });
+        // a box hanging down from the current joint (its top is at the joint)
+        function limb(width, length, depth) {
+            pushMatrix();
+            transform(translate(0, -length / 2, 0));
+            drawBox(width, length, depth);
+            popMatrix();
+        }
+        function ballShape(radius) {
+            pushMatrix();
+            transform(scalem(radius, radius, radius));
+            drawMesh(meshes.sphere);
+            popMatrix();
+        }
+
+        pushMatrix();
+        // ROOT: stand on the spot, turned to face the hoop
+        transform(translate(spot[0], 0, spot[2]));
+        transform(rotateY(deg(Shooter.facing(shooter))));
+        // HIPS: they drop as the knees bend
+        transform(translate(0, pose.hipY, 0));
+
+        // LEGS: thigh -> shin -> foot. The thigh swings forward and the shin
+        // back by twice as much, so the foot stays under the hip.
+        for (const side of [1, -1]) {
+            pushMatrix();
+            transform(translate(side * B.hip, 0, 0));
+            transform(rotateX(-deg(pose.knee)));
+            cloth(look.shorts);
+            limb(0.16, B.thigh, 0.17);
+            transform(translate(0, -B.thigh, 0));           // the knee
+            transform(rotateX(2 * deg(pose.knee)));
+            cloth(look.skin);
+            limb(0.11, B.shin, 0.12);
+            transform(translate(0, -B.shin, 0));            // the ankle
+            transform(rotateX(-deg(pose.knee)));            // keep the foot flat
+            cloth(look.shoes);
+            pushMatrix();
+            transform(translate(0, -B.foot / 2, 0.06));
+            drawBox(0.12, B.foot, 0.27);
+            popMatrix();
+            popMatrix();
+        }
+
+        // TORSO
+        cloth(look.shirt);
+        pushMatrix();
+        transform(translate(0, B.torso / 2, 0));
+        drawBox(0.42, B.torso, 0.22);
+        popMatrix();
+        transform(translate(0, B.torso, 0));                // now at shoulder height
+
+        // HEAD and HAIR
+        pushMatrix();
+        transform(translate(0, 0.05 + B.head, 0.01));
+        cloth(look.skin);
+        ballShape(B.head);
+        transform(translate(0, 0.03, -0.02));               // hair sits on top and behind
+        cloth(look.hair);
+        pushMatrix();
+        transform(scalem(B.head * 1.05, B.head * 0.92, B.head * 1.05));
+        drawMesh(meshes.sphere);
+        popMatrix();
+        popMatrix();
+
+        // ARMS: upper arm -> forearm -> hand, bent so the hands hold the ball
+        [1, -1].forEach((side, i) => {
+            const arm = pose.arms[i];
+            pushMatrix();
+            transform(translate(side * B.shoulder, 0, 0));  // the shoulder
+            transform(rotateY(deg(arm.yaw)));
+            transform(rotateX(-deg(arm.upper)));
+            cloth(look.shirt);
+            limb(0.105, B.upperArm, 0.105);
+            transform(translate(0, -B.upperArm, 0));        // the elbow
+            transform(rotateX(-deg(arm.elbow)));
+            cloth(look.skin);
+            limb(0.085, B.forearm, 0.085);
+            transform(translate(0, -B.forearm, 0));         // the wrist
+            ballShape(0.055);
+            popMatrix();
+        });
+        popMatrix();
+    }
+
+    // Soft dark disc on the floor under a shooter
+    function drawShooterShadow(shooter) {
+        const spot = Game.spotPosition(shooter.spot, shooter);
+        pushMatrix();
+        transform(translate(spot[0], 0.011, spot[2]));
+        transform(scalem(0.34, 1, 0.34));
+        setMaterial({ color: [0, 0, 0], unlit: true, alpha: 0.38 });
+        drawMesh(meshes.disc);
+        popMatrix();
+    }
+
     // ---------- Ball ----------
     let ballSkin = 'classic';                   // set from the scene each frame
     // Each ball keeps its own rotation matrix so its spin adds up smoothly.
@@ -663,6 +771,8 @@
         drawCrowd(time);
         for (const hoop of scene.hoops) drawHoop(hoop, time);
         for (const ball of scene.balls) drawBall(ball);
+        drawShooter(scene.state.player);
+        drawShooter(scene.state.rival);
 
         // 2. see-through things last, without writing depth
         gl.enable(gl.BLEND);
@@ -670,6 +780,8 @@
         drawSpots(scene.state.player, [1, 0.85, 0.2]);
         drawSpots(scene.state.rival, [1, 0.35, 0.3]);
         for (const ball of scene.balls) drawShadow(ball);
+        drawShooterShadow(scene.state.player);
+        drawShooterShadow(scene.state.rival);
         drawWeather(wind);
         drawEffects();
         gl.depthMask(true);
