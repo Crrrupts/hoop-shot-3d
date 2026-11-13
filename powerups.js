@@ -129,6 +129,40 @@ const PowerUps = (function () {
         return LIST.find((c) => c.id === id);
     }
 
+    // ---------- The slot-machine reel on the pick screen ----------
+    // Each card spins like a reel before it lands. reelFrames lists what a
+    // card shows over time:
+    //   finalRarity   the rarity it will land on
+    //   landAt        seconds until it lands (the left card lands first)
+    // Returns [{ at, rarity, tease, landed }]. The frames start fast and slow
+    // down, like a reel coming to a stop. Just before landing it "teases"
+    // the next rarity up, then drops to the real one.
+    const REEL_STRIP = ['common', 'rare', 'common', 'epic', 'common', 'rare', 'legendary', 'common', 'rare', 'epic'];
+    function reelFrames(finalRarity, landAt) {
+        // gaps between frames grow by 18% each time
+        const gaps = [];
+        let total = 0, gap = 0.04;
+        while (total < landAt) { gaps.push(gap); total += gap; gap *= 1.18; }
+        const fit = landAt / total;                     // stretch so the last frame is exactly at landAt
+        const frames = [];
+        let at = 0;
+        gaps.forEach((g, i) => {
+            at += g * fit;
+            frames.push({ at: at, rarity: REEL_STRIP[i % REEL_STRIP.length], tease: false, landed: false });
+        });
+        const last = frames[frames.length - 1];
+        last.rarity = finalRarity;
+        last.landed = true;
+        last.at = landAt;
+        // the tease: one rarity higher on the frame before landing (nothing is above mythic)
+        const index = RARITIES.indexOf(finalRarity);
+        if (frames.length > 1 && index < RARITIES.length - 1) {
+            frames[frames.length - 2].rarity = RARITIES[index + 1];
+            frames[frames.length - 2].tease = true;
+        }
+        return frames;
+    }
+
     // ---------- Effects on a shooter ----------
     // shooter.effects[id] = { level, left }   left = shots, seconds or charges remaining
 
@@ -181,7 +215,7 @@ const PowerUps = (function () {
         return out;
     }
 
-    return { RARITIES, LIST, ODDS, oddsRow, rollRarity, rollCard, byId, addEffect, has, level, useOne, tick, describe };
+    return { RARITIES, LIST, ODDS, oddsRow, rollRarity, rollCard, reelFrames, byId, addEffect, has, level, useOne, tick, describe };
 })();
 
 if (typeof module !== 'undefined') module.exports = PowerUps;

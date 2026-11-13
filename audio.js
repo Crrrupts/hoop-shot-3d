@@ -98,6 +98,15 @@ const GameAudio = (function () {
         fire:   () => noise('lowpass', 300, 1800, 0.5, 0.45, 0.25),                            // catching fire
         hiss:   () => noise('highpass', 5000, 2500, 0.5, 0.3),                                 // the fire goes out
         tick:   () => tone('square', 1000, 1000, 0.05, 0.12),                                  // last 10 seconds
+        // the power-up pick, like a slot machine
+        reel:   () => tone('square', 1500, 1500, 0.025, 0.05),                                 // each click of a spinning card
+        land:   () => { tone('triangle', 520, 520, 0.12, 0.18); tone('sine', 1040, 1040, 0.1, 0.08); },
+        fanfare: (d) => {                                                                      // rare or better: more notes for rarer cards
+            const notes = { rare: [523, 659], epic: [523, 659, 784], legendary: [523, 659, 784, 1047], mythic: [523, 659, 784, 1047, 1319] };
+            const list = notes[d && d.rarity] || notes.rare;
+            list.forEach((pitch, i) => tone('triangle', pitch, pitch, 0.25, 0.22, i * 0.09));
+            if (list.length >= 4) noise('highpass', 6000, 9000, 0.6, 0.15, 0.05, 0.3);      // sparkle
+        },
         buzzer: () => { tone('sawtooth', 220, 220, 0.9, 0.3); tone('square', 110, 110, 0.9, 0.2); },
         // the crowd
         cheer:  (d) => noise('bandpass', 900, 1600, d && d.big ? 1.4 : 0.9, d && d.big ? 0.5 : 0.35, 0.15),

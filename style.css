@@ -789,3 +789,69 @@ body {
 .choices { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
 .choices button.chosen { outline: 3px solid #7dff9b; }
 .screen .choices button.swatch { width: 40px; height: 40px; padding: 0; border-radius: 50%; border: 2px solid #fff; }
+
+/* ---------- Fan meter ---------- */
+#fan-meter {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    margin-top: 4px;
+    font-size: 11px;
+    font-weight: bold;
+    text-shadow: 0 1px 2px #000;
+}
+#fan-left { color: #7dff9b; min-width: 36px; text-align: right; }
+#fan-right { color: #ff8a7a; min-width: 36px; text-align: left; }
+#fan-bar {
+    position: relative;
+    width: 180px;
+    height: 10px;
+    background: rgba(0, 0, 0, 0.55);
+    border: 1px solid #ccc;
+    border-radius: 5px;
+}
+#fan-fill { position: absolute; top: 0; height: 100%; border-radius: 5px; }
+#fan-fill.left { background: #3fcf6f; }
+#fan-fill.right { background: #e0503f; }
+#fan-marker {
+    position: absolute;
+    top: -4px;
+    width: 4px;
+    height: 16px;
+    margin-left: -2px;
+    background: #fff;
+    border-radius: 2px;
+    box-shadow: 0 0 3px #000;
+}
+#fan-meter.full #fan-bar { box-shadow: 0 0 10px 2px #ffb347; animation: urgent-pulse 0.5s infinite alternate; }
+
+/* ---------- Slot-machine pick ---------- */
+/* while spinning, the name flicks down like a reel and is a little blurred */
+.pick-card.spinning .pick-name { animation: reel-flick 0.07s linear; filter: blur(0.6px); }
+@keyframes reel-flick {
+    0%   { transform: translateY(-14px); opacity: 0.3; }
+    100% { transform: translateY(0); opacity: 1; }
+}
+/* landed: a steady glow in the rarity's color */
+.pick-card.glow-rare      { animation: card-land 0.3s ease-out, glow-rare 1s 0.3s infinite alternate; }
+.pick-card.glow-epic      { animation: card-land 0.3s ease-out, glow-epic 0.8s 0.3s infinite alternate; }
+.pick-card.glow-legendary { animation: card-land 0.3s ease-out, glow-legendary 0.6s 0.3s infinite alternate; }
+.pick-card.glow-mythic    { animation: card-land 0.3s ease-out, glow-mythic 0.4s 0.3s infinite alternate; }
+@keyframes glow-rare      { to { box-shadow: 0 0 26px 4px rgba(61, 139, 255, 0.9); } }
+@keyframes glow-epic      { to { box-shadow: 0 0 32px 6px rgba(162, 77, 255, 0.95); } }
+@keyframes glow-legendary { to { box-shadow: 0 0 40px 10px rgba(255, 201, 61, 1); } }
+@keyframes glow-mythic    { to { box-shadow: 0 0 48px 14px rgba(255, 59, 59, 1); } }
+/* rare or better: a white flash across the card as it lands */
+.pick-card.jackpot { position: relative; overflow: hidden; }
+.pick-card.jackpot::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: #fff;
+    opacity: 0;
+    animation: card-flash 0.45s ease-out;
+    pointer-events: none;
+}
+@keyframes card-flash { 0% { opacity: 0.85; } 100% { opacity: 0; } }
+#flash.purple { background: #a24dff; }

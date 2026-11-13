@@ -64,8 +64,8 @@ const Effects = (function () {
     // Is this shooter a person? (you always; the rival too in two-player)
     function isPerson(shooter) { return shooter === Game.player || Game.state.twoPlayer; }
     function viewOf(shooter) { return shooter === Game.player ? 0 : 1; }
-    // The crowd cheers for you. In two-player it cheers for whoever won home court.
-    function crowdFavorite() { return Game.state.twoPlayer ? Game.state.home : Game.player; }
+    // The player the crowd is backing right now (the fan meter in game.js)
+    function crowdFavorite() { return Game.fanFavorite(); }
 
     // ---------- React to game events ----------
     Game.on(function (name, data) {
@@ -84,25 +84,40 @@ const Effects = (function () {
             // On Fire or better: the net burns on a make
             if (data.ball.heat >= 2) burst('fire', [rim[0], rim[1] - 0.25, rim[2]], 30, 0.9, 0);
             if (data.bank) boardFlash.set(data.ball.hoop, 1);
-            if (!isPerson(data.shooter)) return;
 
+            // The crowd cheers the player it backs (the fan meter) and boos the other one
+            if (data.shooter === crowdFavorite()) {
+                hype = Math.min(1, hype + 0.12 + (data.swish ? 0.08 : 0) + (data.points >= 3 ? 0.05 : 0));
+                cheer = 1;
+                if (data.shooter === player) shake = 0.04;
+                sound('cheer', { big: data.swish || data.points >= 3 });
+                if (Game.state.buzzer) {
+                    // buzzer beater: the whole crowd jumps and the lights flash
+                    hype = 1;
+                    hud('flashScreen', 'white');
+                    burst('confetti', rim, 80, 4);
+                }
+            } else {
+                sound('boo');
+            }
+
+            if (!isPerson(data.shooter)) return;
             const view = viewOf(data.shooter);
             popup('+' + data.points, [rim[0], rim[1] + 0.45, rim[2]], 'points', view);
             if (data.swish) popup('SWISH!', [rim[0], rim[1] + 0.95, rim[2]], 'swish', view);
             else if (data.bank) popup('BANK!', [rim[0], rim[1] + 0.95, rim[2]], 'bank', view);
             sound('chime', { streak: data.shooter.streak });    // pitch can rise with the streak
-            if (data.shooter !== crowdFavorite()) return;       // the crowd only cheers its own player
+        }
 
-            hype = Math.min(1, hype + 0.12 + (data.swish ? 0.08 : 0) + (data.points >= 3 ? 0.05 : 0));
-            cheer = 1;
-            shake = 0.04;
-            sound('cheer', { big: data.swish || data.points >= 3 });
-            if (Game.state.buzzer) {
-                // buzzer beater: the whole crowd jumps and the lights flash
-                hype = 1;
-                hud('flashScreen', 'white');
-                burst('confetti', rim, 80, 4);
-            }
+        // The crowd changes sides: a big roar, and a flash in the new favorite's color
+        if (name === 'fanswitch') {
+            sound('cheer', { big: true });
+            hype = Math.min(1, hype + 0.2);
+        }
+        if (name === 'crowdfire') {
+            hype = 1;
+            hud('flashScreen', 'orange');
+            sound('fire');
         }
 
         if (name === 'miss' && isPerson(data.shooter)) {

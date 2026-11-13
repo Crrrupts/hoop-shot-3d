@@ -44,12 +44,13 @@ Mouse: move the crosshair (on the rim = perfect aim; it jumps to a new place aft
 - **Scoring.** 2 points, 3 from the corner spots.
 - **Money spot.** Before the game each player picks one spot (on the menu) where every make counts double. It has a green ring on the floor and shows in the HUD. The AI rival picks its spot at random.
 - **Streak tiers.** 2 makes in a row = Heating Up (+1 per basket), 4 = On Fire (+2), 7 = Inferno (points x2, then +2). One miss drops you to zero.
-- **Power-up picks.** Every 20–30 seconds (the first one comes early, at your 2nd make, if that is in the first 20 seconds) the game pauses and you pick one of two cards: a buff for you or a sabotage for the rival. You have 5 seconds. If you do not pick, you get no card, but your next pick's odds move one step toward rarer cards. Picking a card you already have levels it up. Mythic cards only appear in overtime; none are designed yet, so overtime cards are legendary for now. The 21 cards and the rarity odds are in `powerups.js`.
+- **Power-up picks.** The two cards spin like slot-machine reels: they flick through rarities, slow down, tease one rarity higher, then land (left after 1 second, right after 1.5), with ticks, a glow in the rarity's color, and a flash and fanfare for rare or better. A card can be chosen once it has landed. Every 20–30 seconds (the first one comes early, at your 2nd make, if that is in the first 20 seconds) the game pauses and you pick one of two cards: a buff for you or a sabotage for the rival. You have 5 seconds. If you do not pick, you get no card, but your next pick's odds move one step toward rarer cards. Picking a card you already have levels it up. Mythic cards only appear in overtime; none are designed yet, so overtime cards are legendary for now. The 21 cards and the rarity odds are in `powerups.js`.
 - **Clock.** 2 minutes. Shots in the air at the buzzer still count. If the scores are within 10 points when the clock ends, there is a 1-minute overtime that starts with a pick. After overtime, whoever is ahead wins (level scores are a tie).
 - **Difficulty slider.** Easy / Medium / Hard changes how fast the meter fills and the rival (how often it scores, how fast it shoots, which cards it can pick). Easy also shows the golden aim dot. Hard hides the green zone.
 - **Power meter.** Power comes from how long you hold Space, timed with the clock, so the same hold always gives the same power. The green zone is the power that scores for where you are aiming right now: it moves and changes size as you move the crosshair, and disappears if no power would score from that aim. A release in green goes in. Nothing about a shot is random: the same power and aim always give the same throw.
 - **Aiming.** Crosshair on the rim is perfect aim. The golden dot (Easy, or the Guide Line card) marks the best spot; in wind it sits to one side of the rim. Shaky Hands and rain make the crosshair shake, and the shot goes exactly where the crosshair is.
 - **Rim and backboard.** A hit keeps part of the ball's speed and rubs off some sideways speed. A soft touch on the rim does not bounce: the ball rolls on the rim and drops in or falls off. A ball that comes to rest on the rim is eased toward the middle after 0.8 seconds so it never gets stuck. The numbers are at the top of `physics.js` (`RESTITUTION`, `GRIP`, `ROLL_SPEED`).
+- **Fan meter.** The bar at the top shows which player the crowd backs. It starts on the home team's side (you, against the AI; the coin-flip winner in two-player) and slowly drifts back there. Makes pull it your way (more for swishes, threes, streak tiers and a run of 8+ points); misses and air balls pull it toward your opponent. The crowd cheers the player it backs and boos the other. Leaning your way makes your green zone up to 3 power points wider on each side. A full meter keeps you On Fire until you miss or your opponent catches fire, and while it lasts your opponent's green zone is 35% smaller (green still always goes in).
 - **Money Rack.** Once a game, for a surprise 10 seconds, every make pays double.
 
 ## Courts
@@ -70,6 +71,7 @@ The scoreboard (score and time boxes) is styled to match each court: red bulbs i
 The wind when you release is the wind that ball gets. The HUD shows it for the spot you are standing on (arrows = sideways push), and the golden aim dot moves to the side to show how far to aim off.
 
 ## Crowd and game feel
+- The crowd size matches the court: 5 at the YMCA, 30 at the Home Gym, 40 at the Neon Arcade, 160 packed into 4 rows at the Pro Arena, and 5 or 6 standing at each outdoor court. Fans with the same shirt are drawn in one batch so a big crowd stays fast.
 - The crowd is flat cut-out cards that bob. They jump when you score, bounce more as the **hype meter** fills, and stomp together in intense moments (last minute of a close game, overtime, or when you are On Fire).
 - Makes throw confetti and float "+2" from the rim; swishes, bank shots, rim-outs ("SO CLOSE!") and air balls get their own text.
 - Heating Up gives the ball an orange trail, On Fire covers it in fire and burns the net, Inferno turns the lights red-orange and makes the rim glow. Losing the streak puffs out smoke.
@@ -105,7 +107,7 @@ The 9 graded requirements, where each one is in the code, and how to see it in t
 | powerups.js | Justin | The 20 power-up cards, rarity odds tables, and how effects are stored and counted down |
 | courts.js | Justin, Bom | The 7 courts: rules (rim, wind, rain) and looks (colors, lights, sky, weather) |
 | effects.js | Justin, Bom | Game feel: hype meter, confetti, fire, smoke, ball trails, floating text, slow motion, sound hooks |
-| crowd.js | Bom | Where the fans stand and how high each one jumps |
+| crowd.js | Bom | Where the fans stand (size and rows per court, gaps behind the hoops) and how high each one jumps |
 | cards.js | Justin, Bom | Ball and gear cards, chests, upgrades, saved progress |
 | campaign.js | Justin | The 7 campaign stages (rival numbers, boss twists), stars and rewards |
 | menus.js | Bom | Menu screens, result and chest opening, tutorial steps, sandbox panel |
@@ -116,11 +118,11 @@ The 9 graded requirements, where each one is in the code, and how to see it in t
 | geometry.js | Isaiah | Builds every mesh in code (positions, normals, texture coordinates, triangles) |
 | textures.js | Isaiah, Bom | Placeholder textures painted on 2D canvases (swap in real art here) |
 | renderer.js | Isaiah | WebGL setup, materials, lights, matrix stack, draws the main view and the small rival view, or a split screen for two players |
-| tests/ | Amit | `physics.test.js`, `rules.test.js`, `cards.test.js` and `shooter.test.js`, run with node |
+| tests/ | Amit | `physics.test.js`, `rules.test.js`, `cards.test.js`, `shooter.test.js` and `crowd.test.js`, run with node |
 
 Units are meters, y is up, the rim is above x = 0, z = 0 and the shooter is on +z. Sizes shared by physics and drawing are in `Physics` (`RIM_HEIGHT`, `RIM_RADIUS`, `BOARD`, `POLE`, ...).
 
-**Sound (Bom):** every sound is made in code by `audio.js` (Web Audio, no files), so the game has placeholder sound for every event. To replace one with a real recording, put the file in `sounds/` named after the sound (for example `swish.mp3`) and add its file name to `sounds/list.js`. Sound names: `shoot`, `swish`, `score`, `rim`, `board`, `floor`, `pole`, `buzzer`, `cheer`, `chime` (rises in pitch with the streak), `groan`, `gasp`, `airball`, `hiss`, `fire`, `stomp`, `tick`, `boo`. Use only free-to-use or self-recorded audio and list credits in this README. The Sound box under the game turns it off (the choice is saved).
+**Sound (Bom):** every sound is made in code by `audio.js` (Web Audio, no files), so the game has placeholder sound for every event. To replace one with a real recording, put the file in `sounds/` named after the sound (for example `swish.mp3`) and add its file name to `sounds/list.js`. Sound names: `shoot`, `swish`, `score`, `rim`, `board`, `floor`, `pole`, `buzzer`, `cheer`, `chime` (rises in pitch with the streak), `groan`, `gasp`, `airball`, `hiss`, `fire`, `stomp`, `tick`, `boo`, `reel`, `land`, `fanfare`. Use only free-to-use or self-recorded audio and list credits in this README. The Sound box under the game turns it off (the choice is saved).
 
 **Art hookup (Bom):** each function in `textures.js` returns one image (ball, court floor, backboard, wall, sky, crowd fan). Replace the drawing with your own image of the same layout. Court colors are in `courts.js`.
 
@@ -130,6 +132,7 @@ node tests/physics.test.js
 node tests/rules.test.js
 node tests/cards.test.js
 node tests/shooter.test.js
+node tests/crowd.test.js
 ```
 The first checks that every spot can be scored, the collisions, and frame-rate independence. The second checks the match rules: streak tiers, rapid fire, power-up odds and effects, the rival's accuracy, the buzzer, overtime, the court rules (soft rim, double rim, rain, wind), practice mode, boss twists, two-player rules and a whole simulated match. The third checks chests, upgrades, gear and campaign stars and unlocks.
 

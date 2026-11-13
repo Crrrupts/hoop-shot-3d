@@ -9,15 +9,15 @@ Everything in this doc is a design. This table is the truth about the game on `m
 | Area | In the game now | Not built (ideas only) |
 | --- | --- | --- |
 | Graded requirements | All 9, see the checklist in the README | |
-| Match rules | Live race against an AI rival, shoot as fast as you want, 2-minute games, 1-minute overtime when within 10 points, power-up picks, moving hoop as a power-up | Home court in campaign (the crowd always backs you); power-ups carrying between matches |
+| Match rules | Live race against an AI rival, shoot as fast as you want, 2-minute games, 1-minute overtime when within 10 points, power-up picks, moving hoop as a power-up, spots in order, money spot, fan meter | Choosing home court in campaign (you are always home against the AI); power-ups carrying between matches |
 | Courts | All 7 courts with their own floor, walls or sky, lights and gameplay rules (soft rim, double rim, wind, rain, snow) | The signature details: swaying banners, string lights, jumbotron replays, Ferris wheel as a 3D object (it is painted on the sky), pulsing floor grid, fogged breath, light that changes during a match |
-| Crowd | Cut-out fans that bob, jump on your makes, bounce with the hype meter and stomp together in intense moments; placeholder cheer, groan, gasp, air ball and stomp sounds | Chants and counting down out loud, camera flashes, fans standing up, the crowd backing the other player |
+| Crowd | Cut-out fans that bob, jump and stomp; crowd size per court (5 at the YMCA up to 160 at the Pro Arena); a fan meter that swings to whoever plays better, with cheers for that player and boos for the other; placeholder crowd sounds | Chants and counting down out loud, camera flashes, fans standing up |
 | Ball designs | 9 ball skins as cards (texture and shine only) | Glow and Lava do not glow in the dark; Snowball sheds no flakes |
 | Cards and upgrades | Chests from campaign wins, duplicates plus gold level a card up (max level 5), Headband, Shooting Sleeve and Wristband gear | Shoes; perks on balls; card art |
 | Hoop designs | Each court colors the backboard, rim, pole and net | Glass or fan-shaped backboards, chain net sound, LED strip, shot clock, towel, icicles, breakaway rim as a separate part |
 | Animations | Power meter pulse, ball dip while charging, camera push-in, ball trail, "+2" and confetti, SWISH / BANK / SO CLOSE / AIR BALL text, backboard flash, rim shake, net stretch, red timer in the last 10 seconds, slow-motion buzzer beater, squash on floor bounces, backspin | All sounds; swish zoom on the net; orbit camera on a buzzer beater; stats counting up on the game-over card; a ball rolling around the rim; wrist flick detail on the follow-through |
 | Heating up | The three tiers at 2, 4 and 7 makes with their scoring, banner, orange trail, fire on the ball and net, screen glow, red-orange lights and glowing rim, smoke when the streak ends | Announcer lines, faster music, crowd chants |
-| Casino feel | Hype meter, streak hint ("1 more for ON FIRE"), scores that count up, bigger celebrations for bigger shots, "SO CLOSE!", Money Rack, tier colors on the screen, cards that flash through rarities before landing | Court lights pulsing with hype, slow motion on every on-target shot, a chime that rises with the streak (the hook exists, there is no sound), music layers |
+| Casino feel | Hype meter, streak hint ("1 more for ON FIRE"), scores that count up, bigger celebrations for bigger shots, "SO CLOSE!", Money Rack, tier colors on the screen, a chime that rises with the streak, power-up cards that spin like slot reels (slow down, tease a higher rarity, land with a glow, flash and fanfare) | Court lights pulsing with hype, slow motion on every on-target shot, music layers |
 | Campaign | 7 stages, one boss race per court with its twist, stars, gold, chests, the tutorial | Rival personalities and habits, several matches per court, Archero-style runs, permanent upgrades bought with gold, daily challenge |
 | Sandbox | Everything listed in the Sandbox section | |
 | Multiplayer | Two players on one computer, split screen | Online play |
@@ -347,7 +347,7 @@ The class deadline is 12/10, so the biggest call is what goes into the graded ve
 
 - [x] Which 2 courts make the graded version? All 7 are in.
 - [x] Exactly 3 or 4 minutes per game? 2 minutes (decided Nov 12), with overtime when within 10 points.
-- [ ] What does home court give, beyond the crowd being on your side? Nothing yet. The fan meter in next-steps.md is the plan.
+- [x] What does home court give, beyond the crowd being on your side? The fan meter starts on the home team's side and drifts back there.
 - [ ] Campaign: does the player always pick the court, or does a coin flip still decide? Today each stage has a fixed court.
 - [ ] Campaign: do power-ups carry from match to match? Today they do not.
 - [x] Do balls give small perks as they level up, or only change the look? Only the look.

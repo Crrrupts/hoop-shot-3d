@@ -28,7 +28,25 @@ const Game = (function () {
         shotCooldown: 0.15,         // shortest time between two of your shots
         maxBalls: 12,               // most balls one shooter can have in the air
         moneyRackLength: 10,        // surprise bonus round: every make pays double for 10 seconds
-        shotsPerSpot: 5             // you shoot this many times from a spot, then move to the next one
+        shotsPerSpot: 5,            // you shoot this many times from a spot, then move to the next one
+
+        // The fan meter: which player the crowd backs, from -1 (all for the
+        // rival / Player 2) to +1 (all for you / Player 1). Strong play pulls
+        // it your way. All numbers are first-pass values to tune.
+        fans: {
+            start: 0.35,            // where it starts, on the home team's side
+            make: 0.05,             // pull for any make...
+            swish: 0.04,            // ...plus this for a swish
+            three: 0.02,            // ...plus this for a 3-pointer
+            tier: 0.12,             // reaching Heating Up, On Fire or Inferno
+            runPoints: 8,           // scoring this many points in a row (the opponent scores none)...
+            run: 0.05,              // ...pulls this much more on every make of the run
+            miss: 0.02,             // a miss pulls toward the opponent...
+            airball: 0.04,          // ...an air ball more
+            drift: 0.006,           // per second, the meter slowly drifts back toward the home side
+            zoneBonus: 3,           // crowd fully with you: green zone this much wider on each side (power %)
+            shrink: 0.35            // full meter: the opponent's green zone loses this share of its width
+        }
     };
     // For testing and demos, add these to the page address:
     //   ?length=30          play a short game (seconds)
@@ -118,7 +136,8 @@ const Game = (function () {
         moneyRack: 0,                   // seconds of Money Rack left (0 = not running)
         practice: false,                // true = no clock, no rival, no picks (tutorial and sandbox)
         twoPlayer: false,               // true = the "rival" is a second person on the same keyboard
-        home: null,                     // two-player: who won the coin flip for home court (the crowd is theirs)
+        home: null,                     // the home team: you against the AI; the coin-flip winner in two-player
+        fans: 0,                        // the fan meter, -1..1 (see SETTINGS.fans)
         twist: null,                    // a campaign boss's special rule (see campaign.js)
         options: {},                    // what the current match was started with (R restarts it)
         followBall: null,               // your newest ball (for the Ball Follow camera)
@@ -144,6 +163,8 @@ const Game = (function () {
     //   'powerup'  { user, card }
     //   'court'    { court }                    a court was chosen
     //   'spot'     { shooter }                  a shooter moved on to the next spot
+    //   'fanswitch' { favorite }                the crowd changed sides
+    //   'crowdfire' { shooter }                 a full fan meter set a shooter On Fire
     //   'start', 'buzzer', 'overtime', 'gameover'
     const listeners = [];
     function on(fn) { listeners.push(fn); }
@@ -313,11 +334,65 @@ const Game = (function () {
         return pixels * (shooter === player ? gear().wobbleScale : 1);
     }
 
+    // ---------- The fan meter ----------
+    // How far the crowd leans toward a shooter: +1 = all for them, -1 = all against
+    function lean(shooter) {
+        return shooter === player ? state.fans : -state.fans;
+    }
+    // The player the crowd is backing right now (near the middle: the home team)
+    function fanFavorite() {
+        if (state.fans > 0.05) return player;
+        if (state.fans < -0.05) return rival;
+        return state.home || player;
+    }
+    // Pull the meter toward a shooter by some amount
+    function pullFans(shooter, amount) {
+        if (state.practice) return;                     // no crowd swings in the tutorial or sandbox
+        const before = fanFavorite();
+        state.fans = Math.max(-1, Math.min(1, state.fans + (shooter === player ? amount : -amount)));
+        const after = fanFavorite();
+        if (after !== before) {
+            emit('fanswitch', { favorite: after });
+            hud('showToast', 'The crowd is with ' + (after === player && !state.twoPlayer ? 'you' : after.name) + ' now!', after === player ? 'buff' : 'sabotage');
+        }
+        // A full meter sets its player On Fire until they miss or the opponent catches fire
+        if (Math.abs(state.fans) >= 1 && !after.crowdFire) {
+            after.crowdFire = true;
+            emit('crowdfire', { shooter: after });
+            hud('showBanner', state.twoPlayer || after !== player ? after.name + ': CROWD ON FIRE' : 'THE CROWD IS YOURS', 'tier');
+        }
+        hud('updateFans', state.fans, state.twoPlayer ? 'P1' : 'YOU', rival.name);
+    }
+
+    // The green zone that shows on the meter, for where a shooter is aiming:
+    // the real zone (aimZone), wider the more the crowd leans your way, and
+    // smaller while the opponent is On Fire from a full meter. A release in it goes in.
+    function greenZone(shooter, aimX, aimY) {
+        const zone = aimZone(shooter, aimX, aimY);
+        if (!zone) return null;
+        let lo = zone.lo, hi = zone.hi;
+        const bonus = Math.max(0, lean(shooter)) * SETTINGS.fans.zoneBonus;
+        lo -= bonus; hi += bonus;
+        // the opponent's crowd On Fire (from a full meter) shrinks your zone for as long as it lasts
+        if (opponentOf(shooter).crowdFire) {
+            const cut = (hi - lo) * SETTINGS.fans.shrink / 2;
+            lo += cut; hi -= cut;
+        }
+        return { lo: Math.max(0, lo), hi: Math.min(100, hi) };
+    }
+
     // ---------- Scoring ----------
     // The streak tier for a number of makes in a row (null below 2)
     function tierFor(streak) {
         let tier = null;
         for (const t of TIERS) if (streak >= t.makes) tier = t;
+        return tier;
+    }
+    // A shooter's tier counting the crowd: a full fan meter keeps them at
+    // least On Fire (see pullFans)
+    function heatTier(shooter) {
+        const tier = tierFor(shooter.streak);
+        if (shooter.crowdFire && (!tier || tier.makes < TIERS[1].makes)) return TIERS[1];
         return tier;
     }
 
@@ -328,7 +403,7 @@ const Game = (function () {
     function pointsFor(shooter, basePoints, info, spot) {
         let base = basePoints;
         if (PU.has(shooter, 'money')) base = Math.max(base, 3);         // Moneyball
-        const tier = tierFor(shooter.streak);
+        const tier = heatTier(shooter);
         let points = tier ? base * tier.multiplier + tier.bonus : base;
         if (info && info.bank) points += PU.level(shooter, 'glass');    // Glass Cleaner
         if (PU.has(shooter, 'golden')) points *= 2;                     // Golden Ball
@@ -340,12 +415,12 @@ const Game = (function () {
     function showScores() {
         hud('updateScore', player.score);
         hud('updateRivalScore', rival.score, rival.name);
-        const tier = tierFor(player.streak);
-        const next = TIERS.find((t) => t.makes > player.streak);
+        const tier = heatTier(player);
+        const next = TIERS.find((t) => t.makes > player.streak && (!tier || t.makes > tier.makes));
         hud('updateStreak', player.streak, tier ? tier.name : '',
             next ? (next.makes - player.streak) + ' more for ' + next.name : '');
         // two-player: Player 2's streak
-        const tier2 = tierFor(rival.streak);
+        const tier2 = heatTier(rival);
         hud('updateStreak2', rival.streak, tier2 ? tier2.name : '');
     }
 
@@ -356,6 +431,9 @@ const Game = (function () {
         const after = tierFor(value);
         if (after && after !== before) {
             emit('tier', { shooter: shooter, tier: after });
+            pullFans(shooter, SETTINGS.fans.tier);
+            // the opponent catching fire ends a crowd-given On Fire
+            if (after.makes >= TIERS[1].makes) opponentOf(shooter).crowdFire = false;
             if (state.twoPlayer) hud('showBanner', shooter.name + ' ' + after.name, 'tier');
             else if (shooter === player) hud('showBanner', after.name, 'tier');
         }
@@ -370,6 +448,12 @@ const Game = (function () {
         const points = pointsFor(shooter, ball.points, info, ball.spot);
         PU.useOne(shooter, 'golden');
         shooter.score += points;
+        // the fan meter: a make pulls the crowd, more for a swish, a three, or a run
+        const fan = SETTINGS.fans;
+        shooter.run += points;
+        opponentOf(shooter).run = 0;
+        pullFans(shooter, fan.make + (info.swish ? fan.swish : 0) + (ball.points >= 3 ? fan.three : 0) +
+            (shooter.run >= fan.runPoints ? fan.run : 0));
         showScores();
         sound(info.swish ? 'swish' : 'score');
         emit('basket', {
@@ -390,12 +474,15 @@ const Game = (function () {
             hud('showToast', 'Wristband saved your streak!', 'buff');
             return;
         }
-        const lostTier = tierFor(shooter.streak);
+        const lostTier = heatTier(shooter);
         shooter.streak = 0;
+        shooter.crowdFire = false;                  // a miss ends a crowd-given On Fire
+        const airball = !ball.touchedRim && !ball.touchedBoard;
+        pullFans(opponentOf(shooter), airball ? SETTINGS.fans.airball : SETTINGS.fans.miss);
         showScores();
         emit('miss', {
             shooter: shooter, ball: ball, lostTier: lostTier,
-            airball: !ball.touchedRim && !ball.touchedBoard
+            airball: airball
         });
     }
 
@@ -419,7 +506,8 @@ const Game = (function () {
         ball.resolved = false;          // becomes true once it counts as a make or a miss
         ball.wind = state.wind.slice(); // the wind at the moment of release stays with the ball
         // streak tier when thrown: 0 none, 1 Heating Up, 2 On Fire, 3 Inferno (for trails and fire)
-        ball.heat = TIERS.filter((t) => shooter.streak >= t.makes).length;
+        const heat = heatTier(shooter);
+        ball.heat = heat ? TIERS.indexOf(heat) + 1 : 0;
         Physics.launch(ball, pos, vel);
         shooter.balls.push(ball);
         return ball;
@@ -478,7 +566,7 @@ const Game = (function () {
         if (shooter === player && state.freeSpots) player.spot = inputSpot();
         // A release in the green zone always goes in (see surePower).
         // Nothing here is random: the same power and aim give the same throw.
-        const zone = aimZone(shooter, aimX, aimY);
+        const zone = greenZone(shooter, aimX, aimY);
         if (zone && power >= zone.lo && power <= zone.hi) {
             // use the same rounded aim the zone was worked out for
             aimX = Math.round(aimX * 50) / 50;
@@ -493,6 +581,9 @@ const Game = (function () {
 
     function rivalMakeChance() {
         let chance = rival.ai.accuracy;
+        // the crowd: backing the rival helps it, your full meter hurts it
+        chance += 0.06 * Math.max(0, lean(rival));
+        if (player.crowdFire) chance -= 0.05;
         // power-ups change how well the rival shoots
         chance += 0.03 * PU.level(rival, 'steady');
         if (PU.has(rival, 'sweet')) chance += 0.10;
@@ -698,7 +789,7 @@ const Game = (function () {
         state.options = options;
         state.practice = !!options.practice;
         state.twoPlayer = !!options.twoPlayer;
-        state.home = null;
+        state.home = player;
         state.twist = options.twist || null;
         if (options.court && options.court !== state.court.id) setCourt(options.court);
         player.sabotagesUsed = 0;
@@ -729,6 +820,9 @@ const Game = (function () {
             rival.name = 'P2';
             state.home = Math.random() < 0.5 ? player : rival;
         }
+        // the fan meter starts on the home team's side
+        state.fans = (state.home === player ? 1 : -1) * SETTINGS.fans.start;
+        for (const s of [player, rival]) { s.run = 0; s.crowdFire = false; }
         // Spots: everyone starts at spot 1 and shoots 5 from each, in order.
         // options.freeSpots (the sandbox) lets A / D move you instead.
         state.freeSpots = !!options.freeSpots;
@@ -898,6 +992,13 @@ const Game = (function () {
         const chips = PU.describe(player);
         if (state.moneyRack > 0) chips.unshift({ name: 'Money Rack: makes pay double', side: 'buff', label: Math.ceil(state.moneyRack) + 's' });
         hud('updateEffects', chips);
+        // the fan meter slowly drifts back toward the home team's side
+        if (!state.practice) {
+            const home = (state.home === player ? 1 : -1) * SETTINGS.fans.start;
+            const step = SETTINGS.fans.drift * dt;
+            state.fans += Math.max(-step, Math.min(step, home - state.fans));
+            hud('updateFans', state.fans, state.twoPlayer ? 'P1' : 'YOU', rival.name);
+        }
         if (state.twoPlayer) hud('updateEffects2', PU.describe(rival));
         showWind();
 
@@ -923,7 +1024,7 @@ const Game = (function () {
     return {
         state, player, rival, SPOTS, SETTINGS, TIERS, RIVALS,
         start, shoot, shoot2, update, on,
-        spotPosition, shotVelocity, makeWindow, tierFor, pointsFor, perfectAim, powerZone, aimZone, zoneVisible, aimShake,
+        spotPosition, shotVelocity, makeWindow, tierFor, pointsFor, perfectAim, powerZone, aimZone, greenZone, zoneVisible, aimShake, lean, fanFavorite, heatTier, pullFans,
         throwBall, applyCard, choosePick, opponentOf, setCourt, forcePick, clearBalls, quit
     };
 })();

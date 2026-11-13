@@ -187,6 +187,26 @@ let blindOffered = false;
 for (let i = 0; i < 400 && !blindOffered; i++) if (PowerUps.rollCard('sabotage', [0, 100, 0, 0, 0]).id === 'blind') blindOffered = true;
 check('Blind Meter shows up in picks', blindOffered);
 
+// ---------- The slot-machine reel on the pick screen ----------
+let reelOk = true, teaseOk = true;
+for (const rarity of PowerUps.RARITIES) {
+    for (const landAt of [1.0, 1.5]) {
+        const frames = PowerUps.reelFrames(rarity, landAt);
+        const last = frames[frames.length - 1], beforeLast = frames[frames.length - 2];
+        if (!last.landed || last.rarity !== rarity || Math.abs(last.at - landAt) > 1e-9) reelOk = false;
+        for (let i = 1; i < frames.length; i++) {
+            if (frames[i].at <= frames[i - 1].at) reelOk = false;                                   // in time order
+            if (i >= 2 && frames[i].at - frames[i - 1].at < frames[i - 1].at - frames[i - 2].at - 1e-9) reelOk = false;   // slowing down
+        }
+        const index = PowerUps.RARITIES.indexOf(rarity);
+        if (index < 4 && (!beforeLast.tease || beforeLast.rarity !== PowerUps.RARITIES[index + 1])) teaseOk = false;
+        if (index === 4 && beforeLast.tease) teaseOk = false;
+    }
+}
+check('the pick reel slows down and lands on the real rarity exactly on time', reelOk);
+check('just before landing it teases one rarity higher (nothing above mythic)', teaseOk);
+check('both cards land within the first 1.5 of the 5 seconds', Game.SETTINGS.pickChooseTime - 1.5 >= 3);
+
 // ---------- Power-up effects ----------
 const card = (id) => PowerUps.byId(id);
 
@@ -311,12 +331,17 @@ playerShot(true); playerShot(true);
 check('the early pick only happens before 20 seconds', state.pickNumber === 0);
 
 // ---------- The AI rival ----------
+// These accuracy tests measure the rival's own numbers, so the crowd is kept
+// out of it: its pulls are set to 0 here and put back afterwards.
+const savedFanSettings = Object.assign({}, Game.SETTINGS.fans);
+for (const key of ['make', 'swish', 'three', 'tier', 'run', 'miss', 'airball']) Game.SETTINGS.fans[key] = 0;
 Game.start({ freeSpots: true, rival: { name: 'Bot', accuracy: 0.5, pace: 0.5, maxRarity: null }, length: 100000 });
 state.nextPickAt = Infinity; state.pickNumber = 99;
 run(600);
 const rate = rival.made / rival.attempts;
 check('a 50% rival makes about half its shots', rival.attempts > 600 && rate > 0.44 && rate < 0.56,
     `${rival.made}/${rival.attempts} = ${(rate * 100).toFixed(0)}%`);
+Object.assign(Game.SETTINGS.fans, savedFanSettings);
 check('the rival scores on its own scoreboard', rival.score > 0 && player.score === 0);
 
 // Tiny Rim on the rival: count how many of its "make" throws still go in
@@ -429,10 +454,12 @@ check('Boardwalk wind keeps one direction, Frozen Lake wind gusts both ways',
     boardwalkSigns.size === 1 && lakeSigns.has(1) && lakeSigns.has(-1));
 
 // the rival aims into the wind, so it still scores on a windy court
+for (const key of ['make', 'swish', 'three', 'tier', 'run', 'miss', 'airball']) Game.SETTINGS.fans[key] = 0;
 Game.start({ freeSpots: true, rival: { name: 'Bot', accuracy: 0.5, pace: 0.5, maxRarity: null }, court: 'lake', length: 100000 });
 state.nextPickAt = Infinity; state.pickNumber = 99;
 run(400);
 const windyRate = rival.made / rival.attempts;
+Object.assign(Game.SETTINGS.fans, savedFanSettings);   // (kept out of the windy test too)
 check('a 50% rival still makes 35-56% in gusting wind', windyRate > 0.35 && windyRate < 0.56,
     `${rival.made}/${rival.attempts} = ${(windyRate * 100).toFixed(0)}%`);
 Game.setCourt('home');
@@ -553,6 +580,88 @@ state.nextPickAt = Infinity; state.pickNumber = 99; state.moneyRackAt = 0;
 Game.throwBall(player, goodPower(player), 0, 0, 0);
 run(3);
 check('in a match, your first spot is spot 1: money spot 1 pays 6 for the corner three', player.score === 6, 'score ' + player.score);
+Game.setCourt('home');
+
+// ---------- Fan meter ----------
+const FAN = Game.SETTINGS.fans;
+function fanStart(options) {
+    Game.start(Object.assign({ rival: noCards, freeSpots: true, length: 600 }, options));
+    state.nextPickAt = Infinity; state.pickNumber = 99; state.moneyRackAt = 0;
+    return state.fans;
+}
+check('against the AI you are the home team: the meter starts on your side', fanStart() === FAN.start && Game.fanFavorite() === player);
+let homeSides = new Set();
+for (let i = 0; i < 30; i++) { fanStart({ twoPlayer: true }); homeSides.add(Math.sign(state.fans) === (state.home === player ? 1 : -1)); }
+check('two-player: the meter starts on the side of whoever won home court', homeSides.size === 1 && homeSides.has(true));
+fanStart();
+const atStart = state.fans;
+playerShot(true);
+check('your make pulls the crowd your way', state.fans > atStart, `${atStart.toFixed(2)} -> ${state.fans.toFixed(2)}`);
+const afterMake = state.fans;
+playerShot(false);
+check('your miss pulls it toward the rival', state.fans < afterMake);
+// the rival playing great takes the crowd away from you
+fanStart();
+let switched = null;
+Game.on((name, data) => { if (name === 'fanswitch' && switched === null) switched = data.favorite; });
+for (let i = 0; i < 12 && Game.fanFavorite() === player; i++) {
+    Game.throwBall(rival, Game.makeWindow(rival, rival.spot, 0, 0).best, 0, 0, 0);
+    run(2.5);
+}
+check('strong play by the rival swings the crowd to the rival', Game.fanFavorite() === rival && switched === rival,
+    `meter ${state.fans.toFixed(2)} after ${rival.made} rival makes`);
+// leaning your way widens your green zone; the opponent's is unchanged
+fanStart();
+state.fans = 0;
+const plain = Game.greenZone(player, 0, 0);
+state.fans = 0.6;
+const backed = Game.greenZone(player, 0, 0), rivalZone = Game.greenZone(rival, 0, 0);
+check('the crowd leaning your way makes your green zone bigger', backed.hi - backed.lo > plain.hi - plain.lo + 3,
+    `${(plain.hi - plain.lo).toFixed(1)} -> ${(backed.hi - backed.lo).toFixed(1)} power points wide`);
+check('...and does not widen the other player\'s zone', Math.abs((rivalZone.hi - rivalZone.lo) - (plain.hi - plain.lo)) < 1e-9);
+// a release anywhere in the wider zone still goes in
+let wideMakes = 0;
+for (const p of [backed.lo, backed.lo + 0.5, backed.hi - 0.5, backed.hi]) {
+    fanStart(); state.fans = 0.6;
+    Game.shoot(p, 0, 0); run(5); wideMakes += player.made;
+}
+check('green still always goes in, at the edges of the wider zone', wideMakes === 4, wideMakes + ' of 4');
+// a full meter: On Fire until you miss, and the opponent's zone shrinks
+fanStart();
+state.fans = 0.99;
+playerShot(true);
+check('a full meter sets you On Fire (with only 1 make in a row)', player.crowdFire && Game.heatTier(player).name === 'ON FIRE' && player.streak === 1);
+const fireBefore = player.score;
+playerShot(true);
+check('...and your makes score as On Fire', player.score - fireBefore === 2 + 2, 'make worth ' + (player.score - fireBefore));
+const fullRival = Game.greenZone(rival, 0, 0);
+player.crowdFire = false;
+const normalRival = Game.greenZone(rival, 0, 0);
+player.crowdFire = true;
+check("a full meter shrinks the opponent's green zone", fullRival.hi - fullRival.lo < (normalRival.hi - normalRival.lo) * 0.8,
+    `${(normalRival.hi - normalRival.lo).toFixed(1)} -> ${(fullRival.hi - fullRival.lo).toFixed(1)}`);
+let shrunkMakes = 0;
+for (const p of [fullRival.lo, (fullRival.lo + fullRival.hi) / 2, fullRival.hi]) {
+    fanStart(); state.fans = 1; player.crowdFire = true;
+    Game.shoot2 ? null : null;
+    Game.throwBall(rival, p, 0, 0, 0); run(5); shrunkMakes += rival.made;
+}
+check("...but the opponent's smaller green zone still goes in", shrunkMakes === 3, shrunkMakes + ' of 3');
+fanStart(); state.fans = 0.99; playerShot(true);
+playerShot(false);
+check('a miss ends the crowd On Fire', !player.crowdFire && Game.heatTier(player) === null);
+fanStart(); state.fans = 0.99; playerShot(true);
+Game.applyCard(PowerUps.byId('hothand'), rival);   // rival to 3...
+rival.streak = 3;
+Game.throwBall(rival, Game.makeWindow(rival, rival.spot, 0, 0).best, 0, 0, 0); run(3);
+check('the opponent catching fire ends it too', rival.streak === 4 && !player.crowdFire);
+// the meter drifts back toward the home side
+fanStart(); state.fans = -0.5;
+run(30);
+check('the meter slowly drifts back toward the home team', state.fans > -0.5 && state.fans < -0.2, state.fans.toFixed(2));
+fanStart({ practice: true });
+playerShot(false); playerShot(false);
+check('no crowd swings in practice (tutorial, sandbox)', state.fans === FAN.start);
 Game.setCourt('home');
 
 // A whole 3-minute match against the Medium rival, with picks

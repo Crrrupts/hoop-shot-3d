@@ -171,50 +171,77 @@ function placeMark(el, position) {
 
 // ---------- Power-up pick screen ----------
 // game.js calls showPick(pick, choose). pick = { buff: card, sabotage: card }.
-// The cards "spin" through the rarities like a slot machine, then land.
+// Each card spins like a slot-machine reel: it flicks through rarities fast,
+// slows down, teases one rarity higher, then lands (PowerUps.reelFrames). The
+// left card lands first, then the right. Every flick ticks; a landing card
+// glows in its rarity's color, and rare or better cards flash with a fanfare.
+// A card can be chosen as soon as it has landed. The whole spin takes
+// 1.5 seconds of the 5 second pick.
 const pickOverlay = document.getElementById('pick-overlay');
 const pickCards = { buff: document.getElementById('pick-buff'), sabotage: document.getElementById('pick-sabotage') };
 const RARITY_NAMES = ['common', 'rare', 'epic', 'legendary', 'mythic'];
+const REEL_LAND = [1.0, 1.5];           // seconds until the left and right cards land
 let pickChoose = null;
-let pickSpinning = false;
-let pickSpinTimer = null;
+let reelTimers = [];                    // so a new pick or hiding the screen stops old spins
 
-function fillCard(el, card, rarity, showDetails) {
-    el.className = 'pick-card ' + rarity;
+function stopReels() {
+    for (const t of reelTimers) clearTimeout(t);
+    reelTimers = [];
+}
+
+// Show a card at one frame of its spin. While spinning it shows a random
+// card name of that rarity flicking past; a tease shows "???".
+function fillCard(el, card, rarity, frame) {
+    el.className = 'pick-card' + (el.classList.contains('small') ? ' small' : '') + ' ' + rarity;
     el.querySelector('.pick-rarity').textContent = rarity.toUpperCase();
-    el.querySelector('.pick-name').textContent = showDetails ? card.name : '?';
-    el.querySelector('.pick-text').textContent = showDetails ? card.text : '';
+    const text = el.querySelector('.pick-text');
+    if (frame === 'landed') {
+        el.querySelector('.pick-name').textContent = card.name;
+        text.textContent = card.text;
+        el.classList.add('landed', 'glow-' + rarity);
+        if (RARITY_NAMES.indexOf(rarity) >= 1) el.classList.add('jackpot');      // rare or better
+    } else {
+        const others = PowerUps.LIST.filter((c) => c.side === card.side && c.rarity === rarity);
+        el.querySelector('.pick-name').textContent = frame === 'tease' || !others.length ? '???'
+            : others[Math.floor(Math.random() * others.length)].name;
+        text.textContent = '';
+        el.classList.add('spinning');
+    }
+}
+
+// Spin one card element and land it on `card` after `landAt` seconds.
+function spinReel(el, card, landAt, onLand) {
+    el.dataset.landed = '';
+    fillCard(el, card, 'common', 'spin');
+    for (const frame of PowerUps.reelFrames(card.rarity, landAt)) {
+        reelTimers.push(setTimeout(() => {
+            if (frame.landed) {
+                fillCard(el, card, card.rarity, 'landed');
+                el.dataset.landed = 'yes';
+                playSound('land');
+                const rank = RARITY_NAMES.indexOf(card.rarity);
+                if (rank >= 1) playSound('fanfare', { rarity: card.rarity });
+                if (rank === 2) flashScreen('purple');
+                if (rank >= 3) flashScreen('gold');
+                if (onLand) onLand();
+            } else {
+                fillCard(el, card, frame.rarity, frame.tease ? 'tease' : 'spin');
+                playSound('reel');
+            }
+        }, frame.at * 1000));
+    }
 }
 
 function showPick(pick, choose) {
+    stopReels();
     pickChoose = choose;
     pickOverlay.style.display = 'flex';
-    pickSpinning = true;
-    let ticks = 0;
-    clearInterval(pickSpinTimer);
-    pickSpinTimer = setInterval(() => {
-        ticks++;
-        if (ticks < 10) {
-            // still spinning: flash through the rarity colors
-            fillCard(pickCards.buff, pick.buff, RARITY_NAMES[ticks % 4], false);
-            fillCard(pickCards.sabotage, pick.sabotage, RARITY_NAMES[(ticks + 2) % 4], false);
-        } else {
-            // land on the real cards
-            clearInterval(pickSpinTimer);
-            fillCard(pickCards.buff, pick.buff, pick.buff.rarity, true);
-            fillCard(pickCards.sabotage, pick.sabotage, pick.sabotage.rarity, true);
-            pickCards.buff.classList.add('landed');
-            pickCards.sabotage.classList.add('landed');
-            pickSpinning = false;
-        }
-    }, 80);
-    fillCard(pickCards.buff, pick.buff, 'common', false);
-    fillCard(pickCards.sabotage, pick.sabotage, 'common', false);
+    spinReel(pickCards.buff, pick.buff, REEL_LAND[0]);
+    spinReel(pickCards.sabotage, pick.sabotage, REEL_LAND[1]);
 }
 
 function hidePick() {
-    clearInterval(pickSpinTimer);
-    pickSpinning = false;
+    stopReels();
     pickOverlay.style.display = 'none';
     pickChoose = null;
     pick2Overlay.style.display = 'none';
@@ -227,30 +254,53 @@ function updatePickTimer(fraction) {
     document.getElementById('pick2-timer-fill').style.width = (fraction * 100) + '%';
 }
 
+function choosePickCard(side) {
+    if (!pickChoose || pickCards[side].dataset.landed !== 'yes') return;     // wait for that card to land
+    pickChoose(side);
+}
+pickCards.buff.addEventListener('click', () => choosePickCard('buff'));
+pickCards.sabotage.addEventListener('click', () => choosePickCard('sabotage'));
+document.addEventListener('keydown', (e) => {
+    if (pick2Choose) {
+        // two-player: Player 1 uses 1 / 2, Player 2 uses the arrow keys
+        const pickFor = (who, side) => {
+            const el = document.querySelector(`#pick2-${who === Game.player ? 'player' : 'rival'} .pick-card[data-side="${side}"]`);
+            if (el && el.dataset.landed === 'yes') pick2Choose(side, who);
+        };
+        if (e.code === 'Digit1') pickFor(Game.player, 'buff');
+        if (e.code === 'Digit2') pickFor(Game.player, 'sabotage');
+        if (e.code === 'ArrowLeft') pickFor(Game.rival, 'buff');
+        if (e.code === 'ArrowRight') pickFor(Game.rival, 'sabotage');
+        return;
+    }
+    if (e.code === 'ArrowLeft' || e.code === 'Digit1') choosePickCard('buff');
+    if (e.code === 'ArrowRight' || e.code === 'Digit2') choosePickCard('sabotage');
+});
+
 // ---------- Two-player pick screen ----------
 // pick = { buff, sabotage (Player 1's cards), p2: { buff, sabotage } }
+// Both players' cards spin at once, the left ones landing first.
 const pick2Overlay = document.getElementById('pick2-overlay');
 let pick2Choose = null;
-let pick2Spinning = false;
 
 function smallCard(card, key) {
     return `<div class="pick-card small ${card.rarity}" data-side="${card.side}">` +
         `<span class="pick-side">${card.side === 'buff' ? 'BUFF FOR YOU' : 'SABOTAGE THEM'}</span>` +
-        `<span class="pick-rarity">${card.rarity.toUpperCase()}</span>` +
-        `<span class="pick-name">${card.name}</span><span class="pick-text">${card.text}</span>` +
+        `<span class="pick-rarity"></span><span class="pick-name"></span><span class="pick-text"></span>` +
         `<span class="pick-key">${key}</span></div>`;
 }
 
 function showPick2(pick, choose) {
+    stopReels();
     pick2Choose = choose;
     pick2Overlay.style.display = 'flex';
-    document.querySelector('#pick2-player .pick2-cards').innerHTML =
-        smallCard(pick.buff, 'Press 1') + smallCard(pick.sabotage, 'Press 2');
-    document.querySelector('#pick2-rival .pick2-cards').innerHTML =
-        smallCard(pick.p2.buff, 'Left arrow') + smallCard(pick.p2.sabotage, 'Right arrow');
-    // a short pause before choosing, so a key held from shooting does not pick by accident
-    pick2Spinning = true;
-    setTimeout(() => { pick2Spinning = false; }, 800);
+    const p1 = document.querySelector('#pick2-player .pick2-cards'), p2 = document.querySelector('#pick2-rival .pick2-cards');
+    p1.innerHTML = smallCard(pick.buff, 'Press 1') + smallCard(pick.sabotage, 'Press 2');
+    p2.innerHTML = smallCard(pick.p2.buff, 'Left arrow') + smallCard(pick.p2.sabotage, 'Right arrow');
+    spinReel(p1.children[0], pick.buff, REEL_LAND[0]);
+    spinReel(p1.children[1], pick.sabotage, REEL_LAND[1]);
+    spinReel(p2.children[0], pick.p2.buff, REEL_LAND[0]);
+    spinReel(p2.children[1], pick.p2.sabotage, REEL_LAND[1]);
 }
 
 // Show which card a player locked in. who is 'player' or 'rival'.
@@ -291,25 +341,7 @@ function setTwoPlayer(on) {
     counters.you.show(counters.you.shown);
 }
 
-function choosePickCard(side) {
-    if (!pickChoose || pickSpinning) return;    // wait for the cards to land
-    pickChoose(side);
-}
-pickCards.buff.addEventListener('click', () => choosePickCard('buff'));
-pickCards.sabotage.addEventListener('click', () => choosePickCard('sabotage'));
-document.addEventListener('keydown', (e) => {
-    if (pick2Choose) {
-        // two-player: Player 1 uses 1 / 2, Player 2 uses the arrow keys
-        if (pick2Spinning) return;
-        if (e.code === 'Digit1') pick2Choose('buff', Game.player);
-        if (e.code === 'Digit2') pick2Choose('sabotage', Game.player);
-        if (e.code === 'ArrowLeft') pick2Choose('buff', Game.rival);
-        if (e.code === 'ArrowRight') pick2Choose('sabotage', Game.rival);
-        return;
-    }
-    if (e.code === 'ArrowLeft' || e.code === 'Digit1') choosePickCard('buff');
-    if (e.code === 'ArrowRight' || e.code === 'Digit2') choosePickCard('sabotage');
-});
+
 
 // ---------- Court picker (menu) and wind display ----------
 const courtSelect = document.getElementById('court-select');
@@ -387,4 +419,25 @@ function flashScreen(color) {
     flashEl.className = '';
     void flashEl.offsetWidth;                   // restart the CSS animation
     flashEl.className = 'show ' + color;
+}
+
+
+// ---------- Fan meter ----------
+// value is -1..1: +1 = the crowd is all for the left player (you / Player 1),
+// -1 = all for the right player (the rival / Player 2).
+let fansShown = '';
+function updateFans(value, leftName, rightName) {
+    const key = value.toFixed(3) + leftName + rightName;
+    if (key === fansShown) return;                  // nothing changed
+    fansShown = key;
+    document.getElementById('fan-left').textContent = leftName;
+    document.getElementById('fan-right').textContent = rightName.toUpperCase();
+    const at = 50 - value * 50;                     // percent from the left edge
+    document.getElementById('fan-marker').style.left = at + '%';
+    // the fill runs from the middle to the marker, green toward you and red toward the rival
+    const fill = document.getElementById('fan-fill');
+    fill.style.left = Math.min(at, 50) + '%';
+    fill.style.width = Math.abs(at - 50) + '%';
+    fill.className = value >= 0 ? 'left' : 'right';
+    document.getElementById('fan-meter').className = Math.abs(value) >= 0.999 ? 'full' : '';
 }

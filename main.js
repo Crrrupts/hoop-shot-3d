@@ -91,7 +91,8 @@
             zoneTimes[which] = now;
             zoneAims[which] = aimKey;
         }
-        const zone = show ? Game.aimZone(shooter, aim[0], aim[1]) : null;
+        // (the crowd makes it bigger or smaller: Game.greenZone)
+        const zone = show ? Game.greenZone(shooter, aim[0], aim[1]) : null;
         const key = JSON.stringify(zone);
         if (key === zoneKeys[which]) return;        // nothing changed
         zoneKeys[which] = key;

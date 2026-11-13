@@ -186,6 +186,7 @@
             unlit: Crowd.isGlow()           // Neon Arcade fans glow instead of being lit
         }));
         MATERIALS.bleachers = { color: look.pole.map((c) => c * 0.8 + 0.05) };
+        buildCrowdBatches();
     }
     let fanMaterials = [];
 
@@ -652,8 +653,40 @@
     }
 
     // ---------- Crowd: bleachers and fans ----------
-    // Each fan is one flat card (the front face of the unit cube) with a
-    // cut-out person image, moved up and down by crowd.js.
+    // Each fan is one flat card with a cut-out person image, moved up and
+    // down by crowd.js. To stay fast with a big crowd (160 at the Pro Arena),
+    // fans are drawn in batches: all fans with the same shirt color are put
+    // into one list of triangles and drawn with a single call, instead of one
+    // call (and one matrix) per fan.
+    let crowdBatches = [];          // one per shirt color: { material, fans, positions, buffers }
+
+    function buildCrowdBatches() {
+        for (const batch of crowdBatches) {
+            gl.deleteBuffer(batch.position); gl.deleteBuffer(batch.normal); gl.deleteBuffer(batch.texcoord);
+        }
+        crowdBatches = fanMaterials.map((material, shirt) => {
+            const fans = Crowd.getFans().filter((fan) => fan.shirt === shirt);
+            // Every fan is 2 triangles = 6 corners. The normals (facing the court)
+            // and the texture corners never change, so they are sent once.
+            const normals = [], texcoords = [];
+            const corners = [[0, 0], [1, 0], [1, 1], [0, 0], [1, 1], [0, 1]];
+            for (let i = 0; i < fans.length; i++) {
+                for (const [u, v] of corners) { normals.push(0, 0, 1); texcoords.push(u, v); }
+            }
+            function buffer(data) {
+                const b = gl.createBuffer();
+                gl.bindBuffer(gl.ARRAY_BUFFER, b);
+                gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(data), gl.STATIC_DRAW);
+                return b;
+            }
+            return {
+                material: material, fans: fans,
+                positions: new Float32Array(fans.length * 18),     // rebuilt every frame
+                position: gl.createBuffer(), normal: buffer(normals), texcoord: buffer(texcoords)
+            };
+        }).filter((batch) => batch.fans.length > 0);
+    }
+
     function drawCrowd(time) {
         setMaterial(MATERIALS.bleachers);
         for (const step of Crowd.getBleachers()) {
@@ -663,16 +696,32 @@
             popMatrix();
         }
         const hype = Effects.getHype(), cheer = Effects.getCheer(), stomp = Effects.intense();
-        for (const fan of Crowd.getFans()) {
-            const up = Crowd.jumpHeight(fan, time, hype, cheer, stomp);
-            const tall = 1.4 * fan.size, wide = 0.7 * fan.size;
-            pushMatrix();
-            transform(translate(fan.x, fan.y + up + tall / 2, fan.z));
-            transform(scalem(wide, tall, 0.02));
-            setMaterial(fanMaterials[fan.shirt]);
-            drawMesh(meshes.cube, 6, 0);            // only the front face
-            popMatrix();
+        pushMatrix();
+        modelMatrix = mat4();               // the corners below are already in world space
+        sendModelMatrix();
+        for (const batch of crowdBatches) {
+            const p = batch.positions;
+            batch.fans.forEach((fan, i) => {
+                const up = Crowd.jumpHeight(fan, time, hype, cheer, stomp);
+                const tall = 1.4 * fan.size, half = 0.35 * fan.size;
+                const x0 = fan.x - half, x1 = fan.x + half, y0 = fan.y + up, y1 = y0 + tall, z = fan.z;
+                // two triangles, counter-clockwise when seen from the court
+                p.set([x0, y0, z, x1, y0, z, x1, y1, z, x0, y0, z, x1, y1, z, x0, y1, z], i * 18);
+            });
+            setMaterial(batch.material);
+            gl.bindBuffer(gl.ARRAY_BUFFER, batch.position);
+            gl.bufferData(gl.ARRAY_BUFFER, p, gl.DYNAMIC_DRAW);
+            gl.vertexAttribPointer(attrib.position, 3, gl.FLOAT, false, 0, 0);
+            gl.enableVertexAttribArray(attrib.position);
+            gl.bindBuffer(gl.ARRAY_BUFFER, batch.normal);
+            gl.vertexAttribPointer(attrib.normal, 3, gl.FLOAT, false, 0, 0);
+            gl.enableVertexAttribArray(attrib.normal);
+            gl.bindBuffer(gl.ARRAY_BUFFER, batch.texcoord);
+            gl.vertexAttribPointer(attrib.texcoord, 2, gl.FLOAT, false, 0, 0);
+            gl.enableVertexAttribArray(attrib.texcoord);
+            gl.drawArrays(gl.TRIANGLES, 0, batch.fans.length * 6);
         }
+        popMatrix();
     }
 
     // ---------- Effects: ball trails, confetti, fire and smoke (from effects.js) ----------

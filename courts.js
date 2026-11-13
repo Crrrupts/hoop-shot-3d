@@ -11,6 +11,7 @@
 //   slip          extra aim error (radians) from a wet, slippery ball
 //
 // look is read by textures.js and renderer.js (colors, lights, sky, weather).
+// look.crowd = { fans: how many, rows: bleacher rows (indoor), kind: 'people' or 'glow' }
 // Colors are [red, green, blue] from 0 to 1, or CSS color text for painted images.
 // Light positions are in meters: your hoop is at x = 0, the rival's at x = 15.
 //
@@ -50,7 +51,7 @@ const Courts = (function () {
                 board: { face: '#f6f6f2', line: '#2369a5', pad: '#2369a5' },
                 rim: [0.95, 0.35, 0.08], pole: [0.25, 0.3, 0.38], net: [0.96, 0.96, 0.96],
                 weather: null,
-                crowd: { fans: 12, kind: 'people' }
+                crowd: { fans: 5, rows: 1, kind: 'people' }
             }
         },
         {
@@ -67,7 +68,7 @@ const Courts = (function () {
                 board: { face: '#f2f2ee', line: '#c0281f', pad: '#26303f' },
                 rim: [0.95, 0.35, 0.08], pole: [0.2, 0.22, 0.27], net: [0.96, 0.96, 0.96],
                 weather: null,
-                crowd: { fans: 30, kind: 'people' }
+                crowd: { fans: 30, rows: 3, kind: 'people' }
             }
         },
         {
@@ -88,7 +89,7 @@ const Courts = (function () {
                 board: { face: '#17142b', line: '#ff3cbe', pad: '#35e8ff' },
                 rim: [0.25, 0.95, 1.0], pole: [0.12, 0.1, 0.2], net: [1.0, 0.45, 0.85],
                 weather: null,
-                crowd: { fans: 36, kind: 'glow' }
+                crowd: { fans: 40, rows: 3, kind: 'glow' }
             }
         },
         {
@@ -105,7 +106,7 @@ const Courts = (function () {
                 board: { face: '#e9eef2', line: '#14286e', pad: '#14286e' },
                 rim: [0.98, 0.38, 0.08], pole: [0.1, 0.11, 0.14], net: [1, 1, 1],
                 weather: null,
-                crowd: { fans: 60, kind: 'people' }
+                crowd: { fans: 160, rows: 4, kind: 'people' }
             }
         },
         {
@@ -125,7 +126,7 @@ const Courts = (function () {
                 board: { face: '#b98d5e', line: '#fbfaf2', pad: '#7a5a3a' },
                 rim: [0.95, 0.4, 0.1], pole: [0.45, 0.33, 0.22], net: [0.93, 0.93, 0.9],
                 weather: 'breeze',          // blowing dust that shows the wind
-                crowd: { fans: 10, kind: 'people' }
+                crowd: { fans: 6, kind: 'people' }
             }
         },
         {
@@ -146,7 +147,7 @@ const Courts = (function () {
                 board: { face: '#8c939c', line: '#e8e2d0', pad: '#5b6068' },
                 rim: [0.8, 0.32, 0.12], pole: [0.3, 0.31, 0.34], net: [0.72, 0.74, 0.78],      // chain net
                 weather: 'rain',
-                crowd: { fans: 8, kind: 'people' }
+                crowd: { fans: 5, kind: 'people' }
             }
         },
         {
@@ -167,7 +168,7 @@ const Courts = (function () {
                 board: { face: '#cfe2ee', line: '#27467a', pad: '#9fb9cc' },
                 rim: [0.8, 0.84, 0.9], pole: [0.35, 0.4, 0.48], net: [1, 1, 1],
                 weather: 'snow',
-                crowd: { fans: 14, kind: 'people' }
+                crowd: { fans: 6, kind: 'people' }
             }
         }
     ];

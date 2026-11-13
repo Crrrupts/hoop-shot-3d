@@ -73,6 +73,8 @@ On a hit, the ball is pushed back out and its velocity is reflected off the surf
 - Power-up picks: every 20–30 seconds the game pauses for up to 5 seconds. `powerups.js` holds the cards, the rarity odds and how long each effect lasts. Skipping a pick gives better odds at the next one.
 - The rival (`updateRival`): on a timer it decides whether this shot should go in (its accuracy), then searches for a throw that does that, using `wouldScore`. The real throw still goes through the real physics, so sabotages like Tiny Rim really hurt it.
 
+**The fan meter.** `state.fans` runs from -1 (the crowd is all for the rival or Player 2) to +1 (all for you or Player 1). It starts on the home team's side and drifts slowly back there. `pullFans` moves it on every make and miss; the amounts are in `SETTINGS.fans`. `greenZone` widens your green zone the more the crowd leans your way. A full meter sets `crowdFire`, which `heatTier` counts as at least On Fire until you miss or the opponent reaches On Fire; while it lasts, the opponent's green zone is shrunk.
+
 **Courts, campaign and cards.** `courts.js` lists each court's rules (rim, wind, rain) and its look. `campaign.js` lists the 7 stages, their rivals and boss twists, and works out stars and rewards. `cards.js` holds the ball and gear cards, chests, upgrades and the saved progress (browser `localStorage`).
 
 **Tests.** `node tests/physics.test.js`, `node tests/rules.test.js` and `node tests/cards.test.js` run the physics and rules without a browser.
@@ -114,11 +116,11 @@ Files: `index.html`, `style.css`, `ui.js`, `menus.js`, plus `effects.js` and `cr
 
 **The power meter.** The fill's height is the power percent. The green zone is an extra box placed by `setSweetZone` using percentages from the game (`Game.aimZone`), updated as the crosshair moves.
 
-**Power-up pick.** `showPick` shows two cards and flashes them through the rarity colors before landing (a small slot-machine effect), with a timer bar. Click a card or use the keys. Two-player has its own screen with two cards per player.
+**Power-up pick.** `showPick` spins each card like a slot-machine reel. `PowerUps.reelFrames` lists what the card shows over time: quick flicks through rarities that slow down, a tease one rarity higher, then the real card. `spinReel` plays those frames with `setTimeout`, ticking on each one, then makes the card glow in its rarity's color and flash with a fanfare if it is rare or better. A card can only be chosen once it has landed. Click a card or use the keys. Two-player has its own screen with two cards per player.
 
 **Menus.** `menus.js` shows one screen at a time inside `#menu-overlay`: main menu, Quick Match, 2 Players, Campaign map, Cards, and the result screen with stars and chest cards. It also runs the tutorial (a list of steps, each with a message and a test for "done") and the Sandbox panel under the game.
 
-**Game feel.** `effects.js` listens for game events and keeps lists of particles (confetti, fire, smoke) and ball trails for the renderer to draw. It also raises the hype meter and asks `ui.js` for floating text ("+2", "SWISH!") at the rim's place on the screen. `crowd.js` decides where fans stand and how high each one is jumping.
+**Game feel.** `effects.js` listens for game events and keeps lists of particles (confetti, fire, smoke) and ball trails for the renderer to draw. It also raises the hype meter and asks `ui.js` for floating text ("+2", "SWISH!") at the rim's place on the screen. `crowd.js` decides where fans stand (how many and how many rows depends on the court) and how high each one is jumping. The renderer draws all fans with the same shirt in one call: every frame it fills one list with two triangles per fan (`drawCrowd`).
 
 **Sound.** The game calls `window.playSound(name)` for every event. `audio.js` answers it with sounds made in code using the Web Audio API: a note that slides in pitch (`tone`) or a burst of filtered hiss (`noise`), fading out. A rim clank is two buzzy notes, a swish is airy hiss, the crowd is hiss through a voice-like filter. Browsers only allow sound after the first key press or click, so the audio starts then. A real file listed in `sounds/list.js` replaces the sound with the same name.
 

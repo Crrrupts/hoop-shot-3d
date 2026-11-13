@@ -12,7 +12,7 @@ const Crowd = (function () {
     const NEON_SHIRTS = ['#ff3cbe', '#35e8ff', '#b56bff', '#5dff9b', '#ffe14d', '#ff7a3c'];
     const SKIN = ['#f1c9a5', '#c68e5f', '#8d5a3b'];
 
-    const ROWS = 3;                 // bleacher steps (indoor)
+    const MAX_ROWS = 4;             // bleacher steps that fit between the court and the wall
     const STEP_HEIGHT = 0.4, STEP_DEPTH = 0.65, FIRST_ROW_Z = -2.7;
 
     let fans = [];                  // { x, y, z, size, shirt, phase, speed }
@@ -30,16 +30,17 @@ const Crowd = (function () {
 
     // Place the fans for a court. x0..x1 is how wide the floor is (meters).
     // hoopXs: nobody stands right behind a hoop, so the net stays easy to see.
+    // look.crowd says how many fans and how many bleacher rows (courts.js).
     function build(look, x0, x1, hoopXs) {
         const rand = randomMaker(5);
         const count = look.crowd.fans;
+        const rows = look.outdoor ? 1 : Math.max(1, Math.min(MAX_ROWS, look.crowd.rows || 3));
         glow = look.crowd.kind === 'glow';
         fans = [];
         bleachers = [];
-        const left = x0 + 0.8, width = (x1 - 0.8) - left;
 
         if (!look.outdoor) {
-            for (let k = 0; k < ROWS; k++) {
+            for (let k = 0; k < rows; k++) {
                 const height = STEP_HEIGHT * (k + 1);
                 bleachers.push({
                     center: [(x0 + x1) / 2, height / 2, FIRST_ROW_Z - STEP_DEPTH * k - 0.15],
@@ -47,16 +48,38 @@ const Crowd = (function () {
                 });
             }
         }
-        for (let i = 0; i < count; i++) {
-            const row = look.outdoor ? 0 : i % ROWS;
-            // spread out evenly with a little randomness
-            let x = left + ((i + rand()) / count) * width;
-            for (const hoopX of hoopXs) {
-                const gap = 1.5;
-                if (Math.abs(x - hoopX) < gap) x = hoopX + (x < hoopX ? -1 : 1) * (gap + rand() * 0.9);
+
+        // The places along the back where fans may stand: the full width,
+        // minus a gap behind each hoop.
+        const GAP = 1.5;
+        let open = [[x0 + 0.8, x1 - 0.8]];
+        for (const hoopX of hoopXs) {
+            const next = [];
+            for (const [a, b] of open) {
+                if (hoopX + GAP <= a || hoopX - GAP >= b) { next.push([a, b]); continue; }
+                if (hoopX - GAP > a) next.push([a, hoopX - GAP]);
+                if (hoopX + GAP < b) next.push([hoopX + GAP, b]);
             }
+            open = next;
+        }
+        const openLength = open.reduce((sum, [a, b]) => sum + (b - a), 0);
+        // a distance along the open places -> an x position
+        function xAt(distance) {
+            for (const [a, b] of open) {
+                if (distance <= b - a) return a + distance;
+                distance -= b - a;
+            }
+            return open[open.length - 1][1];
+        }
+
+        // Spread each row's fans evenly with a little randomness. Rows are
+        // shifted half a seat so the fans behind show between the ones in front.
+        for (let i = 0; i < count; i++) {
+            const row = i % rows;
+            const inRow = Math.floor(i / rows), perRow = Math.ceil((count - row) / rows);
+            const seat = (inRow + 0.5 + (row % 2) * 0.5 + (rand() - 0.5) * 0.5) / perRow;
             fans.push({
-                x: x,
+                x: xAt(Math.max(0, Math.min(1, seat)) * openLength),
                 y: look.outdoor ? 0 : STEP_HEIGHT * (row + 1),
                 z: look.outdoor ? -3.0 - rand() * 0.8 : FIRST_ROW_Z - STEP_DEPTH * row,
                 size: 0.75 + rand() * 0.2,
@@ -88,3 +111,5 @@ const Crowd = (function () {
         isGlow: function () { return glow; }
     };
 })();
+
+if (typeof module !== 'undefined') module.exports = Crowd;
