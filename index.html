@@ -8,7 +8,11 @@
 </head>
 
 <body>
-    <!-- The WebGL Game -->
+    <!-- The stage: the game canvas and everything drawn over it (HUD, picks,
+         menus) laid out at 800 x 600. layout.js scales the whole stage to fill
+         the window, so the HUD always grows and shrinks with the picture. -->
+    <div id="stage-holder">
+    <div id="stage">
     <canvas id="game-canvas" width="800" height="600"></canvas>
 
     <!-- UI Overlay -->
@@ -88,16 +92,6 @@
         <div id="effects-list-2"></div>
     </div>
 
-    <!-- Controls below canvas -->
-    <div id="controls-bar">
-        <label for="difficulty-slider">Difficulty</label>
-        <input type="range" id="difficulty-slider" min="1" max="3" value="2" aria-valuetext="Medium">
-        <span id="diff-label">Medium</span>
-
-        <button id="start-btn">Start</button>
-        <label><input type="checkbox" id="sound-toggle" checked> Sound</label>
-    </div>
-
     <!-- Power-up pick: the game pauses and you choose one of two cards -->
     <div id="pick-overlay">
         <h2 id="pick-title">Power-up! Pick one</h2>
@@ -119,7 +113,6 @@
         </div>
         <div id="pick-timer"><div id="pick-timer-fill"></div></div>
     </div>
-
     <!-- Two-player pick: each player gets two cards and chooses with their own keys -->
     <div id="pick2-overlay">
         <h2>Power-up! Each player picks one</h2>
@@ -135,7 +128,6 @@
         </div>
         <div id="pick2-timer"><div id="pick2-timer-fill"></div></div>
     </div>
-
     <!-- Menus: one overlay, one screen shown at a time (menus.js) -->
     <div id="menu-overlay">
         <div class="screen" id="screen-main">
@@ -218,6 +210,22 @@
             </div>
         </div>
     </div>
+    </div>
+    </div>
+
+    <!-- Controls below canvas -->
+    <div id="controls-bar">
+        <label for="difficulty-slider">Difficulty</label>
+        <input type="range" id="difficulty-slider" min="1" max="3" value="2" aria-valuetext="Medium">
+        <span id="diff-label">Medium</span>
+
+        <button id="start-btn">Start</button>
+        <label><input type="checkbox" id="sound-toggle" checked> Sound</label>
+        <button id="fullscreen-btn">Fullscreen</button>
+    </div>
+
+
+
 
     <!-- Sandbox tools: only shown in sandbox mode (menus.js) -->
     <div id="sandbox-panel">
@@ -341,6 +349,7 @@
 
     <!-- Game code -->
     <script src="courts.js"></script>
+    <script src="layout.js"></script>
     <script src="ui.js"></script>
     <script src="input.js"></script>
     <script src="physics.js"></script>

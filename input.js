@@ -138,7 +138,7 @@ const crosshairs = [{ x: 400, y: 300 }, { x: 600, y: 300 }];
 // The part of the canvas a player sees: everything, or one half in two-player
 function viewRect(index) {
     const two = typeof Game !== 'undefined' && Game.state.twoPlayer;
-    const w = gameCanvas.width, h = gameCanvas.height;
+    const w = Layout.WIDTH, h = Layout.HEIGHT;          // stage pixels, whatever the window size
     if (!two) return { x: 0, y: 0, width: w, height: h };
     return { x: index === 0 ? 0 : w / 2, y: 0, width: w / 2, height: h };
 }
@@ -174,12 +174,15 @@ function moveCrosshair(index, x, y) {
 const mouseSpot = { x: 400, y: 300 };       // where the real pointer is, in canvas pixels
 const drift = { x: 0, y: 0 };               // crosshair minus pointer (only used without the lock)
 let wantLock = false;                       // lock again at the next key or click (after a pick)
+let lockAskedAt = -1e9;                     // when the lock was last asked for (ms)
+const MAX_JUMP = 400;                       // a movement bigger than this (screen pixels) in one event is a glitch
 
 function pointerLocked() {
     return document.pointerLockElement === gameCanvas;
 }
 function lockPointer() {
     if (pointerLocked() || !gameCanvas.requestPointerLock) return;
+    lockAskedAt = performance.now();
     try {
         const asked = gameCanvas.requestPointerLock();
         if (asked && asked.catch) asked.catch(() => {});       // refused: we carry on without the lock
@@ -191,13 +194,23 @@ function unlockPointer() {
 
 document.addEventListener('mousemove', (e) => {
     const rect = gameCanvas.getBoundingClientRect();
+    // The stage may be scaled up or down to fit the window. Mouse movement is
+    // in screen pixels, so divide by the scale to move the crosshair the same
+    // distance on screen as the mouse moved.
+    const scale = Layout.scale();
     if (pointerLocked()) {
         if (typeof Game === 'undefined' || Game.state.mode !== 'playing') return;
-        crosshairs[0].x += e.movementX;
-        crosshairs[0].y += e.movementY;
+        // Skip any single jump no hand could make (a browser glitch).
+        if (Math.abs(e.movementX) > MAX_JUMP || Math.abs(e.movementY) > MAX_JUMP) return;
+        crosshairs[0].x += e.movementX / scale;
+        crosshairs[0].y += e.movementY / scale;
     } else {
-        mouseSpot.x = e.clientX - rect.left;
-        mouseSpot.y = e.clientY - rect.top;
+        // While the lock is being set up, the browser reports the hidden
+        // pointer at the top-left corner (0, 0). Ignore positions for a moment
+        // so the crosshair does not jump into the corner.
+        if (performance.now() - lockAskedAt < 500) return;
+        mouseSpot.x = (e.clientX - rect.left) / scale;
+        mouseSpot.y = (e.clientY - rect.top) / scale;
         crosshairs[0].x = mouseSpot.x + drift.x;
         crosshairs[0].y = mouseSpot.y + drift.y;
     }

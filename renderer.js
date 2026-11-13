@@ -855,21 +855,25 @@
         const screen = screens[viewIndex || 0];
         if (!screen) return { x: 0, y: 0, visible: false };
         const clip = timesPoint(screen.projection, timesPoint(screen.view, [p[0], p[1], p[2], 1]));
+        // canvas pixels, then back to stage pixels (800 x 600) for the HUD
+        const k = Layout.canvasScale();
         return {
-            x: screen.rect.x + (clip[0] / clip[3] * 0.5 + 0.5) * screen.rect.width,
-            y: canvas.height - screen.rect.y - (clip[1] / clip[3] * 0.5 + 0.5) * screen.rect.height,
+            x: (screen.rect.x + (clip[0] / clip[3] * 0.5 + 0.5) * screen.rect.width) / k,
+            y: (canvas.height - screen.rect.y - (clip[1] / clip[3] * 0.5 + 0.5) * screen.rect.height) / k,
             visible: clip[3] > 0
         };
     };
 
-    // The small rival view sits inside the #rival-view box from index.html
+    // The small rival view sits inside the #rival-view box from index.html.
+    // The box is measured in stage pixels; the canvas may have more pixels.
     const insetBox = document.getElementById('rival-view');
     function insetRect() {
+        const k = Layout.canvasScale();
         return {
-            x: insetBox.offsetLeft + 2,
-            y: canvas.height - insetBox.offsetTop - insetBox.offsetHeight + 2,
-            width: insetBox.offsetWidth - 4,
-            height: insetBox.offsetHeight - 4
+            x: Math.round((insetBox.offsetLeft + 2) * k),
+            y: Math.round(canvas.height - (insetBox.offsetTop + insetBox.offsetHeight - 2) * k),
+            width: Math.round((insetBox.offsetWidth - 4) * k),
+            height: Math.round((insetBox.offsetHeight - 4) * k)
         };
     }
 
@@ -881,8 +885,9 @@
     // The rectangle of the canvas for each kind of view (y measured from the bottom)
     function rectFor(name) {
         const w = canvas.width, h = canvas.height;
-        if (name === 'left') return { x: 0, y: 0, width: w / 2 - 1, height: h };          // split screen,
-        if (name === 'right') return { x: w / 2 + 1, y: 0, width: w / 2 - 1, height: h };  // with a thin gap
+        const gap = Math.max(1, Math.round(Layout.canvasScale()));                       // a thin line between halves
+        if (name === 'left') return { x: 0, y: 0, width: Math.floor(w / 2) - gap, height: h };   // split screen
+        if (name === 'right') return { x: Math.ceil(w / 2) + gap, y: 0, width: Math.floor(w / 2) - gap, height: h };
         if (name === 'inset') return insetRect();
         return { x: 0, y: 0, width: w, height: h };
     }
