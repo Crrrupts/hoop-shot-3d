@@ -25,12 +25,82 @@ const Menus = (function () {
     $('btn-quick').addEventListener('click', () => show('quick'));
     $('btn-versus').addEventListener('click', () => show('versus'));
     $('btn-cards').addEventListener('click', () => show('cards'));
+    $('btn-player').addEventListener('click', () => { show('player'); fillPlayer(); });
     $('btn-sandbox').addEventListener('click', startSandbox);
     for (const b of document.querySelectorAll('.back-btn')) b.addEventListener('click', () => show('main'));
     $('btn-menu').addEventListener('click', () => show(Game.state.options.mode === 'campaign' ? 'campaign' : 'main'));
     $('btn-again').addEventListener('click', () => Game.start());
     // "Start" under the game restarts whatever is being played
     $('start-btn').addEventListener('click', () => { Game.start(); $('start-btn').blur(); });
+
+    // ---------- Your player: skin tone and hair style ----------
+    // The choice is saved with your progress (cards.js) and used by shooter.js.
+    function cssColor(rgb) { return `rgb(${rgb.map((c) => Math.round(c * 255)).join(',')})`; }
+
+    function fillPlayer() {
+        const chosen = Cards.getSave().shooter;
+        const skins = $('skin-choices'), hairs = $('hair-choices');
+        skins.innerHTML = '';
+        hairs.innerHTML = '';
+        Shooter.SKIN_TONES.forEach((tone, i) => {
+            const b = document.createElement('button');
+            b.className = 'swatch' + (i === chosen.skin ? ' chosen' : '');
+            b.style.background = cssColor(tone);
+            b.title = 'Skin tone ' + (i + 1);
+            b.addEventListener('click', () => { chosen.skin = i; Cards.store(); fillPlayer(); });
+            skins.appendChild(b);
+        });
+        for (const id in Shooter.HAIR_STYLES) {
+            const b = document.createElement('button');
+            b.className = id === chosen.hair ? 'chosen' : '';
+            b.textContent = Shooter.HAIR_STYLES[id].name;
+            b.addEventListener('click', () => { chosen.hair = id; Cards.store(); fillPlayer(); });
+            hairs.appendChild(b);
+        }
+        drawPlayerPreview();
+    }
+
+    // A simple front view of your player's head and shoulders, drawn in 2D
+    // from the same hair shapes the 3D player uses.
+    function drawPlayerPreview() {
+        const canvas = $('player-preview'), g = canvas.getContext('2d');
+        const look = Shooter.lookOf(Game.player), head = 34;        // head radius in pixels
+        const cx = canvas.width / 2, cy = 78;
+        g.clearRect(0, 0, canvas.width, canvas.height);
+        g.fillStyle = cssColor(look.shirt);                         // shoulders
+        g.fillRect(cx - 62, cy + head + 14, 124, 60);
+        g.fillStyle = cssColor(look.skin);                          // neck
+        g.fillRect(cx - 12, cy + head - 6, 24, 24);
+        // hair behind the head first, then the head, then hair that sits on top
+        g.fillStyle = cssColor(look.hair);
+        const parts = Shooter.HAIR_STYLES[look.hairStyle].parts;
+        function drawPart(part) {
+            const x = cx + part.at[0] * head, y = cy - part.at[1] * head;
+            if (part.shape === 'box') g.fillRect(x - part.size[0] * head / 2, y - part.size[1] * head / 2, part.size[0] * head, part.size[1] * head);
+            else { g.beginPath(); g.ellipse(x, y, part.size[0] * head, part.size[1] * head, 0, 0, 2 * Math.PI); g.fill(); }
+        }
+        parts.forEach(drawPart);
+        g.fillStyle = cssColor(look.skin);
+        g.beginPath(); g.arc(cx, cy, head, 0, 2 * Math.PI); g.fill();
+        // seen from the front, the hair only covers the top of the head
+        g.save();
+        g.beginPath(); g.rect(0, 0, canvas.width, cy - head * 0.45); g.clip();
+        g.fillStyle = cssColor(look.hair);
+        parts.forEach(drawPart);
+        g.restore();
+        g.fillStyle = '#222';                                       // eyes
+        g.beginPath(); g.arc(cx - 12, cy + 2, 3, 0, 2 * Math.PI); g.arc(cx + 12, cy + 2, 3, 0, 2 * Math.PI); g.fill();
+    }
+
+    // ---------- Sound on / off ----------
+    $('sound-toggle').checked = Cards.getSave().sound !== false;
+    GameAudio.setMuted(!$('sound-toggle').checked);
+    $('sound-toggle').addEventListener('change', (e) => {
+        Cards.getSave().sound = e.target.checked;
+        Cards.store();
+        GameAudio.setMuted(!e.target.checked);
+        e.target.blur();                                            // keep Space for shooting
+    });
 
     // ---------- Money spot ----------
     // Before a game each player picks one spot where their makes count double.

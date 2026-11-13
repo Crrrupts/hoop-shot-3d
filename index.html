@@ -5,7 +5,6 @@
     <meta charset="UTF-8">
     <title>Hoop Shot 3D</title>
     <link rel="stylesheet" href="style.css">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/howler/2.2.3/howler.min.js"></script>
 </head>
 
 <body>
@@ -90,6 +89,7 @@
         <span id="diff-label">Medium</span>
 
         <button id="start-btn">Start</button>
+        <label><input type="checkbox" id="sound-toggle" checked> Sound</label>
     </div>
 
     <!-- Power-up pick: the game pauses and you choose one of two cards -->
@@ -141,6 +141,7 @@
             <button id="btn-versus">2 Players</button>
             <button id="btn-sandbox">Sandbox</button>
             <button id="btn-cards">Cards</button>
+            <button id="btn-player">Player</button>
             <p class="gold-line">Gold: <span class="gold-amount">0</span></p>
         </div>
 
@@ -177,6 +178,17 @@
             <label>Money spot (your makes there count double) <select class="money-spot"></select></label>
             <div id="stage-list"></div>
             <button id="btn-tutorial">Replay tutorial</button>
+            <button class="back-btn">Back</button>
+        </div>
+
+        <div class="screen" id="screen-player">
+            <h2>Your player</h2>
+            <canvas id="player-preview" width="160" height="170"></canvas>
+            <p>Skin tone</p>
+            <div id="skin-choices" class="choices"></div>
+            <p>Hair style</p>
+            <div id="hair-choices" class="choices"></div>
+            <p class="small">Shirt, shorts and shoes are fixed for now.</p>
             <button class="back-btn">Back</button>
         </div>
 
@@ -331,6 +343,8 @@
     <script src="campaign.js"></script>
     <script src="game.js"></script>
     <script src="shooter.js"></script>
+    <script src="sounds/list.js"></script>
+    <script src="audio.js"></script>
     <script src="effects.js"></script>
     <script src="crowd.js"></script>
     <script src="camera.js"></script>

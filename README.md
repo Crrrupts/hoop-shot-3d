@@ -14,7 +14,6 @@ The code in this repo is AI-generated (Claude), directed and reviewed by Justin 
 ## Tech
 Plain WebGL with our own GLSL shaders and MV.js (no 3D engine).
 `Common/MV.js` and `Common/initShaders.js` are the class libraries by Edward Angel.
-`index.html` also loads Howler.js from a CDN for future sound. Nothing uses it yet; the game runs without it.
 
 ## Run
 Open index.html with a local web server (e.g. VS Code Live Server).
@@ -34,6 +33,7 @@ Mouse: move the crosshair (on the rim = perfect aim; it jumps to a new place aft
 
   Each player gets their own two cards at a pick and the game waits for both. It uses the better multiplayer odds, power-ups reset every match, gear cards are off, and a coin flip gives one player home court (the crowd cheers that player's makes).
 - **Sandbox**: free shootaround with no clock and no rival. A panel under the game lets you change court and ball, switch any power-up or sabotage on yourself and set its level, show the golden aim dot and the power zones, use slow motion, reset the balls, and see makes/attempts per spot.
+- **Player**: pick your player's skin tone (6) and hair style (short, buzz cut, afro, flat top, ponytail, bald), with a preview. Saved with your progress. Shirt, shorts and shoes are fixed for now.
 - **Cards**: chests give ball skins (looks only) and gear. Duplicates plus gold level a card up (max level 5). Gear: Headband (steadier aim), Shooting Sleeve (slightly bigger rim for you), Wristband (once a game a miss may keep your streak). Progress is saved in the browser on this computer.
 
 ## How a match works
@@ -109,7 +109,8 @@ The 9 graded requirements, where each one is in the code, and how to see it in t
 | cards.js | Justin, Bom | Ball and gear cards, chests, upgrades, saved progress |
 | campaign.js | Justin | The 7 campaign stages (rival numbers, boss twists), stars and rewards |
 | menus.js | Bom | Menu screens, result and chest opening, tutorial steps, sandbox panel |
-| shooter.js | Isaiah | The 3D player's pose: joint angles for the shooting motion, driven by the power bar |
+| shooter.js | Isaiah | The 3D player's pose (joint angles for the shooting motion, driven by the power bar), skin tones and hair styles |
+| audio.js, sounds/ | Bom | Every sound, made in code; real files in `sounds/` replace them |
 | camera.js | Justin | Shooter, Ball Follow and Orbit views (eye/at/up for lookAt), one camera rig per player, plus the fixed rival camera |
 | main.js | Justin | Frame loop; calls `window.renderScene(scene)` every frame |
 | geometry.js | Isaiah | Builds every mesh in code (positions, normals, texture coordinates, triangles) |
@@ -119,7 +120,7 @@ The 9 graded requirements, where each one is in the code, and how to see it in t
 
 Units are meters, y is up, the rim is above x = 0, z = 0 and the shooter is on +z. Sizes shared by physics and drawing are in `Physics` (`RIM_HEIGHT`, `RIM_RADIUS`, `BOARD`, `POLE`, ...).
 
-**Sound hookup (Bom):** define `window.playSound(name, detail)`. There are no sounds in the repo yet. The game calls it with `shoot`, `swish`, `score`, `rim`, `board`, `floor`, `pole`, `buzzer`, and the feel layer with `cheer`, `chime` (`detail.streak` rises with the streak, for a rising pitch), `groan`, `gasp`, `airball`, `hiss`, `fire`, `stomp`, `tick`.
+**Sound (Bom):** every sound is made in code by `audio.js` (Web Audio, no files), so the game has placeholder sound for every event. To replace one with a real recording, put the file in `sounds/` named after the sound (for example `swish.mp3`) and add its file name to `sounds/list.js`. Sound names: `shoot`, `swish`, `score`, `rim`, `board`, `floor`, `pole`, `buzzer`, `cheer`, `chime` (rises in pitch with the streak), `groan`, `gasp`, `airball`, `hiss`, `fire`, `stomp`, `tick`, `boo`. Use only free-to-use or self-recorded audio and list credits in this README. The Sound box under the game turns it off (the choice is saved).
 
 **Art hookup (Bom):** each function in `textures.js` returns one image (ball, court floor, backboard, wall, sky, crowd fan). Replace the drawing with your own image of the same layout. Court colors are in `courts.js`.
 

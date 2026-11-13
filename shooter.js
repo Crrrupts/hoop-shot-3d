@@ -122,12 +122,43 @@ const Shooter = (function () {
 
     // ---------- Looks ----------
     // Colors are [red, green, blue] from 0 to 1. Shirt, shorts and shoes are
-    // fixed for now (future upgrade cards).
+    // fixed for now (future upgrade cards). Your skin tone and hair style
+    // come from the Player screen in the menu.
     const LOOKS = {
         player: { skin: [0.80, 0.60, 0.46], hair: [0.13, 0.09, 0.07], shirt: [0.93, 0.93, 0.95], shorts: [0.16, 0.27, 0.62], shoes: [0.95, 0.95, 0.95] },
         rival:  { skin: [0.55, 0.38, 0.28], hair: [0.05, 0.05, 0.05], shirt: [0.75, 0.16, 0.16], shorts: [0.12, 0.12, 0.15], shoes: [0.15, 0.15, 0.17] }
     };
-    function lookOf(shooter) { return LOOKS[shooter.id] || LOOKS.rival; }
+    // What you can change about your player: skin tone and hair style.
+    const SKIN_TONES = [
+        [0.96, 0.80, 0.69], [0.80, 0.60, 0.46], [0.69, 0.49, 0.35],
+        [0.55, 0.38, 0.28], [0.40, 0.27, 0.20], [0.28, 0.19, 0.14]
+    ];
+    // Each hair style is a few shapes placed around the head. Offsets and
+    // sizes are in head radiuses (1 = the head's radius), measured from the
+    // middle of the head: [x, y, z] with y up and z toward the face.
+    const HAIR_STYLES = {
+        short:    { name: 'Short',    parts: [{ shape: 'sphere', at: [0, 0.26, -0.17], size: [1.05, 0.92, 1.05] }] },
+        buzz:     { name: 'Buzz cut', parts: [{ shape: 'sphere', at: [0, 0.14, -0.08], size: [1.02, 0.95, 1.02] }] },
+        afro:     { name: 'Afro',     parts: [{ shape: 'sphere', at: [0, 0.40, -0.18], size: [1.5, 1.35, 1.5] }] },
+        flat:     { name: 'Flat top', parts: [{ shape: 'sphere', at: [0, 0.20, -0.15], size: [1.04, 0.9, 1.04] },
+                                              { shape: 'box', at: [0, 0.95, -0.05], size: [1.7, 0.75, 1.7] }] },
+        ponytail: { name: 'Ponytail', parts: [{ shape: 'sphere', at: [0, 0.26, -0.17], size: [1.05, 0.92, 1.05] },
+                                              { shape: 'sphere', at: [0, 0.35, -1.15], size: [0.42, 0.42, 0.5] },
+                                              { shape: 'sphere', at: [0, -0.25, -1.3], size: [0.3, 0.6, 0.3] }] },
+        bald:     { name: 'Bald',     parts: [] }
+    };
+
+    // A shooter's look. Yours uses the skin tone and hair style saved with
+    // your progress (cards.js); the rival's is fixed.
+    function lookOf(shooter) {
+        const look = Object.assign({ hairStyle: 'short' }, LOOKS[shooter.id] || LOOKS.rival);
+        if (shooter.id === 'player' && typeof Cards !== 'undefined') {
+            const chosen = Cards.getSave().shooter;
+            look.skin = SKIN_TONES[chosen.skin] || SKIN_TONES[1];
+            look.hairStyle = HAIR_STYLES[chosen.hair] ? chosen.hair : 'short';
+        }
+        return look;
+    }
 
     // ---------- Each shooter's state (browser only) ----------
     // When did each shooter last let go of a ball? game.js announces every shot.
@@ -180,7 +211,7 @@ const Shooter = (function () {
         return poseOf(shooter).follow < 0.5;
     }
 
-    return { BODY, STAND_HIP, LOOKS, lookOf, pose, reachArm, handPosition, followAmount, poseOf, facing, ballPosition, holdingBall };
+    return { BODY, STAND_HIP, LOOKS, SKIN_TONES, HAIR_STYLES, lookOf, pose, reachArm, handPosition, followAmount, poseOf, facing, ballPosition, holdingBall };
 })();
 
 if (typeof module !== 'undefined') module.exports = Shooter;

@@ -64,7 +64,10 @@ const Cards = (function () {
             cards: { classic: { level: 1, copies: 0 } },    // you start with the Classic ball
             ball: 'classic',                                // the ball you have equipped
             stars: {},                                      // campaign: stage id -> best stars (1-3)
-            tutorialDone: false
+            tutorialDone: false,
+            moneySpot: 3,                                   // your money spot (1-5)
+            shooter: { skin: 1, hair: 'short' },            // your player's look (see shooter.js)
+            sound: true                                     // sound on or off
         };
     }
     let save = freshSave();

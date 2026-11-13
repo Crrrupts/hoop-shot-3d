@@ -11,7 +11,7 @@ Everything in this doc is a design. This table is the truth about the game on `m
 | Graded requirements | All 9, see the checklist in the README | |
 | Match rules | Live race against an AI rival, shoot as fast as you want, 2-minute games, 1-minute overtime when within 10 points, power-up picks, moving hoop as a power-up | Home court in campaign (the crowd always backs you); power-ups carrying between matches |
 | Courts | All 7 courts with their own floor, walls or sky, lights and gameplay rules (soft rim, double rim, wind, rain, snow) | The signature details: swaying banners, string lights, jumbotron replays, Ferris wheel as a 3D object (it is painted on the sky), pulsing floor grid, fogged breath, light that changes during a match |
-| Crowd | Cut-out fans that bob, jump on your makes, bounce with the hype meter and stomp together in intense moments | All crowd sound (cheers, chants, "AIR BALL", counting down), camera flashes, fans standing up, the crowd backing the other player |
+| Crowd | Cut-out fans that bob, jump on your makes, bounce with the hype meter and stomp together in intense moments; placeholder cheer, groan, gasp, air ball and stomp sounds | Chants and counting down out loud, camera flashes, fans standing up, the crowd backing the other player |
 | Ball designs | 9 ball skins as cards (texture and shine only) | Glow and Lava do not glow in the dark; Snowball sheds no flakes |
 | Cards and upgrades | Chests from campaign wins, duplicates plus gold level a card up (max level 5), Headband, Shooting Sleeve and Wristband gear | Shoes; perks on balls; card art |
 | Hoop designs | Each court colors the backboard, rim, pole and net | Glass or fan-shaped backboards, chain net sound, LED strip, shot clock, towel, icicles, breakaway rim as a separate part |
@@ -22,7 +22,7 @@ Everything in this doc is a design. This table is the truth about the game on `m
 | Sandbox | Everything listed in the Sandbox section | |
 | Multiplayer | Two players on one computer, split screen | Online play |
 | Power-ups | The 21 cards in the list below | Mythic cards (overtime cards are legendary until they are designed) |
-| Sound | Nothing. The game calls `window.playSound(name)` for every event, but no sounds exist yet | All audio |
+| Sound | Placeholder sounds made in code for every event (`audio.js`); real files dropped in `sounds/` replace them | Recorded sounds, announcer lines, music, crowd chants |
 | Playable link | A private preview artifact | GitHub Pages (needs the repo setting turned on) |
 
 ## Graded requirements come first

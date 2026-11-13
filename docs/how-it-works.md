@@ -120,7 +120,11 @@ Files: `index.html`, `style.css`, `ui.js`, `menus.js`, plus `effects.js` and `cr
 
 **Game feel.** `effects.js` listens for game events and keeps lists of particles (confetti, fire, smoke) and ball trails for the renderer to draw. It also raises the hype meter and asks `ui.js` for floating text ("+2", "SWISH!") at the rim's place on the screen. `crowd.js` decides where fans stand and how high each one is jumping.
 
-**Sound and art hooks.** There is no audio in the game yet. The code already calls `window.playSound(name)` for every event (the list is in the README), so adding sound means defining that one function. Every image comes from a function in `textures.js`, so real art can replace one function at a time.
+**Sound.** The game calls `window.playSound(name)` for every event. `audio.js` answers it with sounds made in code using the Web Audio API: a note that slides in pitch (`tone`) or a burst of filtered hiss (`noise`), fading out. A rim clank is two buzzy notes, a swish is airy hiss, the crowd is hiss through a voice-like filter. Browsers only allow sound after the first key press or click, so the audio starts then. A real file listed in `sounds/list.js` replaces the sound with the same name.
+
+**Art.** Every image comes from a function in `textures.js`, so real art can replace one function at a time.
+
+**Your player.** The Player screen in `menus.js` saves a skin tone and hair style (`Cards.getSave().shooter`). `shooter.js` turns them into colors and a list of hair shapes, which the renderer draws on the head and the menu draws as a small 2D preview.
 
 **Questions you might get.**
 - *Why HTML for the HUD instead of drawing it in WebGL?* Text, layout and animation are much easier in HTML and CSS, and it stays sharp at any size. WebGL is used for the 3D scene only.

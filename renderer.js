@@ -492,12 +492,17 @@
         transform(translate(0, 0.05 + B.head, 0.01));
         cloth(look.skin);
         ballShape(B.head);
-        transform(translate(0, 0.03, -0.02));               // hair sits on top and behind
+        // hair: each style is a few spheres or boxes placed around the head (shooter.js)
         cloth(look.hair);
-        pushMatrix();
-        transform(scalem(B.head * 1.05, B.head * 0.92, B.head * 1.05));
-        drawMesh(meshes.sphere);
-        popMatrix();
+        for (const part of Shooter.HAIR_STYLES[look.hairStyle].parts) {
+            pushMatrix();
+            transform(translate(part.at[0] * B.head, part.at[1] * B.head, part.at[2] * B.head));
+            transform(scalem(part.size[0] * B.head, part.size[1] * B.head, part.size[2] * B.head));
+            // the unit sphere has radius 1 but the unit cube has side 1, so a box needs half the size
+            if (part.shape === 'box') { transform(scalem(0.5, 0.5, 0.5)); drawMesh(meshes.cube); }
+            else drawMesh(meshes.sphere);
+            popMatrix();
+        }
         popMatrix();
 
         // ARMS: upper arm -> forearm -> hand, bent so the hands hold the ball

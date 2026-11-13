@@ -783,3 +783,9 @@ body {
 #spot-display { white-space: pre-line; }
 #spot-display.on-money { color: #7dff9b; font-weight: bold; }
 .money-spot, #versus-money2 { font-size: 14px; padding: 2px 4px; }
+
+/* ---------- Your player screen ---------- */
+#player-preview { background: rgba(255, 255, 255, 0.08); border-radius: 8px; }
+.choices { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+.choices button.chosen { outline: 3px solid #7dff9b; }
+.screen .choices button.swatch { width: 40px; height: 40px; padding: 0; border-radius: 50%; border: 2px solid #fff; }
