@@ -48,6 +48,8 @@ const PowerUps = (function () {
           text: "Opponent's aim wobbles for 3 shots" },
         { id: 'heckler',  name: 'Heckler',       side: 'sabotage', rarity: 'common',    kind: 'shots', amount: 2,
           text: "A loud fan shakes the opponent's camera for their next 2 shots" },
+        { id: 'blind',    name: 'Blind Meter',   side: 'sabotage', rarity: 'rare',      kind: 'shots', amount: 3,
+          text: "Hides the opponent's green power zone for 3 shots" },
         { id: 'tiny',     name: 'Tiny Rim',      side: 'sabotage', rarity: 'rare',      kind: 'time', amount: 15,
           text: "Opponent's rim is 15% smaller for 15 seconds" },
         { id: 'extinguish', name: 'Extinguisher', side: 'sabotage', rarity: 'rare',     kind: 'instant',

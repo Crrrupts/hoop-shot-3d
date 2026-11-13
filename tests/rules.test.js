@@ -173,8 +173,13 @@ for (let i = 0; i < 500; i++) {
     if (PowerUps.rollCard('buff', row, 'rare').rarity === 'epic') sidesOk = false;
 }
 check('left card is always a buff, right card a sabotage, rarity cap works', sidesOk);
-check('20 power-ups: 11 buffs and 9 sabotages', PowerUps.LIST.length === 20 &&
+check('21 power-ups: 11 buffs and 10 sabotages (the 20 originals plus Blind Meter)', PowerUps.LIST.length === 21 &&
     PowerUps.LIST.filter((c) => c.side === 'buff').length === 11);
+const blind = PowerUps.byId('blind');
+check('Blind Meter is a rare sabotage that lasts 3 shots', blind.side === 'sabotage' && blind.rarity === 'rare' && blind.kind === 'shots' && blind.amount === 3);
+let blindOffered = false;
+for (let i = 0; i < 400 && !blindOffered; i++) if (PowerUps.rollCard('sabotage', [0, 100, 0, 0, 0]).id === 'blind') blindOffered = true;
+check('Blind Meter shows up in picks', blindOffered);
 
 // ---------- Power-up effects ----------
 const card = (id) => PowerUps.byId(id);
@@ -255,6 +260,13 @@ state.nextPickAt = Infinity; state.pickNumber = 99;
 let sawRack = false;
 for (let i = 0; i < 60 * 170; i++) { Game.update(1 / 60); if (state.moneyRack > 0) sawRack = true; }
 check('one Money Rack happens during a game', sawRack && state.moneyRackAt === 0);
+
+quietStart();
+Game.applyCard(blind, rival);          // the rival uses Blind Meter on you
+check('Blind Meter lands on the opponent and hides their green zone', PowerUps.has(player, 'blind') && !Game.zoneVisible(player) && Game.zoneVisible(rival));
+check('green still goes in while the zone is hidden', (Game.shoot(goodPower(player), 0, 0), run(3), player.made === 1));
+playerShot(false); playerShot(false);
+check('...and it wears off after 3 shots', !PowerUps.has(player, 'blind') && Game.zoneVisible(player));
 
 // ---------- Picks ----------
 Game.start({ rival: noCards, length: 180 });

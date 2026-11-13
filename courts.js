@@ -2,7 +2,7 @@
 //
 // rules change the physics and are read by game.js:
 //   rimScale      rim size (1 = normal, bigger = easier)
-//   rimBounce     how hard the ball bounces off the rim (0.5 = normal;
+//   rimBounce     how hard the ball bounces off the rim (0.45 = normal;
 //                 lower = soft and forgiving, higher = stiff, more bounce-outs)
 //   rimThickness  1 = normal rim, 1.8 = outdoor double rim
 //   floorBounce   how high the ball bounces off the floor (rain lowers it)
@@ -19,10 +19,10 @@
 const Courts = (function () {
 
     const NORMAL_RULES = {
-        rimScale: 1, rimBounce: 0.5, rimThickness: 1, floorBounce: 0.72,
+        rimScale: 1, rimBounce: 0.45, rimThickness: 1, floorBounce: 0.72,
         wind: 0, gusty: false, slip: 0
     };
-    const DOUBLE_RIM = { rimBounce: 0.68, rimThickness: 1.8 };
+    const DOUBLE_RIM = { rimBounce: 0.62, rimThickness: 1.8 };
 
     // Two spotlights straight above the keys plus a soft fill light (indoor gyms)
     function gymLights(strength, cone, fill) {

@@ -107,4 +107,33 @@ const normal = windowWidth(1), wide = windowWidth(1.2), tiny = windowWidth(0.85)
 check('Wide Rim is easier, Tiny Rim is harder', wide > normal && tiny < normal,
     `power window: tiny ${tiny}, normal ${normal}, wide ${wide}`);
 
+// 12. Rim and backboard feel: rolling, grip, and no ball stuck on the rim
+// a ball lowered gently onto the top of the rim rolls off it instead of bouncing forever
+let rimBounces = 0;
+Physics.onBounce = (ball, surface) => { if (surface === 'rim') rimBounces++; };
+const resting = run([Physics.RIM_RADIUS - 0.02, Physics.RIM_HEIGHT + Physics.BALL_RADIUS + 0.03, 0.05], [0, 0, 0], 240);
+check('a ball set gently on the rim rolls off (no buzzing bounces)', rimBounces <= 2 && resting.touchedFloor,
+    rimBounces + ' bounce sounds, reached the floor: ' + resting.touchedFloor);
+// the backboard takes some sideways speed off a glancing hit
+Physics.onBounce = null;
+const glance = Physics.createBall(hoop);
+Physics.launch(glance, [-0.6, 3.6, 0.6], [3, 0, -6]);       // across and into the board, above the rim
+for (let i = 0; i < 60 && !glance.touchedBoard; i++) Physics.update(glance, 1 / 240);
+check('the backboard rubs off some sideways speed', glance.touchedBoard && glance.vel[0] < 3 && glance.vel[0] > 2,
+    'sideways speed 3.00 -> ' + glance.vel[0].toFixed(2) + ' m/s');
+// no shot from any spot stays on the rim for long
+let longestOnRim = 0, rolled = 0;
+for (let spot = 1; spot <= 5; spot++) {
+    for (let p = 40; p <= 90; p += 0.5) {
+        const ball = Physics.createBall(hoop);
+        ball.silent = true;
+        Physics.launch(ball, Game.spotPosition(spot, shooter), Game.shotVelocity(spot, p, 0, 0, 0));
+        for (let i = 0; i < 600 && !ball.touchedFloor; i++) Physics.update(ball, 1 / 60);
+        longestOnRim = Math.max(longestOnRim, ball.rimTime);
+        if (ball.rimTime > 0.25) rolled++;
+    }
+}
+check('some soft shots roll around the rim', rolled >= 3, rolled + ' of 505 shots spent over a quarter second on the rim');
+check('no ball sits on the rim for more than 2.5 seconds', longestOnRim < 2.5, 'longest ' + longestOnRim.toFixed(2) + ' s');
+
 finish();

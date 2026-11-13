@@ -21,7 +21,7 @@ Everything in this doc is a design. This table is the truth about the game on `m
 | Campaign | 7 stages, one boss race per court with its twist, stars, gold, chests, the tutorial | Rival personalities and habits, several matches per court, Archero-style runs, permanent upgrades bought with gold, daily challenge |
 | Sandbox | Everything listed in the Sandbox section | |
 | Multiplayer | Two players on one computer, split screen | Online play |
-| Power-ups | The 20 cards in the list below | Mythic cards (overtime cards are legendary until they are designed) |
+| Power-ups | The 21 cards in the list below | Mythic cards (overtime cards are legendary until they are designed) |
 | Sound | Nothing. The game calls `window.playSound(name)` for every event, but no sounds exist yet | All audio |
 | Playable link | A private preview artifact | GitHub Pages (needs the repo setting turned on) |
 
@@ -315,7 +315,7 @@ A power-up pick comes every 20–30 seconds: the game pauses and you choose one 
 
 ## Power-up list
 
-These 20 cards are all in the game. They are starting ideas to build on, not a final list. Mark each one Keep / Maybe / Cut in the live doc, then add your own and we'll balance them together.
+These 21 cards are all in the game. They are starting ideas to build on, not a final list. Mark each one Keep / Maybe / Cut in the live doc, then add your own and we'll balance them together.
 
 | Name | Side | Rarity | Effect |
 | --- | --- | --- | --- |
@@ -333,6 +333,7 @@ These 20 cards are all in the game. They are starting ideas to build on, not a f
 | Fast Meter | Sabotage | Common | Opponent's meter charges 30% faster for 3 shots |
 | Shaky Hands | Sabotage | Common | Opponent's aim wobbles for 3 shots |
 | Heckler | Sabotage | Common | A loud fan yells during the opponent's next 2 shots and shakes their camera |
+| Blind Meter | Sabotage | Rare | Hides the opponent's green power zone for 3 shots (added Nov 12) |
 | Tiny Rim | Sabotage | Rare | Opponent's rim is 15% smaller for 15 seconds |
 | Extinguisher | Sabotage | Rare | Ends the opponent's streak right now |
 | Fog Machine | Sabotage | Rare | Fog covers the opponent's court for 10 seconds |

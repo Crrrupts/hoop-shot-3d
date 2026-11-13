@@ -25,7 +25,17 @@ const Physics = (function () {
         max: [ 0.10, 3.40, -1.10]
     };
 
-    const RESTITUTION = { floor: 0.72, board: 0.60, rim: 0.50, pole: 0.40 };
+    // How much speed a bounce keeps (1 = all of it, 0 = none)
+    const RESTITUTION = { floor: 0.72, board: 0.55, rim: 0.45, pole: 0.40 };
+    // Rim and backboard also rub the ball: a hit keeps this fraction of the
+    // ball's sideways (sliding) speed, so shots do not skid off like on ice.
+    const GRIP = { rim: 0.88, board: 0.92 };
+    // A bounce slower than this (m/s) is not a bounce at all: the ball stays
+    // touching and rolls. This is what lets a soft shot roll around the rim
+    // and drop in or fall out, instead of buzzing in tiny bounces.
+    const ROLL_SPEED = 0.7;
+    const WEDGE_TIME = 0.8;             // seconds on the rim before a stuck ball is eased off it
+    const WEDGE_PULL = 3.0;             // how hard it is eased toward the middle of the hoop (m/s^2)
     const FLOOR_FRICTION = 0.85;        // keeps this fraction of sideways speed per bounce
     const STEP = 1 / 240;               // fixed physics time step
 
@@ -64,6 +74,7 @@ const Physics = (function () {
             touchedRim: false,
             touchedBoard: false,
             wind: [0, 0, 0],            // sideways push while flying (m/s^2), set when thrown
+            rimTime: 0,                 // seconds spent touching the rim (to free a stuck ball)
             accumulator: 0,             // left-over time for the fixed time step
             silent: false               // true for test throws that should not make sounds or score
         };
@@ -97,6 +108,24 @@ const Physics = (function () {
         if (onBounce && !ball.silent && -vn > 0.5) onBounce(ball, surface, -vn);
     }
 
+    // Bounce off the rim or backboard: like reflect, plus grip and rolling.
+    // The velocity is split into the part going into the surface (along n)
+    // and the part sliding along it.
+    function bounce(ball, n, restitution, grip, surface) {
+        const vn = dot(ball.vel, n);
+        if (vn >= 0) return;            // already moving away
+        const impact = -vn;
+        let out = impact * restitution;             // speed back out of the surface
+        if (out < ROLL_SPEED) out = 0;              // too slow to bounce: keep touching and roll
+        // a real hit rubs off some sliding speed; a rolling ball keeps almost all of it
+        const keep = impact > 0.5 ? grip : 0.9995;
+        for (let i = 0; i < 3; i++) {
+            const sliding = ball.vel[i] - vn * n[i];
+            ball.vel[i] = sliding * keep + out * n[i];
+        }
+        if (onBounce && !ball.silent && impact > 0.5) onBounce(ball, surface, impact);
+    }
+
     // ---------- Collisions ----------
     function collideFloor(ball) {
         if (ball.pos[1] >= BALL_RADIUS) return;
@@ -113,7 +142,8 @@ const Physics = (function () {
     }
 
     // Sphere vs axis-aligned box (backboard, pole). Handles faces, edges and corners.
-    function collideBox(ball, box, restitution, surface) {
+    // grip is optional: the backboard has it, the pole does not.
+    function collideBox(ball, box, restitution, surface, grip) {
         const o = hoopOrigin(ball.hoop);
         const min = [box.min[0] + o[0], box.min[1], box.min[2] + o[2]];
         const max = [box.max[0] + o[0], box.max[1], box.max[2] + o[2]];
@@ -131,7 +161,8 @@ const Physics = (function () {
         }
         const push = BALL_RADIUS - dist;
         for (let i = 0; i < 3; i++) ball.pos[i] += n[i] * push;
-        reflect(ball, n, restitution, surface);
+        if (grip) bounce(ball, n, restitution, grip, surface);
+        else reflect(ball, n, restitution, surface);
         return true;
     }
 
@@ -159,7 +190,15 @@ const Physics = (function () {
             ball.vel[0] += (Math.random() - 0.5) * 2.5;
             ball.vel[2] += (Math.random() - 0.5) * 2.5;
         } else {
-            reflect(ball, n, ball.hoop.rimBounce, 'rim');
+            bounce(ball, n, ball.hoop.rimBounce, GRIP.rim, 'rim');
+        }
+        // A ball can come to rest on the rim, often wedged against the
+        // backboard. After a moment, ease it toward the middle of the hoop
+        // so it drops through or rolls off instead of sitting there.
+        ball.rimTime += STEP;
+        if (ball.rimTime > WEDGE_TIME && d > 1e-6) {
+            ball.vel[0] -= q[0] / d * WEDGE_PULL * STEP;
+            ball.vel[2] -= q[2] / d * WEDGE_PULL * STEP;
         }
         return true;
     }
@@ -208,7 +247,7 @@ const Physics = (function () {
         for (let i = 0; i < 3; i++) ball.pos[i] += ball.vel[i] * dt;
 
         if (collideRim(ball)) ball.touchedRim = true;
-        if (collideBox(ball, BOARD, RESTITUTION.board, 'board')) ball.touchedBoard = true;
+        if (collideBox(ball, BOARD, RESTITUTION.board, 'board', GRIP.board)) ball.touchedBoard = true;
         collideBox(ball, POLE, RESTITUTION.pole, 'pole');
         collideFloor(ball);
         checkBasket(ball, prevY);
@@ -248,6 +287,7 @@ const Physics = (function () {
         ball.scored = false;
         ball.touchedRim = false;
         ball.touchedBoard = false;
+        ball.rimTime = 0;
         ball.accumulator = 0;
     }
 

@@ -436,7 +436,7 @@ const Game = (function () {
         shooter.spotStats[shooter.spot - 1].attempts++;
         shooter.cooldown = SETTINGS.shotCooldown;
         // effects that last "for the next N shots" lose one shot
-        for (const id of ['sweet', 'guide', 'fast', 'shaky', 'heckler']) PU.useOne(shooter, id);
+        for (const id of ['sweet', 'guide', 'fast', 'shaky', 'heckler', 'blind']) PU.useOne(shooter, id);
         if (shooter === player) {
             const hs = Math.hypot(vel[0], vel[2]) || 1;
             state.shotDir = [vel[0] / hs, 0, vel[2] / hs];
@@ -483,6 +483,7 @@ const Game = (function () {
         if (PU.has(rival, 'fast')) chance -= 0.08;
         if (PU.has(rival, 'shaky')) chance -= 0.10;
         if (PU.has(rival, 'heckler')) chance -= 0.10;
+        if (PU.has(rival, 'blind')) chance -= 0.10;
         if (PU.has(rival, 'fog')) chance -= 0.15;
         if (PU.has(rival, 'blackout')) chance -= 0.25;
         if (state.court.rules.slip) chance -= 0.05;         // wet ball

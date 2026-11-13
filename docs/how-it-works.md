@@ -58,7 +58,7 @@ Files: `physics.js`, `game.js`, `powerups.js`, `courts.js`, `campaign.js`, `card
 - Backboard and pole: boxes. The code finds the closest point on the box to the ball's center (`collideBox`).
 - Rim: a torus. The code finds the closest point on the rim's circle and treats the rim as a thin tube around it (`collideRim`).
 
-On a hit, the ball is pushed back out and its velocity is reflected off the surface, keeping only part of its speed (the restitution: floor 0.72, board 0.60, rim 0.50, pole 0.40). Courts can change these: the YMCA rim is softer, outdoor double rims are stiffer and thicker, a wet floor bounces less.
+On a hit, the ball is pushed back out and its velocity is reflected off the surface, keeping only part of its speed (the restitution: floor 0.72, board 0.55, rim 0.45, pole 0.40). The rim and backboard also rub off some sideways speed (`GRIP`), and a touch too soft to bounce (`ROLL_SPEED`) makes the ball roll on the rim instead (`bounce`). Courts can change these: the YMCA rim is softer, outdoor double rims are stiffer and thicker, a wet floor bounces less.
 
 **Baskets.** A make counts when the ball's center crosses the rim's height going down while inside the rim circle (`checkBasket`). The ball also remembers if it touched the rim or board, which is how the game knows a swish from a bank shot.
 
