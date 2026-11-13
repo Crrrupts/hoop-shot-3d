@@ -913,3 +913,16 @@ body {
 /* two-player: below the clock in the middle */
 .two-player #race-bar { margin-top: 30px; }
 .two-player #wind-display { margin-top: 2px; }
+
+/* frame stats (?stats in the page address) */
+#frame-stats {
+    position: fixed;
+    left: 6px;
+    top: 4px;
+    padding: 2px 8px;
+    background: rgba(0, 0, 0, 0.75);
+    color: #7dff9b;
+    font: 12px monospace;
+    z-index: 100;
+    pointer-events: none;
+}

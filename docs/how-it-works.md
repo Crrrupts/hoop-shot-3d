@@ -42,6 +42,10 @@ Files: `geometry.js`, `textures.js`, `renderer.js`, `shooter.js`, `camera.js`, a
 
 **Textures.** `textures.js` paints each image on a hidden 2D canvas (ball skins, court floors, backboards, walls, skies, crowd fans), so the game needs no image files. `makeTexture` uploads the canvas to WebGL. The shader multiplies the texture color by the lighting. Crowd images have see-through pixels, which the shader throws away (`discard`).
 
+**Sending matrices.** About 250 objects are drawn per frame. For each, `sendModelMatrix` copies the model matrix into a reused array and builds the normal matrix from the cofactors of its 3 × 3 part, instead of calling MV.js's `flatten` and `normalMatrix` (which make new arrays and invert a whole 4 × 4 matrix). Same result, about 70 times less work.
+
+**Court images.** Each court's floor, backboard and wall or sky are painted once and kept (`imagesFor`). While a menu is showing, courts not yet painted are painted in the background, one at a time (`paintAhead`), so switching courts is instant.
+
 **Views.** One frame can draw the scene more than once. `drawView` sets a rectangle of the canvas (`gl.viewport` and `gl.scissor`) and draws everything from one camera. In one-player there are two views: your camera on the whole canvas, then a small box with a fixed camera on the rival's hoop. In two-player there are two halves. Solid objects are drawn first, then see-through things (shadows, spot markers, weather, confetti) with blending on.
 
 **Reflections and soft shadows.** On a shiny floor (`gloss` of 0.15 or more in `courts.js`), `drawReflection` draws the hoops, balls and players again, upside down under the floor: the model matrix starts as `scale(1, -1, 1)`, the lights are mirrored too, and a `uFade` uniform makes it see-through. Because a mirror image turns every triangle inside out, `gl.frontFace(gl.CW)` is used while it is drawn. Shadows and spot markers are flat discs with a soft see-through texture (`softDisc`, `ring` in `textures.js`); the shader's `uSoftAlpha` lets their edges fade instead of cutting off.
@@ -82,6 +86,8 @@ On a hit, the ball is pushed back out and its velocity is reflected off the surf
 **The fan meter.** `state.fans` runs from -1 (the crowd is all for the rival or Player 2) to +1 (all for you or Player 1). It starts on the home team's side and drifts slowly back there. `pullFans` moves it on every make and miss; the amounts are in `SETTINGS.fans`. `greenZone` widens your green zone the more the crowd leans your way. A full meter sets `crowdFire`, which `heatTier` counts as at least On Fire until you miss or the opponent reaches On Fire; while it lasts, the opponent's green zone is shrunk.
 
 **Courts, campaign and cards.** `courts.js` lists each court's rules (rim, wind, rain) and its look. `campaign.js` lists the 7 stages, their rivals and boss twists, and works out stars and rewards. `cards.js` holds the ball and gear cards, chests, upgrades and the saved progress (browser `localStorage`).
+
+**Keeping it fast.** The green zone needs the power range that scores, which means simulating test shots. `makeWindow` tries every third power, takes the widest run that scores and walks out to its exact edges (about 35 test shots instead of 101), and `Physics.wouldScore` stops a test shot as soon as the ball is falling well below the rim. Results are saved per aim and per wind step of 0.05, the golden dot's three searches are spread over three frames (`shotGuide` with `spread`), and `main.js` never does a zone search in a frame that already did one (`ZONE_BUDGET_MS`).
 
 **Tests.** `node tests/physics.test.js`, `node tests/rules.test.js` and `node tests/cards.test.js` run the physics and rules without a browser.
 

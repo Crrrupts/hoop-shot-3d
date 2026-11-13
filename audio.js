@@ -25,9 +25,20 @@ const GameAudio = (function () {
         master = context.createGain();
         master.gain.value = muted ? 0 : 0.5;
         master.connect(context.destination);
+        makeNoise();
         loadFiles();
         return true;
     }
+    // Setting up sound takes a moment, so it happens at the player's first key
+    // press or click (usually in the menu), not in the middle of the first shot.
+    function warmUp() {
+        start();
+        if (context && context.state === 'suspended') context.resume();
+        window.removeEventListener('pointerdown', warmUp, true);
+        window.removeEventListener('keydown', warmUp, true);
+    }
+    window.addEventListener('pointerdown', warmUp, true);
+    window.addEventListener('keydown', warmUp, true);
 
     // ---------- Building blocks ----------
     // A note: a wave at a pitch that can slide, fading out.
@@ -50,12 +61,13 @@ const GameAudio = (function () {
     //   filter 'lowpass' (dull), 'highpass' (airy) or 'bandpass' (hollow, voice-like)
     //   swell = seconds to fade in before fading out (0 = starts at full)
     let noiseBuffer = null;
+    function makeNoise() {                      // two seconds of random hiss, made once
+        noiseBuffer = context.createBuffer(1, context.sampleRate * 2, context.sampleRate);
+        const data = noiseBuffer.getChannelData(0);
+        for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+    }
     function noise(filter, from, to, seconds, volume, swell, delay) {
-        if (!noiseBuffer) {
-            noiseBuffer = context.createBuffer(1, context.sampleRate * 2, context.sampleRate);
-            const data = noiseBuffer.getChannelData(0);
-            for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
-        }
+        if (!noiseBuffer) makeNoise();
         const t = context.currentTime + (delay || 0);
         const source = context.createBufferSource(), shape = context.createBiquadFilter(), level = context.createGain();
         source.buffer = noiseBuffer;

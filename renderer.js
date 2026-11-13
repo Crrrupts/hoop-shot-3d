@@ -99,7 +99,7 @@
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, wrap);
         return t;
     }
-    // These are rebuilt for each court
+    // The current court's images (see imagesFor below)
     const softTextures = { disc: null, ring: null };      // made once, below (makeTexture keeps the see-through parts)
     const textures = { court: null, backboard: null, wall: null, sky: null };
 
@@ -156,15 +156,49 @@
         return [1, 3, 5].map((i) => parseInt(hex.substr(i, 2), 16) / 255);
     }
 
+    // ---------- Each court's images, painted once and kept ----------
+    // Painting a court's floor takes a few tenths of a second, so each court's
+    // images are painted the first time they are needed and then kept, so
+    // switching back is instant. While the menu is showing, the courts not yet
+    // painted are painted in the background, one at a time (see paintAhead).
+    const courtImages = {};                     // court id -> { court, backboard, wall, sky, fans }
+    const fanImages = {};                       // 'people' or 'glow' -> one texture per shirt color
+    function imagesFor(court) {
+        if (!courtImages[court.id]) {
+            const look = court.look;
+            courtImages[court.id] = {
+                court: makeTexture(Textures.court(COURT.width, COURT.z0, COURT.z1, look.floor), false),
+                backboard: makeTexture(Textures.backboard(look.board), false),
+                sky: look.outdoor ? makeTexture(Textures.sky(look.sky), true) : null,
+                wall: look.outdoor ? null : makeTexture(Textures.wall(look.wall), true)
+            };
+        }
+        return courtImages[court.id];
+    }
+    function fanTexturesFor(kind) {
+        if (!fanImages[kind]) {
+            // (called right after Crowd.build, so Crowd.shirtColors() matches this kind of crowd)
+            const glow = kind === 'glow', skin = Crowd.skinColors();
+            fanImages[kind] = Crowd.shirtColors().map((shirt, i) => makeTexture(Textures.fan(shirt, skin[i % skin.length], glow), false));
+        }
+        return fanImages[kind];
+    }
+    function paintAhead() {
+        // only while a menu is showing: painting mid-match would make the game stutter
+        if (Game.state.mode === 'playing' || Game.state.mode === 'picking') return;
+        const next = Courts.LIST.find((c) => !courtImages[c.id]);
+        if (next) imagesFor(next);
+    }
+    setInterval(paintAhead, 700);
+    window.paintedCourts = () => Object.keys(courtImages);         // for checking (tests, ?stats)
+
     function loadCourt(court) {
         look = court.look;
-        for (const key of ['court', 'backboard', 'wall', 'sky']) {
-            if (textures[key]) { gl.deleteTexture(textures[key]); textures[key] = null; }
-        }
-        textures.court = makeTexture(Textures.court(COURT.width, COURT.z0, COURT.z1, look.floor), false);
-        textures.backboard = makeTexture(Textures.backboard(look.board), false);
-        if (look.outdoor) textures.sky = makeTexture(Textures.sky(look.sky), true);
-        else textures.wall = makeTexture(Textures.wall(look.wall), true);
+        const images = imagesFor(court);
+        textures.court = images.court;
+        textures.backboard = images.backboard;
+        textures.sky = images.sky;
+        textures.wall = images.wall;
 
         const gloss = look.floor.gloss;         // 0 = matte floor, higher = shinier (ice, wet asphalt)
         MATERIALS.court = { color: [1, 1, 1], specular: [gloss, gloss, gloss], shininess: 8 + gloss * 60, texture: textures.court };
@@ -187,11 +221,9 @@
 
         // Crowd: place the fans and paint one cut-out image per shirt color
         Crowd.build(look, ARENA.x0, ARENA.x1, [Game.player.hoop.base[0], Game.rival.hoop.base[0]]);
-        for (const m of fanMaterials) gl.deleteTexture(m.texture);
-        const skin = Crowd.skinColors();
-        fanMaterials = Crowd.shirtColors().map((shirt, i) => ({
+        fanMaterials = fanTexturesFor(Crowd.isGlow() ? 'glow' : 'people').map((texture) => ({
             color: [0.8, 0.8, 0.8],         // a little dimmer than the court so the crowd stays in the background
-            texture: makeTexture(Textures.fan(shirt, skin[i % skin.length], Crowd.isGlow()), false),
+            texture: texture,
             unlit: Crowd.isGlow()           // Neon Arcade fans glow instead of being lit
         }));
         MATERIALS.bleachers = { color: look.pole.map((c) => c * 0.8 + 0.05) };
@@ -242,10 +274,31 @@
     function transform(m) { modelMatrix = mult(modelMatrix, m); }
 
     // Send the current model matrix (and the matching normal matrix) to the shader
+    // This runs for every object drawn (hundreds of times a frame), so it
+    // avoids MV.js's flatten() and normalMatrix(), which make new arrays and
+    // invert a whole 4x4 matrix each time. Instead it fills two arrays that
+    // are reused, and builds the normal matrix straight from the cofactors
+    // of the model matrix's 3x3 part (inverse-transpose times the
+    // determinant; the shader normalizes the normals, so the scale does not
+    // matter, but the sign does, so it is fixed for mirrored matrices).
+    const modelArray = new Float32Array(16), normalArray = new Float32Array(9);
+    let matricesSent = 0;                       // per frame, for ?stats
     function sendModelMatrix() {
-        gl.uniformMatrix4fv(uniform.uModel, false, flatten(modelMatrix));
-        gl.uniformMatrix3fv(uniform.uNormalMatrix, false, flatten(normalMatrix(modelMatrix, true)));
+        const m = modelMatrix;
+        for (let col = 0; col < 4; col++) {     // WebGL wants the numbers column by column
+            for (let row = 0; row < 4; row++) modelArray[col * 4 + row] = m[row][col];
+        }
+        const a = m[0][0], b = m[0][1], c = m[0][2], d = m[1][0], e = m[1][1], f = m[1][2], g = m[2][0], h = m[2][1], k = m[2][2];
+        const c00 = e * k - f * h, c01 = f * g - d * k, c02 = d * h - e * g;
+        const sign = (a * c00 + b * c01 + c * c02) < 0 ? -1 : 1;        // negative determinant = mirrored
+        normalArray[0] = sign * c00; normalArray[1] = sign * (c * h - b * k); normalArray[2] = sign * (b * f - c * e);
+        normalArray[3] = sign * c01; normalArray[4] = sign * (a * k - c * g); normalArray[5] = sign * (c * d - a * f);
+        normalArray[6] = sign * c02; normalArray[7] = sign * (b * g - a * h); normalArray[8] = sign * (a * e - b * d);
+        gl.uniformMatrix4fv(uniform.uModel, false, modelArray);
+        gl.uniformMatrix3fv(uniform.uNormalMatrix, false, normalArray);
+        matricesSent++;
     }
+    window.rendererStats = function () { const n = matricesSent; matricesSent = 0; return n; };
 
     // Draw a triangle mesh with the current model matrix and material.
     // count/offset let us draw only some of its triangles.

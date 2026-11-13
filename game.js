@@ -220,21 +220,45 @@ const Game = (function () {
     // options (optional): { rimScale, wind } passed on to Physics.wouldScore.
     function makeWindow(shooter, spotNumber, aimX, aimY, options) {
         const pos = spotPosition(spotNumber, shooter);
+        const tried = new Map();                // each power is only simulated once
         function scores(p) {
-            return p >= 0 && p <= 100 &&
-                Physics.wouldScore(shooter.hoop, pos, shotVelocity(spotNumber, p, aimX, aimY, 0), options);
+            if (p < 0 || p > 100) return false;
+            if (!tried.has(p)) {
+                tried.set(p, Physics.wouldScore(shooter.hoop, pos, shotVelocity(spotNumber, p, aimX, aimY, 0), options));
+            }
+            return tried.get(p);
         }
-        // Try every second power value, then check one step past each end of
-        // a scoring run. That halves the work of trying all 101 values.
+        // 1. A coarse pass: try every third power and find the widest run that scores
         let best = null, start = null;
-        for (let p = 0; p <= 102; p += 2) {
+        for (let p = 0; p <= 102; p += COARSE_STEP) {
             const hit = scores(p);
             if (hit && start === null) start = p;
             if (!hit && start !== null) {
-                let lo = start, hi = p - 2;
-                if (scores(lo - 1)) lo--;
-                if (scores(hi + 1)) hi++;
-                if (!best || hi - lo > best.hi - best.lo) best = { lo: lo, hi: hi };
+                if (!best || p - start > best.hi - best.lo) best = { lo: start, hi: p - COARSE_STEP };
+                start = null;
+            }
+        }
+        if (!best) return null;                 // nothing scores from this aim
+        // 2. Walk out from that run to its exact edges, one power point at a time
+        while (scores(best.lo - 1)) best.lo--;
+        while (scores(best.hi + 1)) best.hi++;
+        best.best = (best.lo + best.hi) / 2;
+        return best;
+    }
+    // Scoring ranges are usually 5 to 15 power points wide, so trying every
+    // third power finds them with a third of the simulations.
+    const COARSE_STEP = 3;
+
+    // The old way, kept for the tests: try every power from 0 to 100 and
+    // return the widest scoring range. (Slow: about 100 simulations.)
+    function makeWindowFull(shooter, spotNumber, aimX, aimY, options) {
+        const pos = spotPosition(spotNumber, shooter);
+        let best = null, start = null;
+        for (let p = 0; p <= 101; p++) {
+            const hit = p <= 100 && Physics.wouldScore(shooter.hoop, pos, shotVelocity(spotNumber, p, aimX, aimY, 0), options);
+            if (hit && start === null) start = p;
+            if (!hit && start !== null) {
+                if (!best || p - 1 - start > best.hi - best.lo) best = { lo: start, hi: p - 1 };
                 start = null;
             }
         }
@@ -258,26 +282,37 @@ const Game = (function () {
     // These depend on the spot, the rim and the wind, not on where you are aiming.
     // Working them out takes a few milliseconds, so the answer is kept until something changes.
     const zoneCache = {};
-    function shotGuide(shooter) {
-        const wind = [Math.round(state.wind[0] * 20) / 20, 0, 0];      // to the nearest 0.05
+    // spread = true (from the frame loop): do at most one of the few zone
+    // searches per call, so a wind change spreads its work over a few frames
+    // and the previous answer is used until the new one is ready. Without it
+    // (tests, the shot itself), the answer is finished at once.
+    function shotGuide(shooter, spread) {
+        // the wind to the nearest 0.05: the guide is only worked out again when
+        // the wind moves to a new step
+        const wind = [Math.round(state.wind[0] * 20) / 20, 0, 0];
         const key = [shooter.spot, shooter.hoop.rimScale, wind[0], state.court.id].join('|');
         let cached = zoneCache[shooter.id];
         if (!cached || cached.key !== key) {
             // try a few aims around the first guess and keep the one with the widest green zone
             const guess = windEstimate(shooter, wind);
-            let best = null;
-            for (const nudge of (wind[0] ? [0, -0.1, 0.1, -0.2, 0.2] : [0])) {
-                const zone = makeWindow(shooter, shooter.spot, guess + nudge, 0, { wind: wind });
-                if (zone && (!best || zone.hi - zone.lo > best.hi - best.lo)) {
-                    best = { aimX: guess + nudge, lo: zone.lo, hi: zone.hi };
-                }
+            cached = zoneCache[shooter.id] = {
+                key: key, wind: wind, best: null, todo: wind[0] ? [0, -0.1, 0.1] : [0],
+                guess: guess, guide: cached ? cached.guide : null       // keep showing the old answer meanwhile
+            };
+        }
+        while (cached.todo.length) {
+            const aimX = cached.guess + cached.todo.shift();
+            const zone = makeWindow(shooter, shooter.spot, aimX, 0, { wind: cached.wind });
+            if (zone && (!cached.best || zone.hi - zone.lo > cached.best.hi - cached.best.lo)) {
+                cached.best = { aimX: aimX, lo: zone.lo, hi: zone.hi };
             }
-            cached = zoneCache[shooter.id] = { key: key, guide: best };
+            if (!cached.todo.length) cached.guide = cached.best;        // all done: use the new answer
+            if (spread) break;
         }
         return cached.guide;
     }
-    function perfectAim(shooter) {
-        const guide = shotGuide(shooter);
+    function perfectAim(shooter, spread) {
+        const guide = shotGuide(shooter, spread);
         return guide ? guide.aimX : 0;
     }
     // The green zone for the golden-dot aim (used by tests and the tutorial)
@@ -294,6 +329,7 @@ const Game = (function () {
     const aimZones = {};                // per shooter: answers for recent aims
     function aimZone(shooter, aimX, aimY) {
         const ax = Math.round(aimX * 50) / 50, ay = Math.round(aimY * 50) / 50;     // to the nearest 0.02
+        // the wind to the nearest 0.05 (close enough that the zone stays accurate)
         const wind = [Math.round(state.wind[0] * 20) / 20, 0, 0];
         const setup = [shooter.spot, shooter.hoop.rimScale, wind[0], state.court.id].join('|');
         let cache = aimZones[shooter.id];
@@ -1069,7 +1105,7 @@ const Game = (function () {
     return {
         state, player, rival, SPOTS, SETTINGS, TIERS, RIVALS,
         start, shoot, shoot2, update, on,
-        spotPosition, shotVelocity, makeWindow, tierFor, pointsFor, perfectAim, powerZone, aimZone, greenZone, zoneVisible, aimShake, lean, fanFavorite, heatTier, pullFans,
+        spotPosition, shotVelocity, makeWindow, tierFor, pointsFor, perfectAim, powerZone, aimZone, makeWindowFull, greenZone, zoneVisible, aimShake, lean, fanFavorite, heatTier, pullFans,
         throwBall, applyCard, choosePick, opponentOf, setCourt, forcePick, clearBalls, quit
     };
 })();

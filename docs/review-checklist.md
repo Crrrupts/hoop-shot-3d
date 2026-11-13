@@ -1,6 +1,6 @@
 # Hoop Shot 3D — Review checklist and known gaps
 
-What the team needs to check by playing, and what is known to be missing or rough. Updated Nov 13, 2026, after work-list rows 1–23 of [next-steps.md](next-steps.md).
+What the team needs to check by playing, and what is known to be missing or rough. Updated Nov 13, 2026, after work-list rows 1–26 of [next-steps.md](next-steps.md).
 
 The game was only tested in a headless browser (no graphics card, no speakers, scripted key presses). It has never been played by a person at full speed. Everything under "Needs a playtest" needs a person; everything under "Known gaps" is already known and does not need reporting again.
 
@@ -22,7 +22,8 @@ When you check something, write your initials and what you found in the Result c
 | Shooter | Do the hair styles read from behind (that is the view you see most)? | 13 | |
 | Sound | How do the sounds sound? They are crude placeholders made in code, untested by ear. Turn the volume down for the first try | 14 | |
 | Crowd | Does the fan meter swing too easily or too slowly? A rival run of 8 makes took it from your side to almost all the rival's | 15 | |
-| Crowd | Does the Pro Arena (160 fans) run smoothly on the slowest team laptop? | 16, 25 | |
+| Speed | On the slowest team laptop, open the game with `?stats` at the end of the address and play the Pro Arena, Boardwalk and Frozen Lake. Write down fps and the slowest frame. Targets: 60 fps, no frame over 20 ms | 16, 24, 25 | |
+| Speed | Is switching courts instant? (The first time a court is used it may take a moment if you go straight from loading the page into a match) | 26 | |
 | Picks | Does the pick feel like a jackpot moment? Is 5 seconds (3.5 after the cards land) enough to read and choose? | 1, 17 | |
 | Match | Do too many games go to overtime with "within 10 points"? | 1 | |
 | Match | Are games against the AI closer now that it reacts to the score? Does it feel fair, or like rubber-banding? | 21 | |
@@ -46,7 +47,7 @@ When you check something, write your initials and what you found in the Result c
 - **Only the widest scoring range is green.** A second, smaller range (a lucky rim-in) can still go in without being green.
 - **The opponent's smaller green zone at a full fan meter is mostly visual.** The physics does not change, so a release just outside the shrunk zone can still go in.
 - **Balls pass through each other.**
-- **Working out a green zone takes about 8 ms.** It is limited to 20 times a second while aiming. Row 24 fixes this properly.
+- **Working out a green zone takes about 2 ms** (35 test shots). At most one is done per frame.
 
 ### Shooter and camera
 - **No walking between spots.** The figure slides to the next spot with the camera.
@@ -56,7 +57,9 @@ When you check something, write your initials and what you found in the Result c
 ### Graphics
 - **Reflections show only the hoops, balls and players**, not the walls or the crowd (that would double the work). At the edge of an outdoor court a reflection can spill a little onto the ground.
 - **The game is never wider than 2560 pixels inside**, to keep slow laptops fast; on a very large screen it is slightly soft.
-- **Frame rates were only measured in software rendering** (no graphics card on the test machine), so they compare builds but say nothing about real speed.
+- **Frame rates were only measured in software rendering** (no graphics card on the test machine), so they compare builds but say nothing about real speed. Use `?stats` on a real laptop.
+- **Court images use video memory:** all 7 courts kept painted is about 150 MB. If a laptop runs short, the cache can be limited to the last few courts.
+- **The green zone can skip a scoring range only 1–2 power points wide**, and can include a 1-point gap inside the range (a release there is still made to go in).
 
 ### HUD and two-player
 - **The two-player HUD has no "Spot, shot 3 of 5" line and no money-spot text.** The floor markers and green rings are there.
@@ -80,4 +83,4 @@ When you check something, write your initials and what you found in the Result c
 ### Project
 - **No GitHub Pages link yet.** The repo is private; turning Pages on needs GitHub Pro (free with the student pack) or a public repo.
 - **The AI Use Log does not name the model** for each session (Claude Code does not write model names into repo files). The commit messages name it.
-- **Open question:** which team laptop is the slowest, for the performance targets (rows 24–26)?
+- **Open question:** which team laptop is the slowest, for the performance targets (rows 24–26)? Check it with `?stats`.

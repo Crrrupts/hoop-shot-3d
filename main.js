@@ -32,7 +32,8 @@
     // Where perfect aim is on the screen for a player (canvas pixels)
     function aimTarget(shooter, index) {
         const rim = window.worldToScreen(Physics.rimCenter(shooter.hoop), index);
-        return { x: rim.x + Game.perfectAim(shooter) * AIM_PIXELS, y: rim.y, rimX: rim.x };
+        // (true: a wind change spreads the golden dot's work over a few frames)
+        return { x: rim.x + Game.perfectAim(shooter, true) * AIM_PIXELS, y: rim.y, rimX: rim.x };
     }
 
     // Turn a crosshair's position into aimX / aimY (-1..1) and show the HUD marks
@@ -99,7 +100,32 @@
         setSweetZone(zone, which);
     }
 
+    const ZONE_BUDGET_MS = 3;
+
+    // ---------- Frame stats (add ?stats to the page address) ----------
+    // Shows frames per second, the slowest frame in the last second, and how
+    // long the game's own code took per frame. For checking speed on a laptop.
+    const statsBox = /[?&]stats/.test(location.search) ? document.createElement('div') : null;
+    if (statsBox) {
+        statsBox.id = 'frame-stats';
+        document.body.appendChild(statsBox);
+    }
+    const stats = { frames: 0, worstGap: 0, codeTotal: 0, worstCode: 0, since: performance.now() };
+    function recordStats(gap, code) {
+        stats.frames++;
+        stats.worstGap = Math.max(stats.worstGap, gap);
+        stats.codeTotal += code;
+        stats.worstCode = Math.max(stats.worstCode, code);
+        const now = performance.now();
+        if (now - stats.since < 1000) return;
+        statsBox.textContent = `${stats.frames} fps | slowest frame ${stats.worstGap.toFixed(0)} ms | ` +
+            `game code ${(stats.codeTotal / stats.frames).toFixed(1)} ms avg, ${stats.worstCode.toFixed(1)} ms max | ` +
+            `${Crowd.getFans().length} fans | ${Math.round(window.rendererStats() / stats.frames)} objects drawn per frame`;
+        Object.assign(stats, { frames: 0, worstGap: 0, codeTotal: 0, worstCode: 0, since: now });
+    }
+
     function frame(now) {
+        const gap = now - last, codeStart = performance.now();
         // slow motion for buzzer beaters (effects.js decides when)
         const dt = Math.min((now - last) / 1000, 0.1) * Effects.timeScale();
         last = now;
@@ -109,10 +135,16 @@
         Camera.update(dt);
 
         const player = Game.player, rival = Game.rival, two = Game.state.twoPlayer;
+        const aimStart = performance.now();
         updateAim(player, 0);
         if (two) updateAim(rival, 1); else { showCrosshair(1, null); showAimDot(1, null); }
-        updateZones(player, 0);
-        if (two) updateZones(rival, 1);
+        // Working out a green zone can take a few milliseconds. If the golden
+        // dot already used up this frame's share (the wind changed), the zone
+        // waits for the next frame, so one frame never does both.
+        if (performance.now() - aimStart < ZONE_BUDGET_MS) {
+            updateZones(player, 0);
+            if (two) updateZones(rival, 1);
+        }
 
         // the ball in each shooter's hands follows their pose (shooter.js).
         // For a moment after a release the hands are empty.
@@ -141,6 +173,7 @@
             ballSkin: Cards.activeBall(),
             state: Game.state
         });
+        if (statsBox) recordStats(gap, performance.now() - codeStart);
         requestAnimationFrame(frame);
     }
     requestAnimationFrame(frame);

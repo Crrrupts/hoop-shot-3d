@@ -143,6 +143,8 @@ node tests/crowd.test.js
 ```
 The first checks that every spot can be scored, the collisions, and frame-rate independence. The second checks the match rules: streak tiers, rapid fire, power-up odds and effects, the rival's accuracy, the buzzer, overtime, the court rules (soft rim, double rim, rain, wind), practice mode, boss twists, two-player rules and a whole simulated match. The third checks chests, upgrades, gear and campaign stars and unlocks.
 
+To check speed on a laptop, add `?stats` to the page address: the top-left corner shows frames per second, the slowest frame, how long the game's own code takes per frame, and how many objects are drawn.
+
 For testing in the browser, add to the page address: `?length=30` for a short game, or `?test=moving,fog` to start with those power-ups on you (ids are in `powerups.js`).
 
 ## AI use

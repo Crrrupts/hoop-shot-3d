@@ -60,6 +60,35 @@ player.spot = 3;
 check('mouse right aims right, mouse left aims left',
     Game.shotVelocity(3, 50, 1, 0, 0)[0] > 0 && Game.shotVelocity(3, 50, -1, 0, 0)[0] < 0);
 
+// ---------- The green-zone search is fast and finds the same zones (row 24) ----------
+{
+    let sims = 0;
+    const realWouldScore = Physics.wouldScore;
+    Physics.wouldScore = function () { sims++; return realWouldScore.apply(this, arguments); };
+    let fastSims = 0, fullSims = 0, aims = 0, agreeing = 0, wider = 0, missedTiny = 0, problems = [];
+    for (const court of ['home', 'boardwalk', 'lake']) {
+        Game.start({ rival: noCards, court: court, freeSpots: true, length: 1000 });
+        for (let i = 0; i < 60; i++) {
+            const spot = 1 + (i % 5), ax = (i % 7 - 3) * 0.12, ay = (i % 9 - 4) * 0.2;
+            const wind = [court === 'home' ? 0 : (i % 5 - 2) * 0.15, 0, 0];
+            sims = 0; const fast = Game.makeWindow(player, spot, ax, ay, { wind: wind }); fastSims += sims;
+            sims = 0; const full = Game.makeWindowFull(player, spot, ax, ay, { wind: wind }); fullSims += sims;
+            aims++;
+            if (!fast && !full) agreeing++;
+            else if (fast && full && fast.lo === full.lo && fast.hi === full.hi) agreeing++;
+            else if (fast && full && fast.lo <= full.lo && fast.hi >= full.hi) wider++;                       // a small gap inside, still guaranteed by surePower
+            else if (!fast && full && full.hi - full.lo <= 1) missedTiny++;                                      // a 1-2 point range nobody can hit on purpose
+            else problems.push(`${court} spot ${spot}: fast ${JSON.stringify(fast)} full ${JSON.stringify(full)}`);
+        }
+    }
+    Physics.wouldScore = realWouldScore;
+    check('the fast search finds the same green zone as trying every power (or a harmless difference)', problems.length <= aims * 0.03,
+        `${agreeing} same, ${wider} slightly wider, ${missedTiny} tiny ranges skipped, ${problems.length} other of ${aims}` + (problems.length ? ': ' + problems[0] : ''));
+    check('...with far fewer test shots', fastSims < fullSims * 0.45,
+        `${(fastSims / aims).toFixed(0)} test shots per aim instead of ${(fullSims / aims).toFixed(0)}`);
+    Game.setCourt('home');
+}
+
 // ---------- Power meter: the green zone ----------
 quietStart();
 const zone = Game.powerZone(player);

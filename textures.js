@@ -132,12 +132,23 @@ const Textures = (function () {
         const x0 = -width / 2, depth = z1 - z0;
         const [r, gr, b] = floor.base;
         const shadeColor = (k) => `rgb(${Math.round(r * k)},${Math.round(gr * k)},${Math.round(b * k)})`;
+        g.fillStyle = shadeColor(1);
+        g.fillRect(0, 0, S, S);
+        if (floor.kind === 'asphalt' || floor.kind === 'concrete') {
+            // speckles: painted once on a small tile, then repeated across the
+            // floor (much faster than painting 26,000 separate dots)
+            const tile = makeCanvas(256, 256), t = tile.getContext('2d');
+            for (let i = 0; i < 420; i++) {
+                t.fillStyle = rand() < 0.5 ? 'rgba(0,0,0,0.12)' : 'rgba(255,255,255,0.10)';
+                t.fillRect(rand() * 256, rand() * 256, 4 + rand() * 7, 4 + rand() * 7);
+            }
+            g.fillStyle = g.createPattern(tile, 'repeat');
+            g.fillRect(0, 0, S, S);
+        }
+
         // From here on we draw in meters: the canvas is stretched to fit the tile
         g.scale(S / width, S / depth);
         g.translate(-x0, -z0);
-
-        g.fillStyle = shadeColor(1);
-        g.fillRect(x0, z0, width, depth);
 
         if (floor.kind === 'wood') {
             // planks running the length of the court
@@ -156,11 +167,7 @@ const Textures = (function () {
                 g.fillRect(x, z0, 0.008, depth);
             }
         } else if (floor.kind === 'asphalt' || floor.kind === 'concrete') {
-            // speckles, then a few cracks
-            for (let i = 0; i < 26000; i++) {
-                g.fillStyle = rand() < 0.5 ? 'rgba(0,0,0,0.12)' : 'rgba(255,255,255,0.10)';
-                g.fillRect(x0 + rand() * width, z0 + rand() * depth, 0.03 + rand() * 0.05, 0.03 + rand() * 0.05);
-            }
+            // (the speckles were painted above) a few cracks
             g.strokeStyle = 'rgba(0,0,0,0.35)';
             g.lineWidth = 0.02;
             for (let i = 0; i < 14; i++) {

@@ -313,8 +313,14 @@ const Physics = (function () {
         ball.silent = true;
         if (options.wind) ball.wind = options.wind.slice();
         launch(ball, pos, vel);
-        // a ball that has reached the floor can no longer score
-        for (let i = 0; i < 6 * 240 && !ball.touchedFloor && !ball.scored; i++) step(ball, STEP);
+        // Stop as soon as the answer is known: it scored, it reached the floor,
+        // or it is falling well below the rim (nothing down there can send it
+        // back up into the hoop, so it can no longer score).
+        const giveUpBelow = RIM_HEIGHT - 0.35;
+        for (let i = 0; i < 6 * 240 && !ball.touchedFloor && !ball.scored; i++) {
+            step(ball, STEP);
+            if (ball.vel[1] < 0 && ball.pos[1] < giveUpBelow) break;
+        }
         return ball.scored;
     }
 

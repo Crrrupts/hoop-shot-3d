@@ -114,9 +114,11 @@ const bannerEl = document.getElementById('banner');
 let bannerTimer = null;
 function showBanner(text, kind) {
     bannerEl.textContent = text;
+    // Restart the CSS animation: take the class off, and put it back on the
+    // next frame. (Reading offsetWidth would also work, but it makes the
+    // browser lay out the whole page in the middle of a frame, which was slow.)
     bannerEl.className = '';
-    void bannerEl.offsetWidth;                  // restart the CSS animation
-    bannerEl.className = 'show ' + (kind || '') + ' ' + text.toLowerCase().replace(' ', '-');
+    requestAnimationFrame(() => { bannerEl.className = 'show ' + (kind || '') + ' ' + text.toLowerCase().replace(' ', '-'); });
     clearTimeout(bannerTimer);
     bannerTimer = setTimeout(() => { bannerEl.className = ''; }, 1600);
 }
@@ -416,9 +418,8 @@ function showPopup(text, x, y, kind) {
 // A quick flash over the whole screen. color: 'white', 'orange' or 'gold'
 const flashEl = document.getElementById('flash');
 function flashScreen(color) {
-    flashEl.className = '';
-    void flashEl.offsetWidth;                   // restart the CSS animation
-    flashEl.className = 'show ' + color;
+    flashEl.className = '';                     // restart the CSS animation (see showBanner)
+    requestAnimationFrame(() => { flashEl.className = 'show ' + color; });
 }
 
 

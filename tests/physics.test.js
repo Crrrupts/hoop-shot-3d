@@ -136,4 +136,26 @@ for (let spot = 1; spot <= 5; spot++) {
 check('some soft shots roll around the rim', rolled >= 3, rolled + ' of 505 shots spent over a quarter second on the rim');
 check('no ball sits on the rim for more than 2.5 seconds', longestOnRim < 2.5, 'longest ' + longestOnRim.toFixed(2) + ' s');
 
+// 13. wouldScore stops a test shot early once the ball is well below the rim.
+//     It must give the same answer as simulating the shot all the way down.
+let agree = 0, compared = 0;
+for (let spot = 1; spot <= 5; spot++) {
+    for (let p = 30; p <= 100; p += 0.5) {
+        for (const ay of [-0.5, 0, 0.5]) {
+            const vel = Game.shotVelocity(spot, p, 0.05, ay, 0);
+            const pos = Game.spotPosition(spot, shooter);
+            const quick = Physics.wouldScore(hoop, pos, vel);
+            const ball = Physics.createBall(hoop);
+            ball.silent = true;
+            Physics.launch(ball, pos, vel);
+            let made = false;
+            Physics.onBasket = () => {};
+            for (let i = 0; i < 600 && !ball.touchedFloor; i++) { Physics.update(ball, 1 / 60); if (ball.scored) made = true; }
+            compared++;
+            if (quick === made) agree++;
+        }
+    }
+}
+check('stopping a test shot early never changes whether it scores', agree === compared, `${agree} of ${compared} shots agree`);
+
 finish();
