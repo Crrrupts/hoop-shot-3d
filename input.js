@@ -60,9 +60,11 @@ document.addEventListener('keydown', (e) => {
         }
     }
 
-    // A = previous spot, D = next spot (wraps around)
-    if (!e.repeat && e.code === 'KeyA') changeSpot(-1);
-    if (!e.repeat && e.code === 'KeyD') changeSpot(1);
+    // A = previous spot, D = next spot (wraps around). Only in the sandbox:
+    // in a match the game moves you on after 5 shots from each spot.
+    const freeSpots = typeof Game === 'undefined' || Game.state.freeSpots;
+    if (!e.repeat && freeSpots && e.code === 'KeyA') changeSpot(-1);
+    if (!e.repeat && freeSpots && e.code === 'KeyD') changeSpot(1);
 
     // C = next camera
     if (!e.repeat && e.code === 'KeyC') switchCamera();
@@ -88,7 +90,6 @@ function changeSpot(direction) {
     currentSpot += direction;
     if (currentSpot > TOTAL_SPOTS) currentSpot = 1;
     if (currentSpot < 1) currentSpot = TOTAL_SPOTS;
-    updateSpot(currentSpot, TOTAL_SPOTS);
 }
 
 // ---------- Cameras ----------
@@ -114,13 +115,11 @@ function restartGame() {
     power2 = 0;
     aim2X = 0;
     aim2Y = 0;
-    currentSpot2 = 3;
 
     // HUD
     updateScore(0);
     updateStreak(0);
     updateTime(GAME_SECONDS);
-    updateSpot(currentSpot, TOTAL_SPOTS);
     updateCamera(CAMERAS[currentCamera]);
     updatePowerMeter(0);
 
@@ -246,14 +245,13 @@ function inputLoop(time) {
 requestAnimationFrame(inputLoop);
 
 // ---------- Player 2 (two-player mode, same keyboard) ----------
-// Arrow keys: move the crosshair | hold Enter: power, release to shoot | J / L: change spot
+// Arrow keys: move the crosshair | hold Enter: power, release to shoot
 let charging2 = false;
 let power2 = 0;
 let chargeStart2 = 0;           // Player 2's charge, timed the same way as Player 1's
 let chargeRate2 = 0;
 let aim2X = 0;                  // -1..1 like aimX / aimY (set by main.js from Player 2's crosshair)
 let aim2Y = 0;
-let currentSpot2 = 3;
 const AIM2_SPEED = 260;         // how fast the arrow keys move Player 2's crosshair (pixels per second)
 const held2 = { ArrowLeft: false, ArrowRight: false, ArrowUp: false, ArrowDown: false };
 
@@ -271,8 +269,6 @@ document.addEventListener('keydown', (e) => {
         chargeStart2 = e.timeStamp;
         chargeRate2 = getDifficultySettings().chargeSpeed * (window.chargeSpeedScale2 || 1);
     }
-    if (!e.repeat && e.code === 'KeyJ') changeSpot2(-1);
-    if (!e.repeat && e.code === 'KeyL') changeSpot2(1);
 });
 
 document.addEventListener('keyup', (e) => {
@@ -287,11 +283,6 @@ document.addEventListener('keyup', (e) => {
     }
 });
 
-function changeSpot2(direction) {
-    currentSpot2 += direction;
-    if (currentSpot2 > TOTAL_SPOTS) currentSpot2 = 1;
-    if (currentSpot2 < 1) currentSpot2 = TOTAL_SPOTS;
-}
 
 let lastTime2 = 0;
 function inputLoop2(time) {

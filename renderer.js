@@ -467,6 +467,15 @@
         for (let i = 1; i <= Game.SPOTS.length; i++) {
             const p = Game.spotPosition(i, shooter);
             const current = i === shooter.spot;
+            if (i === shooter.moneySpot) {
+                // the money spot (makes count double): a wide green ring under the marker
+                pushMatrix();
+                transform(translate(p[0], 0.006, p[2]));
+                transform(scalem(0.5, 1, 0.5));
+                setMaterial({ color: [0.3, 1, 0.5], unlit: true, alpha: 0.6 });
+                drawMesh(meshes.disc);
+                popMatrix();
+            }
             pushMatrix();
             transform(translate(p[0], 0.008, p[2]));
             transform(scalem(0.32, 1, 0.32));

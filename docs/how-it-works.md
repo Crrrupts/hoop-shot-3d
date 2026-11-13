@@ -65,6 +65,7 @@ On a hit, the ball is pushed back out and its velocity is reflected off the surf
 **Shots.** `game.js` turns the power (0–100) and the aim into a starting velocity (`shotVelocity`): more power means more speed (6 to 9 m/s), aiming up or down changes the arc, aiming left or right turns the shot. `Physics.wouldScore` runs a whole shot instantly without drawing it; the game uses it to find the power range that scores (`makeWindow`), which gives the meter's green zone and the rival's aim. The green zone is worked out for where you are aiming right now (`aimZone`), and a release inside it is checked so it always goes in (`surePower`). Nothing in a shot is random.
 
 **The match.** `game.js` holds two shooters (you and the rival), each with their own hoop, balls, score, streak and power-ups. `update` runs the clock, lets the rival shoot, moves the balls and decides makes and misses.
+- Spots: each shooter takes 5 shots from a spot, then moves to the next (1 to 5 and around). Each shooter also has a money spot where makes count double.
 - Scoring: 2 points, 3 from the corners. Streak tiers add bonuses at 2, 4 and 7 makes in a row (`TIERS`); one miss resets the streak.
 - Clock: 2 minutes. Balls in the air at the buzzer still count. Within 10 points at the end means a 1-minute overtime.
 - Power-up picks: every 20–30 seconds the game pauses for up to 5 seconds. `powerups.js` holds the cards, the rarity odds and how long each effect lasts. Skipping a pick gives better odds at the next one.
@@ -83,7 +84,7 @@ On a hit, the ball is pushed back out and its velocity is reflected off the surf
 
 File: `input.js` (and the aiming part of `main.js`).
 
-**Keys.** `keydown` and `keyup` listeners on the page handle everything: Space starts and ends a charge, A / D change spot, C changes camera, R restarts. In two-player, Player 2 uses Enter to charge, the arrow keys to move their crosshair and J / L to change spot. `e.repeat` is checked so holding a key does not fire it many times, and `preventDefault` stops Space or the arrows from scrolling the page.
+**Keys.** `keydown` and `keyup` listeners on the page handle everything: Space starts and ends a charge, C changes camera, R restarts. A / D change spot in the Sandbox only; in a match the game moves each shooter to the next spot after 5 shots. In two-player, Player 2 uses Enter to charge and the arrow keys to move their crosshair. `e.repeat` is checked so holding a key does not fire it many times, and `preventDefault` stops Space or the arrows from scrolling the page.
 
 **Power.** When Space goes down, `input.js` remembers the time (`chargeStart`). Power is worked out from how long the key has been held (`chargedPower`), using the browser's clock and the key event's own timestamp, not counted up frame by frame. So the same hold always gives the same power, even if the game drops frames. On release, `input.js` hands the power and aim to the game with `window.onShoot(power, aimX, aimY)` and resets the meter. Power-ups can change the charge speed through `window.chargeSpeedScale`.
 

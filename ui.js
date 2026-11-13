@@ -83,8 +83,15 @@ function updateTime(secondsLeft, overtime) {
     center.className = timeDisplay.className;
 }
 
-function updateSpot(current, total) {
-    spotDisplay.textContent = `Spot ${current} of ${total}`;
+// "Spot 2, shot 3 of 5". shot is 0 in the sandbox (free movement).
+// moneySpot is your money spot (0 = none); onMoney = you are standing on it.
+function updateSpot(current, total, shot, perSpot, moneySpot, onMoney) {
+    let text = shot ? `Spot ${current}, shot ${shot} of ${perSpot}` : `Spot ${current} of ${total}`;
+    // the money spot goes on its own line (style.css keeps the line break)
+    if (onMoney) text += '\nMONEY SPOT: makes x2';
+    else if (moneySpot) text += `\nMoney spot: ${moneySpot}`;
+    spotDisplay.textContent = text;
+    spotDisplay.className = onMoney ? 'on-money' : '';
 }
 
 function updateCamera(cameraName) {

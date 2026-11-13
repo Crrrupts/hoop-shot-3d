@@ -27,7 +27,8 @@ const Game = (function () {
         courtGap: 15,               // the rival's hoop stands this far to the right (meters)
         shotCooldown: 0.15,         // shortest time between two of your shots
         maxBalls: 12,               // most balls one shooter can have in the air
-        moneyRackLength: 10         // surprise bonus round: every make pays double for 10 seconds
+        moneyRackLength: 10,        // surprise bonus round: every make pays double for 10 seconds
+        shotsPerSpot: 5             // you shoot this many times from a spot, then move to the next one
     };
     // For testing and demos, add these to the page address:
     //   ?length=30          play a short game (seconds)
@@ -142,6 +143,7 @@ const Game = (function () {
     //   'tier'     { shooter, tier }            reached a new streak tier
     //   'powerup'  { user, card }
     //   'court'    { court }                    a court was chosen
+    //   'spot'     { shooter }                  a shooter moved on to the next spot
     //   'start', 'buzzer', 'overtime', 'gameover'
     const listeners = [];
     function on(fn) { listeners.push(fn); }
@@ -321,7 +323,9 @@ const Game = (function () {
 
     // Points for a basket. basePoints is 2 or 3 (from the spot); the shooter's
     // streak already includes this make.
-    function pointsFor(shooter, basePoints, info) {
+    // spot (optional) is where the shot was taken from: makes from the shooter's
+    // money spot count double.
+    function pointsFor(shooter, basePoints, info, spot) {
         let base = basePoints;
         if (PU.has(shooter, 'money')) base = Math.max(base, 3);         // Moneyball
         const tier = tierFor(shooter.streak);
@@ -329,6 +333,7 @@ const Game = (function () {
         if (info && info.bank) points += PU.level(shooter, 'glass');    // Glass Cleaner
         if (PU.has(shooter, 'golden')) points *= 2;                     // Golden Ball
         if (state.moneyRack > 0) points *= 2;                           // Money Rack bonus round
+        if (spot && spot === shooter.moneySpot) points *= 2;            // the shooter's money spot
         return points;
     }
 
@@ -362,7 +367,7 @@ const Game = (function () {
         shooter.made++;
         if (ball.spot) shooter.spotStats[ball.spot - 1].made++;
         setStreak(shooter, shooter.streak + 1);
-        const points = pointsFor(shooter, ball.points, info);
+        const points = pointsFor(shooter, ball.points, info, ball.spot);
         PU.useOne(shooter, 'golden');
         shooter.score += points;
         showScores();
@@ -434,6 +439,18 @@ const Game = (function () {
         ball.spot = shooter.spot;
         shooter.attempts++;
         shooter.spotStats[shooter.spot - 1].attempts++;
+        // Spots go in order, 1 to 5 and around again: after 5 shots from a
+        // spot the shooter moves to the next one. (Not in the sandbox, where
+        // A / D move you freely.)
+        if (!state.freeSpots) {
+            shooter.spotShots++;
+            if (shooter.spotShots >= SETTINGS.shotsPerSpot) {
+                shooter.spotShots = 0;
+                shooter.spot = shooter.spot % SPOTS.length + 1;
+                emit('spot', { shooter: shooter });
+            }
+        }
+        if (shooter === player) showSpot();
         shooter.cooldown = SETTINGS.shotCooldown;
         // effects that last "for the next N shots" lose one shot
         for (const id of ['sweet', 'guide', 'fast', 'shaky', 'heckler', 'blind']) PU.useOne(shooter, id);
@@ -458,7 +475,7 @@ const Game = (function () {
     }
     function shootAs(shooter, power, aimX, aimY) {
         if (!canShoot(shooter)) return;
-        shooter.spot = shooter === player ? inputSpot() : shooter.spot;
+        if (shooter === player && state.freeSpots) player.spot = inputSpot();
         // A release in the green zone always goes in (see surePower).
         // Nothing here is random: the same power and aim give the same throw.
         const zone = aimZone(shooter, aimX, aimY);
@@ -496,8 +513,6 @@ const Game = (function () {
         if (rival.ai.timer > 0) return;
         rival.ai.timer = rival.ai.pace * randomBetween(0.8, 1.2);
 
-        // walk to a new spot now and then
-        if (Math.random() < 0.3) rival.spot = 1 + Math.floor(Math.random() * SPOTS.length);
         // the power range that scores on this court's normal rim with no wind
         const normalRim = { rimScale: state.court.rules.rimScale };
         if (!rivalAim[rival.spot]) rivalAim[rival.spot] = makeWindow(rival, rival.spot, 0, 0, normalRim);
@@ -643,6 +658,13 @@ const Game = (function () {
         emit('court', { court: state.court });
     }
 
+    // Tell the HUD where you are: "Spot 2, shot 3 of 5", and if it is your money spot
+    function showSpot() {
+        hud('updateSpot', player.spot, SPOTS.length,
+            state.freeSpots ? 0 : player.spotShots + 1, SETTINGS.shotsPerSpot,
+            player.moneySpot, player.spot === player.moneySpot);
+    }
+
     // Tell the HUD how the wind pushes a shot from your current spot
     function showWind() {
         const a = SPOTS[player.spot - 1].angle * Math.PI / 180;
@@ -668,6 +690,7 @@ const Game = (function () {
     // options (all optional): { rival: { name, accuracy, pace, maxRarity }, length, court }
     //   practice: true = no clock, rival or picks (tutorial, sandbox); twist = a boss rule;
     //   mode = 'quick', 'campaign', 'tutorial', 'sandbox' or 'versus' (menus.js uses it); stage = campaign stage number
+    //   freeSpots: true = A / D move you between spots (sandbox); moneySpot / moneySpot2 = each player's money spot (1-5)
     //   twoPlayer: true = Player 2 controls the rival (see input.js)
     // With no options, the last match starts again (the R key).
     function start(options) {
@@ -693,7 +716,7 @@ const Game = (function () {
         state.wind[0] = CourtList.windAt(state.court.rules, 0);
         const preset = options.rival || RIVALS[difficulty().name] || RIVALS.Medium;
         rival.name = preset.name || 'Rival';
-        rival.spot = 3;
+        rival.spot = 1;
         rival.ai = {
             accuracy: preset.accuracy, pace: preset.pace, maxRarity: preset.maxRarity,
             timer: preset.pace
@@ -706,7 +729,17 @@ const Game = (function () {
             rival.name = 'P2';
             state.home = Math.random() < 0.5 ? player : rival;
         }
-        player.spot = inputSpot();
+        // Spots: everyone starts at spot 1 and shoots 5 from each, in order.
+        // options.freeSpots (the sandbox) lets A / D move you instead.
+        state.freeSpots = !!options.freeSpots;
+        player.spot = state.freeSpots ? inputSpot() : 1;
+        player.spotShots = 0;
+        rival.spotShots = 0;
+        // Money spot: each shooter's makes from one chosen spot count double.
+        // 0 = none. The AI rival picks its spot at random.
+        player.moneySpot = options.moneySpot || 0;
+        rival.moneySpot = state.twoPlayer ? (options.moneySpot2 || 0)
+            : (state.practice ? 0 : 1 + Math.floor(Math.random() * SPOTS.length));
 
         state.mode = 'playing';
         state.timeLeft = options.length || SETTINGS.gameLength;
@@ -737,6 +770,7 @@ const Game = (function () {
         hud('updateEffects', []);
         hud('hidePick');
         hud('showCourt', state.court);
+        showSpot();
         hud('setTwoPlayer', state.twoPlayer);
         if (state.twoPlayer) hud('showBanner', 'HOME COURT: ' + state.home.name, 'overtime');
         showWind();
@@ -849,8 +883,7 @@ const Game = (function () {
 
         player.cooldown -= dt;
         rival.cooldown -= dt;
-        player.spot = inputSpot();              // follow A/D spot changes
-        if (state.twoPlayer && typeof currentSpot2 !== 'undefined') rival.spot = currentSpot2;    // Player 2: J/L
+        if (state.freeSpots && player.spot !== inputSpot()) { player.spot = inputSpot(); showSpot(); }   // sandbox: A / D
         updateHoop(player, dt);
         updateHoop(rival, dt);
         updateRival(dt);

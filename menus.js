@@ -32,10 +32,28 @@ const Menus = (function () {
     // "Start" under the game restarts whatever is being played
     $('start-btn').addEventListener('click', () => { Game.start(); $('start-btn').blur(); });
 
+    // ---------- Money spot ----------
+    // Before a game each player picks one spot where their makes count double.
+    // Your choice is saved with your progress (cards.js).
+    const SPOT_NAMES = ['1: left corner (3 pts)', '2: left wing', '3: top of the key', '4: right wing', '5: right corner (3 pts)'];
+    const moneySelects = [...document.querySelectorAll('.money-spot'), $('versus-money2')];
+    for (const select of moneySelects) {
+        SPOT_NAMES.forEach((name, i) => select.add(new Option(name, i + 1)));
+        select.value = select.id === 'versus-money2' ? 3 : (Cards.getSave().moneySpot || 3);
+    }
+    function moneySpot() { return Cards.getSave().moneySpot || 3; }
+    for (const select of document.querySelectorAll('.money-spot')) {
+        select.addEventListener('change', () => {
+            Cards.getSave().moneySpot = Number(select.value);
+            Cards.store();
+            for (const other of document.querySelectorAll('.money-spot')) other.value = select.value;   // keep them in step
+        });
+    }
+
     // ---------- Quick match ----------
     $('play-btn').addEventListener('click', () => {
         Cards.previewBall = null;
-        Game.start({ mode: 'quick', court: $('court-select').value });
+        Game.start({ mode: 'quick', court: $('court-select').value, moneySpot: moneySpot() });
     });
 
     // ---------- Two players on one computer ----------
@@ -43,7 +61,8 @@ const Menus = (function () {
     $('versus-play').addEventListener('click', () => {
         Cards.previewBall = null;
         document.activeElement.blur();          // so Enter (Player 2's shoot key) does not press a button
-        Game.start({ mode: 'versus', twoPlayer: true, court: $('versus-court').value });
+        Game.start({ mode: 'versus', twoPlayer: true, court: $('versus-court').value,
+            moneySpot: moneySpot(), moneySpot2: Number($('versus-money2').value) });
     });
 
     // ---------- Campaign map ----------
@@ -76,7 +95,7 @@ const Menus = (function () {
         // the first stage begins with the tutorial until you have finished it once
         if (i === 0 && !Cards.getSave().tutorialDone) { startTutorial(); return; }
         Game.start({
-            mode: 'campaign', stage: i, court: stage.court, rival: stage.rival, twist: stage.twist,
+            mode: 'campaign', stage: i, court: stage.court, rival: stage.rival, twist: stage.twist, moneySpot: moneySpot(),
             length: i === 0 ? 60 : undefined        // stage 1 is a short practice race
         });
     }
@@ -177,10 +196,10 @@ const Menus = (function () {
     const TUTORIAL_STEPS = [
         { text: 'Move the crosshair onto the golden dot at the rim. Hold Space to fill the power meter and let go in the green zone: green always goes in. The zone moves as you aim, and the crosshair jumps after every shot.',
           done: (t) => Game.player.attempts >= 1 },
-        { text: 'Press A or D to move to another spot (corners are worth 3). Press C to change the camera.',
+        { text: 'You shoot 5 times from each spot, then the game moves you to the next one (corners are worth 3). Take 5 shots to move on, and press C to change the camera.',
           done: (t) => {
               // remember each change, so switching back still counts
-              if (currentSpot !== t.startSpot) t.movedSpot = true;
+              if (Game.player.spot !== 1) t.movedSpot = true;
               if (currentCamera !== t.startCamera) t.movedCamera = true;
               return t.movedSpot && t.movedCamera;
           } },
@@ -240,7 +259,7 @@ const Menus = (function () {
     const sandbox = { on: {}, levels: {} };     // which power-ups are switched on, and their levels
 
     function startSandbox() {
-        Game.start({ mode: 'sandbox', practice: true, court: $('sandbox-court').value || Game.state.court.id,
+        Game.start({ mode: 'sandbox', practice: true, freeSpots: true, court: $('sandbox-court').value || Game.state.court.id,
             rival: { name: 'Nobody', accuracy: 0, pace: 999, maxRarity: null } });
         $('sandbox-panel').style.display = 'block';
         $('time-display').textContent = 'SANDBOX';

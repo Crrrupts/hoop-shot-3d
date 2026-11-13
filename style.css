@@ -778,3 +778,8 @@ body {
 /* hide the normal mouse pointer over the game; the crosshair replaces it */
 #game-canvas { cursor: none; }
 
+
+/* ---------- Spots and the money spot ---------- */
+#spot-display { white-space: pre-line; }
+#spot-display.on-money { color: #7dff9b; font-weight: bold; }
+.money-spot, #versus-money2 { font-size: 14px; padding: 2px 4px; }

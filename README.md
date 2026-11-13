@@ -20,7 +20,7 @@ Plain WebGL with our own GLSL shaders and MV.js (no 3D engine).
 Open index.html with a local web server (e.g. VS Code Live Server).
 
 ## Controls
-Mouse: move the crosshair (on the rim = perfect aim; it jumps to a new place after every shot; the game keeps the mouse inside itself while you play, press Esc to free it, click the game to lock it again) | hold Space: charge power, release to shoot | A/D: change spot | C: change camera | R: restart | slider: difficulty. The Orbit camera swings in front of the hoop from corner to corner (never behind it); drag the mouse to turn it. On a power-up pick: click a card, or Left arrow / 1 for the left card and Right arrow / 2 for the right card.
+Mouse: move the crosshair (on the rim = perfect aim; it jumps to a new place after every shot; the game keeps the mouse inside itself while you play, press Esc to free it, click the game to lock it again) | hold Space: charge power, release to shoot | C: change camera | R: restart | slider: difficulty. A / D change spot in the Sandbox only; in a match the game moves you. The Orbit camera swings in front of the hoop from corner to corner (never behind it); drag the mouse to turn it. On a power-up pick: click a card, or Left arrow / 1 for the left card and Right arrow / 2 for the right card.
 
 ## Modes
 - **Campaign** (main mode): 7 stages, one per court, easiest to hardest. Each is a race against that court's boss, who has a twist (listed on the campaign screen). A win earns 1–3 stars (win, win by 10+, win without picking a sabotage), gold and a chest, and unlocks the next stage. The first stage starts with a 6-step tutorial and a 60-second practice race.
@@ -30,7 +30,6 @@ Mouse: move the crosshair (on the rim = perfect aim; it jumps to a new place aft
   |---|---|---|
   | Move crosshair | Mouse | Arrow keys |
   | Shoot | Hold Space | Hold Enter |
-  | Change spot | A / D | J / L |
   | Pick a card | 1 / 2 | Left / Right arrow |
 
   Each player gets their own two cards at a pick and the game waits for both. It uses the better multiplayer odds, power-ups reset every match, gear cards are off, and a coin flip gives one player home court (the crowd cheers that player's makes).
@@ -40,7 +39,9 @@ Mouse: move the crosshair (on the rim = perfect aim; it jumps to a new place aft
 ## How a match works
 - **Live race.** You and the rival shoot at the same time at your own hoops. The small box on the left is a live camera on the rival's hoop.
 - **Shoot as fast as you want.** A new ball is ready as soon as the last one leaves your hands, so several balls can be in the air.
+- **Spots.** Everyone starts at spot 1 (left corner) and shoots 5 times from each spot, 1 to 5 in order and around again. The game moves you after the 5th shot. The HUD shows "Spot 2, shot 3 of 5".
 - **Scoring.** 2 points, 3 from the corner spots.
+- **Money spot.** Before the game each player picks one spot (on the menu) where every make counts double. It has a green ring on the floor and shows in the HUD. The AI rival picks its spot at random.
 - **Streak tiers.** 2 makes in a row = Heating Up (+1 per basket), 4 = On Fire (+2), 7 = Inferno (points x2, then +2). One miss drops you to zero.
 - **Power-up picks.** Every 20–30 seconds (the first one comes early, at your 2nd make, if that is in the first 20 seconds) the game pauses and you pick one of two cards: a buff for you or a sabotage for the rival. You have 5 seconds. If you do not pick, you get no card, but your next pick's odds move one step toward rarer cards. Picking a card you already have levels it up. Mythic cards only appear in overtime; none are designed yet, so overtime cards are legendary for now. The 21 cards and the rarity odds are in `powerups.js`.
 - **Clock.** 2 minutes. Shots in the air at the buzzer still count. If the scores are within 10 points when the clock ends, there is a 1-minute overtime that starts with a pick. After overtime, whoever is ahead wins (level scores are a tie).
@@ -86,7 +87,7 @@ The 9 graded requirements, where each one is in the code, and how to see it in t
 | 1 | Own 3D geometry | `geometry.js` builds every shape from numbers: `sphere` (ball), `torus` (rim), `cube` (backboard, pole, arm, walls, bleachers, crowd cards), `plane` (court), `disc` (shadows, spot markers), `netLines` (net). No model files | Start any match. Everything on screen is one of these shapes |
 | 2 | Transformations | `renderer.js`: `drawBall` translates, rotates (spin) and scales the unit sphere; `drawBox` scales one unit cube into the backboard, pole, arm and bleachers | Shoot: the ball moves and spins. The backboard and the pole are the same cube at different sizes |
 | 3 | lookAt camera, 3 views | `camera.js` works out eye / at / up for the Shooter, Ball Follow and Orbit views; `renderer.js` `drawView` calls `lookAt` and `perspective` | Press C during a match to switch between the 3 views. In Orbit, drag the mouse |
-| 4 | Interaction | `input.js`: mouse (crosshair), Space (power), A / D (spot), C (camera), R (restart), the difficulty slider | Use each control in a Quick Match |
+| 4 | Interaction | `input.js`: mouse (crosshair), Space (power), C (camera), R (restart), the difficulty slider, and A / D (spot) in the Sandbox | Use the mouse, Space, C, R and the slider in a Quick Match. Use A / D in the Sandbox (in a match the game moves you between spots) |
 | 5 | Animation | `main.js` frame loop (`requestAnimationFrame`); `physics.js` ball flight; `renderer.js` springs for the net, rim and backboard; `game.js` `updateHoop` slides the hoop | Shoot and watch the ball fly, the net stretch on a make, and the rim and board shake on a hit. For the moving hoop open `index.html?test=moving`, or tick Moving Hoop in the Sandbox |
 | 6 | Lighting (Phong) | The fragment shader in `index.html`: ambient + diffuse + specular for up to 3 lights, with spotlight cones. Lights are set per court in `courts.js`; materials in `renderer.js` | Home Gym: the spotlight pool on the floor and the bright highlight on the rim. The Blackout card (Sandbox) leaves one spotlight on the hoop |
 | 7 | Advanced: collisions and physics | `physics.js`: gravity with a fixed 240 Hz step, sphere against floor, backboard and pole (boxes) and rim (torus), basket detection. Checked by `tests/physics.test.js` | Miss on purpose: the ball bounces off the rim, the board and the floor. A make only counts when the ball drops through the rim |

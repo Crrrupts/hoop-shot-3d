@@ -9,6 +9,9 @@ const { check, finish } = require('./check.js');
 const Courts = require('../courts.js');
 const player = Game.player, rival = Game.rival, state = Game.state;
 Game.setCourt('home');          // the rule tests below use the normal court
+// Most tests below shoot from the top of the key (spot 3) and pass freeSpots
+// so the shooter stays there. This puts both shooters on spot 3 at each start.
+Game.on((name) => { if (name === 'start' && state.freeSpots) { player.spot = 3; rival.spot = 3; } });
 const noCards = { name: 'Test', accuracy: 0, pace: 999, maxRarity: null };    // a rival that never shoots
 
 // Run the game for some seconds at 60 frames per second
@@ -17,7 +20,10 @@ function run(seconds) {
 }
 // Start a match where power-up picks never interrupt (unless a test wants them)
 function quietStart(options) {
-    Game.start(Object.assign({ rival: noCards }, options));
+    // (these rule tests shoot from one spot: freeSpots keeps the shooter there)
+    Game.start(Object.assign({ rival: noCards, freeSpots: true }, options));
+    player.spot = 3;
+    rival.spot = 3;
     state.nextPickAt = Infinity;
     state.pickNumber = 99;
     state.moneyRackAt = 0;          // no surprise bonus round either
@@ -92,7 +98,7 @@ for (let i = 0; i < 40; i++) {
         quietStart();
         player.spot = 1 + (i % 5);
         Game.shoot(p, ax, ay);      // (in the node tests the shot uses player.spot)
-        run(3);
+        run(5);                     // long enough for a ball that rolls around the rim first
         greenShots++; greenMakes += player.made;
     }
 }
@@ -115,11 +121,11 @@ quietStart();
 check('no crosshair shake normally', Game.aimShake(player) === 0);
 player.effects.shaky = { level: 1, left: 3 };
 check('Shaky Hands shakes the crosshair', Game.aimShake(player) > 5);
-Game.start({ rival: noCards, court: 'rooftop', length: 60 });
+Game.start({ freeSpots: true, rival: noCards, court: 'rooftop', length: 60 });
 check('rain shakes the crosshair a little', Game.aimShake(player) > 0 && Game.aimShake(player) < 10);
 Game.setCourt('home');
 
-Game.start({ rival: noCards, court: 'boardwalk', length: 100000 });
+Game.start({ freeSpots: true, rival: noCards, court: 'boardwalk', length: 100000 });
 state.nextPickAt = Infinity; state.pickNumber = 99;
 run(5);
 const windZone = Game.powerZone(player), windAim = Game.perfectAim(player);
@@ -255,7 +261,7 @@ check('Money Rack makes a basket pay double', player.score === 4, 'score ' + pla
 run(8);
 playerShot(true);
 check('...for 10 seconds', player.score === 4 + 3, 'score ' + player.score);
-Game.start({ rival: noCards, length: 180 });
+Game.start({ freeSpots: true, rival: noCards, length: 180 });
 state.nextPickAt = Infinity; state.pickNumber = 99;
 let sawRack = false;
 for (let i = 0; i < 60 * 170; i++) { Game.update(1 / 60); if (state.moneyRack > 0) sawRack = true; }
@@ -269,7 +275,7 @@ playerShot(false); playerShot(false);
 check('...and it wears off after 3 shots', !PowerUps.has(player, 'blind') && Game.zoneVisible(player));
 
 // ---------- Picks ----------
-Game.start({ rival: noCards, length: 180 });
+Game.start({ freeSpots: true, rival: noCards, length: 180 });
 playerShot(true); playerShot(true);
 run(0.1);
 check('first pick comes early at the 2nd make', state.mode === 'picking' && state.pickNumber === 1,
@@ -292,20 +298,20 @@ check('the pick after a skip uses the next odds step', state.pick.row === PowerU
 Game.choosePick('buff');
 check('choosing a card uses up the skip bonus', player.pickBoost === 0);
 
-Game.start({ rival: noCards });
+Game.start({ freeSpots: true, rival: noCards });
 check('a game is 2 minutes', state.timeLeft === 120 && Game.SETTINGS.gameLength === 120);
 run(19);
 check('without 2 makes there is no pick in the first 20 seconds', state.pickNumber === 0);
 run(12);
 check('...and the first pick comes at 20-30 seconds', state.pickNumber === 1);
-Game.start({ rival: noCards, length: 180 });
+Game.start({ freeSpots: true, rival: noCards, length: 180 });
 state.elapsed = 21;                 // pretend 21 seconds have gone by with no makes
 state.nextPickAt = Infinity;
 playerShot(true); playerShot(true);
 check('the early pick only happens before 20 seconds', state.pickNumber === 0);
 
 // ---------- The AI rival ----------
-Game.start({ rival: { name: 'Bot', accuracy: 0.5, pace: 0.5, maxRarity: null }, length: 100000 });
+Game.start({ freeSpots: true, rival: { name: 'Bot', accuracy: 0.5, pace: 0.5, maxRarity: null }, length: 100000 });
 state.nextPickAt = Infinity; state.pickNumber = 99;
 run(600);
 const rate = rival.made / rival.attempts;
@@ -328,7 +334,7 @@ check('Tiny Rim really lowers the rival\'s accuracy', tinyMakes < normalMakes * 
     `${tinyMakes} of ${normalMakes} make-throws still score with Tiny Rim`);
 
 // ---------- Clock, overtime and game over ----------
-Game.start({ rival: noCards, length: 5 });
+Game.start({ freeSpots: true, rival: noCards, length: 5 });
 state.nextPickAt = Infinity; state.pickNumber = 99;
 player.score = 15;      // far enough ahead that the game does not go to overtime
 run(4.5);
@@ -339,14 +345,14 @@ run(3);
 check('a shot in the air at the buzzer still counts', player.score === 17 && state.mode === 'gameover' && state.result === 'win',
     `score ${player.score}, mode ${state.mode}, result ${state.result}`);
 
-Game.start({ rival: noCards, length: 3 });
+Game.start({ freeSpots: true, rival: noCards, length: 3 });
 state.nextPickAt = Infinity; state.pickNumber = 99;
 run(4);
 check('a tie goes to a 1-minute overtime that starts with a pick',
     state.overtime && state.mode === 'picking' && state.timeLeft === 60);
 // overtime also happens when the scores are within 10 points
 function endWithScores(you, them) {
-    Game.start({ rival: noCards, length: 2 });
+    Game.start({ freeSpots: true, rival: noCards, length: 2 });
     state.nextPickAt = Infinity; state.pickNumber = 99;
     player.score = you; rival.score = them;
     run(3);
@@ -360,7 +366,7 @@ Game.choosePick('skip');
 state.nextPickAt = Infinity;
 run(62);
 check('after overtime whoever is ahead wins, even by less than 10', state.mode === 'gameover' && state.result === 'win' && state.overtime);
-Game.start({ rival: noCards, length: 3 });
+Game.start({ freeSpots: true, rival: noCards, length: 3 });
 state.nextPickAt = Infinity; state.pickNumber = 99;
 run(4);
 check('overtime cards are the rarest that exist (legendary until mythics are designed)',
@@ -405,7 +411,7 @@ check('rain makes the floor bounce less', wet < dry * 0.8, `rebound ${wet.toFixe
 
 // wind: the same throw lands somewhere else
 function landingX(id, seconds) {
-    Game.start({ rival: noCards, court: id, length: 100000 });
+    Game.start({ freeSpots: true, rival: noCards, court: id, length: 100000 });
     state.nextPickAt = Infinity; state.pickNumber = 99;
     run(seconds);
     const ball = Game.throwBall(player, 60, 0, 0, 0);
@@ -423,7 +429,7 @@ check('Boardwalk wind keeps one direction, Frozen Lake wind gusts both ways',
     boardwalkSigns.size === 1 && lakeSigns.has(1) && lakeSigns.has(-1));
 
 // the rival aims into the wind, so it still scores on a windy court
-Game.start({ rival: { name: 'Bot', accuracy: 0.5, pace: 0.5, maxRarity: null }, court: 'lake', length: 100000 });
+Game.start({ freeSpots: true, rival: { name: 'Bot', accuracy: 0.5, pace: 0.5, maxRarity: null }, court: 'lake', length: 100000 });
 state.nextPickAt = Infinity; state.pickNumber = 99;
 run(400);
 const windyRate = rival.made / rival.attempts;
@@ -432,7 +438,7 @@ check('a 50% rival still makes 35-56% in gusting wind', windyRate > 0.35 && wind
 Game.setCourt('home');
 
 // ---------- Practice mode and boss twists ----------
-Game.start({ rival: { name: 'Bot', accuracy: 0.9, pace: 0.5, maxRarity: 'rare' }, practice: true, length: 30 });
+Game.start({ freeSpots: true, rival: { name: 'Bot', accuracy: 0.9, pace: 0.5, maxRarity: 'rare' }, practice: true, length: 30 });
 playerShot(true); playerShot(true); playerShot(true);
 run(60);
 check('practice (tutorial, sandbox): no clock, no rival shots, no picks, score still counts',
@@ -446,14 +452,14 @@ check('sabotage picks are counted (campaign star)', player.sabotagesUsed === 1);
 Game.start();
 check('starting with no options restarts the same match', state.practice === true && state.timeLeft === 30 && player.score === 0);
 
-Game.start({ rival: noCards, twist: 'heatingStart', length: 60 });
+Game.start({ freeSpots: true, rival: noCards, twist: 'heatingStart', length: 60 });
 check('Home Gym boss starts already Heating Up', rival.streak === 2);
-Game.start({ rival: noCards, twist: 'risingWind', court: 'boardwalk', length: 100000 });
+Game.start({ freeSpots: true, rival: noCards, twist: 'risingWind', court: 'boardwalk', length: 100000 });
 state.nextPickAt = Infinity; state.pickNumber = 99;
 run(1); const earlyWind = Math.abs(state.wind[0]);
 run(170); const lateWind = Math.abs(state.wind[0]);
 check('Boardwalk boss: the wind gets stronger over time', lateWind > earlyWind * 1.3, `${earlyWind.toFixed(2)} -> ${lateWind.toFixed(2)}`);
-Game.start({ rival: { name: 'Boss', accuracy: 0, pace: 999, maxRarity: 'legendary' }, twist: 'sabotageEveryPick', court: 'home', length: 600 });
+Game.start({ freeSpots: true, rival: { name: 'Boss', accuracy: 0, pace: 999, maxRarity: 'legendary' }, twist: 'sabotageEveryPick', court: 'home', length: 600 });
 let bossSabotages = 0;
 Game.on((name, data) => { if (name === 'powerup' && data.user === rival && data.card.side === 'sabotage') bossSabotages++; });
 for (let i = 0; i < 6; i++) { Game.forcePick(); Game.choosePick('buff'); }
@@ -461,7 +467,7 @@ check('final boss uses a sabotage every pick', bossSabotages === 6, bossSabotage
 Game.setCourt('home');
 
 // ---------- Two players on one computer ----------
-Game.start({ twoPlayer: true, court: 'home', length: 180 });
+Game.start({ freeSpots: true, twoPlayer: true, court: 'home', length: 180 });
 state.moneyRackAt = 0;
 run(10);
 check('two-player: the second hoop has no AI (nobody shoots for Player 2)', rival.attempts === 0 && rival.ai === null);
@@ -481,7 +487,7 @@ Game.choosePick('buff', rival);
 check('two-player: play resumes when both have picked', state.mode === 'playing');
 let multiOdds = true;
 for (let i = 0; i < 4; i++) {
-    Game.start({ twoPlayer: true, court: 'home', length: 180 });
+    Game.start({ freeSpots: true, twoPlayer: true, court: 'home', length: 180 });
     Game.forcePick();
     if (state.pick.row !== PowerUps.ODDS.multiplayer.steps[0]) multiOdds = false;
     run(6);         // nobody picks: after 5 seconds both players skip
@@ -489,18 +495,68 @@ for (let i = 0; i < 4; i++) {
     if (Object.keys(player.effects).length || Object.keys(rival.effects).length) multiOdds = false;
 }
 check('two-player uses the multiplayer odds; when the timer runs out both players skip and get the bonus', multiOdds);
-Game.start({ twoPlayer: true, court: 'home', length: 180 });
+Game.start({ freeSpots: true, twoPlayer: true, court: 'home', length: 180 });
 Game.forcePick();
 Game.choosePick('buff', player);
 run(6);
 check('two-player: one player can pick while the other skips', state.mode === 'playing' && player.pickBoost === 0 && rival.pickBoost === 1);
-Game.start({ rival: noCards, court: 'home', length: 60 });
+Game.start({ freeSpots: true, rival: noCards, court: 'home', length: 60 });
 check('a normal match after two-player has an AI rival again', !state.twoPlayer && rival.ai !== null && player.name === 'You');
 Game.shoot2(50, 0, 0);
 check('Player 2 keys do nothing outside two-player', rival.attempts === 0);
 
+// ---------- Spots in order, 5 shots each ----------
+Game.start({ rival: noCards, length: 600 });
+state.nextPickAt = Infinity; state.pickNumber = 99; state.moneyRackAt = 0;
+check('a match starts at spot 1', player.spot === 1 && rival.spot === 1);
+const visited = [];
+for (let i = 0; i < 27; i++) { visited.push(player.spot); Game.shoot(5, 0, 0); run(0.3); }
+check('5 shots from each spot, then the next spot, 1 to 5 and around again',
+    visited.join('') === '111112222233333444445555511',
+    visited.join(''));
+check('the shot counter restarts at each spot', player.spotShots === 2 && player.attempts === 27);
+Game.start({ rival: { name: 'Bot', accuracy: 0.5, pace: 0.4, maxRarity: null }, length: 600 });
+state.nextPickAt = Infinity; state.pickNumber = 99; state.moneyRackAt = 0;
+const rivalSpots = [];
+let lastAttempts = 0;
+for (let i = 0; i < 60 * 30 && rivalSpots.length < 12; i++) {
+    const spotBefore = rival.spot;
+    Game.update(1 / 60);
+    if (rival.attempts > lastAttempts) { rivalSpots.push(spotBefore); lastAttempts = rival.attempts; }
+}
+check('the rival also shoots 5 from each spot in order', rivalSpots.join('') === '111112222233', rivalSpots.join(''));
+Game.start({ rival: noCards, freeSpots: true, practice: true });
+player.spot = 4;
+for (let i = 0; i < 7; i++) { Game.throwBall(player, 5, 0, 0, 0); run(0.3); }
+check('in the sandbox (free spots) you stay where you are', player.spot === 4);
+
+// ---------- Money spot ----------
+function scoreFrom(spot, moneySpot) {
+    Game.start({ rival: noCards, freeSpots: true, moneySpot: moneySpot });
+    state.nextPickAt = Infinity; state.pickNumber = 99; state.moneyRackAt = 0;
+    player.spot = spot;
+    Game.throwBall(player, goodPower(player), 0, 0, 0);
+    run(3);
+    return player.score;
+}
+check('a make at your money spot counts double', scoreFrom(3, 3) === 4 && scoreFrom(1, 1) === 6,
+    `spot 3: ${scoreFrom(3, 3)}, corner: ${scoreFrom(1, 1)}`);
+check('other spots score normally', scoreFrom(3, 2) === 2 && scoreFrom(1, 5) === 3 && scoreFrom(3, 0) === 2);
+const rivalMoney = new Set();
+for (let i = 0; i < 60; i++) { Game.start({ rival: noCards }); rivalMoney.add(rival.moneySpot); }
+check('the AI rival picks its money spot at random (1 to 5)', rivalMoney.size >= 4 && [...rivalMoney].every((n) => n >= 1 && n <= 5),
+    'saw spots ' + [...rivalMoney].sort().join(', '));
+Game.start({ twoPlayer: true, moneySpot: 2, moneySpot2: 5 });
+check('two-player: each player has their own money spot', player.moneySpot === 2 && rival.moneySpot === 5);
+Game.start({ rival: noCards, moneySpot: 1, length: 600 });
+state.nextPickAt = Infinity; state.pickNumber = 99; state.moneyRackAt = 0;
+Game.throwBall(player, goodPower(player), 0, 0, 0);
+run(3);
+check('in a match, your first spot is spot 1: money spot 1 pays 6 for the corner three', player.score === 6, 'score ' + player.score);
+Game.setCourt('home');
+
 // A whole 3-minute match against the Medium rival, with picks
-Game.start({ rival: Game.RIVALS.Medium, length: 180 });
+Game.start({ freeSpots: true, rival: Game.RIVALS.Medium, length: 180 });
 let shotTimer = 0, guard = 0;
 while (state.mode !== 'gameover' && guard++ < 60 * 400) {
     shotTimer -= 1 / 60;

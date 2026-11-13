@@ -30,7 +30,7 @@
 
         <div id="top-right" class="hud-box">
             <div id="time-display">TIME 2:00</div>
-            <div id="spot-display">Spot 3 of 5</div>
+            <div id="spot-display">Spot 1, shot 1 of 5</div>
             <!-- two-player: Player 2's score and streak go here -->
             <div id="p2-score">P2 0</div>
             <div id="p2-streak">Streak x0</div>
@@ -135,7 +135,7 @@
         <div class="screen" id="screen-main">
             <h1>Hoop Shot 3D</h1>
             <p>Race a rival at your own hoops: most points in 2 minutes wins</p>
-            <p class="small">Mouse: put the crosshair on the rim | Hold Space: power | A/D: spot | C: camera | R: restart</p>
+            <p class="small">Mouse: put the crosshair on the rim | Hold Space: power | C: camera | R: restart</p>
             <button id="btn-campaign" class="big">Campaign</button>
             <button id="btn-quick">Quick Match</button>
             <button id="btn-versus">2 Players</button>
@@ -151,7 +151,8 @@
                 <select id="court-select"></select>
                 <p id="court-blurb"></p>
             </div>
-            <p class="small">The Difficulty slider under the game sets the rival.</p>
+            <label>Money spot (your makes there count double) <select class="money-spot"></select></label>
+            <p class="small">You shoot 5 times from each spot, 1 to 5 in order. The Difficulty slider under the game sets the rival.</p>
             <button id="play-btn" class="big">Play Game</button>
             <button class="back-btn">Back</button>
         </div>
@@ -163,7 +164,7 @@
                 <tr><th></th><th>Player 1</th><th>Player 2</th></tr>
                 <tr><td>Move crosshair</td><td>Mouse</td><td>Arrow keys</td></tr>
                 <tr><td>Shoot</td><td>Hold Space</td><td>Hold Enter</td></tr>
-                <tr><td>Change spot</td><td>A / D</td><td>J / L</td></tr>
+                <tr><td>Money spot</td><td><select id="versus-money1" class="money-spot"></select></td><td><select id="versus-money2"></select></td></tr>
                 <tr><td>Pick a card</td><td>1 / 2</td><td>Left / Right arrow</td></tr>
             </table>
             <label>Court <select id="versus-court"></select></label>
@@ -173,6 +174,7 @@
 
         <div class="screen" id="screen-campaign">
             <h2>Campaign</h2>
+            <label>Money spot (your makes there count double) <select class="money-spot"></select></label>
             <div id="stage-list"></div>
             <button id="btn-tutorial">Replay tutorial</button>
             <button class="back-btn">Back</button>
