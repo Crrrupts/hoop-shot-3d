@@ -130,7 +130,12 @@ Files: `index.html`, `style.css`, `ui.js`, `menus.js`, plus `effects.js` and `cr
 
 **Power-up pick.** `showPick` spins each card like a slot-machine reel. `PowerUps.reelFrames` lists what the card shows over time: quick flicks through rarities that slow down, a tease one rarity higher, then the real card. `spinReel` plays those frames with `setTimeout`, ticking on each one, then makes the card glow in its rarity's color and flash with a fanfare if it is rare or better. A card can only be chosen once it has landed. Click a card or use the keys. Two-player has its own screen with two cards per player.
 
-**Menus.** `menus.js` shows one screen at a time inside `#menu-overlay`: main menu, Quick Match, 2 Players, Campaign map, Cards, and the result screen with stars and chest cards. It also runs the tutorial (a list of steps, each with a message and a test for "done") and the Sandbox panel under the game.
+**Menus.** `menus.js` shows one screen at a time inside `#menu-overlay`: main menu, Quick Match, 2 Players, Campaign map, Cards, and the result screen with stars and chest cards. It also runs the tutorial (a list of 8 steps, each with a message and a test for "done") and the Sandbox panel under the game.
+
+**The tutorial race.** After the steps, campaign stage 1 is a normal 2-minute race with the boss twist `tutorialRace` (game.js). Coach makes shots when you lead by more than 2 and misses when Coach leads by more than 2, and shoots faster when you are more than 4 ahead. If you are still more than 10 ahead at the buzzer, Coach "drains a deep buzzer-beater" that sets the score within 10, so the race always goes to overtime. The first overtime pick offers the Placeholder Mythic (powerups.js; normal rolls never land on it), which you also get if the timer runs out, and Coach misses everything in overtime. menus.js shows a hint box during the race.
+
+- *Q: Is the tutorial race fair?* No, on purpose: it shows overtime and a mythic card to every new player. Later stages are not scripted.
+- *Q: What does the Placeholder Mythic do?* For the rest of the game every make is worth at least 3 and the green zone is 4 power points wider on each side. It stands in until the real mythic cards are designed.
 
 **Game feel.** `effects.js` listens for game events and keeps lists of particles (confetti, fire, smoke) and ball trails for the renderer to draw. It also raises the hype meter and asks `ui.js` for floating text ("+2", "SWISH!") at the rim's place on the screen. `crowd.js` decides where fans stand (how many and how many rows depends on the court) and how high each one is jumping. The renderer draws all fans with the same shirt in one call: every frame it fills one list with two triangles per fan (`drawCrowd`).
 

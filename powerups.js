@@ -40,6 +40,11 @@ const PowerUps = (function () {
           text: 'The clock and your opponent stop for 10 seconds while you keep shooting' },
         { id: 'money',    name: 'Moneyball',     side: 'buff', rarity: 'legendary', kind: 'time', amount: 20,
           text: 'Every make is worth 3 for 20 seconds' },
+        // PLACEHOLDER: the real mythic cards are still being designed. This
+        // one is only handed out in the tutorial's overtime pick; normal
+        // rolls never land on it (see rollCard).
+        { id: 'placeholder', name: 'Placeholder Mythic', side: 'buff', rarity: 'mythic', kind: 'game', placeholder: true,
+          text: 'PLACEHOLDER (real mythics coming). Rest of the game: every make worth 3+, much wider green zone' },
 
         // ----- Sabotages (hurt the opponent of the player who picks them) -----
         { id: 'fast',     name: 'Fast Meter',    side: 'sabotage', rarity: 'common',    kind: 'shots', amount: 3,
@@ -112,13 +117,13 @@ const PowerUps = (function () {
     // Pick a random card of one side ('buff' or 'sabotage') and rarity.
     // maxRarity (optional) caps it, e.g. 'rare' for an early campaign rival.
     // If no card of that rarity exists yet (the mythics are not designed),
-    // step down to the next rarity that has one.
+    // step down to the next rarity that has one. Placeholder cards are never rolled.
     function rollCard(side, row, maxRarity, random) {
         random = random || Math.random;
         let index = RARITIES.indexOf(rollRarity(row, random()));
         if (maxRarity) index = Math.min(index, RARITIES.indexOf(maxRarity));
         while (index >= 0) {
-            const choices = LIST.filter((c) => c.side === side && c.rarity === RARITIES[index]);
+            const choices = LIST.filter((c) => c.side === side && c.rarity === RARITIES[index] && !c.placeholder);
             if (choices.length) return choices[Math.floor(random() * choices.length)];
             index--;
         }

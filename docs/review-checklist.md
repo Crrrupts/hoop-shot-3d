@@ -1,6 +1,6 @@
 # Hoop Shot 3D — Review checklist and known gaps
 
-What the team needs to check by playing, and what is known to be missing or rough. Updated Nov 13, 2026, after work-list rows 1–26 of [next-steps.md](next-steps.md).
+What the team needs to check by playing, and what is known to be missing or rough. Updated Nov 13, 2026, after work-list rows 1–27 of [next-steps.md](next-steps.md).
 
 The game was only tested in a headless browser (no graphics card, no speakers, scripted key presses). It has never been played by a person at full speed. Everything under "Needs a playtest" needs a person; everything under "Known gaps" is already known and does not need reporting again.
 
@@ -33,7 +33,8 @@ When you check something, write your initials and what you found in the Result c
 | Two players | Can your keyboard register both players' keys at once (both charging while Player 2 holds an arrow)? | | |
 | Two players | Are the split-screen halves readable (hoop size, both power meters)? | | |
 | Campaign | Can the later bosses be beaten? Are chest odds, upgrade costs and gear strength fair? | | |
-| Tutorial | Can a first-time player finish it? (It will be rebuilt in row 27) | 27 | |
+| Tutorial | Give it to someone who has never played. Can they finish all 8 steps? Do they understand each feature afterwards (green zone, 5 shots per spot, money spot, fan meter, 5-second pick and skip)? | 27 | |
+| Tutorial | In the tutorial race, does Coach's scripting feel natural, or obviously fake (hurrying when you lead, the buzzer-beater if you are more than 10 ahead)? Does overtime with the mythic feel like a reward? | 27 | |
 | Screen | Does the game fill your screen, stay sharp, and still aim correctly in fullscreen and at 125% browser zoom? Does the Fullscreen button work (it may be blocked inside the claude.ai preview)? | 18 | |
 | Graphics | Do the courts look clearly better (floor shine and reflections, soft shadows, ring spot markers, pole padding, ceiling lights)? Anything that looks wrong? | 19 | |
 | Graphics | Do the shiny courts (Home Gym, Pro Arena, Neon Arcade, Rooftop, Frozen Lake) still run at 60 fps on the slowest laptop? The reflection costs about one extra frame-step here in software rendering | 19, 25 | |
@@ -74,9 +75,12 @@ When you check something, write your initials and what you found in the Result c
 - **Many Design Bible ideas are not built.** The "What is built" table at the top of [design-bible.md](design-bible.md) lists them.
 
 ### Rules and content
-- **No mythic cards exist yet.** Overtime cards step down to legendary until Justin designs them.
+- **No mythic cards exist yet.** Overtime cards step down to legendary until Justin designs them. The **Placeholder Mythic** (marked as a placeholder) is only handed out in the tutorial race; it shows in the sandbox list too.
 - **The fan meter is frozen in the tutorial and sandbox.**
-- **The tutorial is out of date.** It does not teach the shooter, moving green zone, money spot, fan meter, 5-second pick or skip bonus. Row 27 rebuilds it.
+- **The tutorial teaches the fan meter by text only**, because the meter is frozen in practice. It moves in the tutorial race.
+- **The tutorial race is scripted every time you play campaign stage 1**, not only the first time, so its stars are easy.
+- **A player who never scores in the tutorial's overtime still loses** (Coach stops scoring, but cannot hand you points).
+- **In the tutorial race the hint box covers the bottom of the court.**
 - **AI rival:** it never skips a pick.
 - **The score cap is a plain cut-off at 12.** Bonuses past it are lost; the popup shows +12.
 

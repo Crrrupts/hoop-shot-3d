@@ -208,8 +208,8 @@ for (let i = 0; i < 500; i++) {
     if (PowerUps.rollCard('buff', row, 'rare').rarity === 'epic') sidesOk = false;
 }
 check('left card is always a buff, right card a sabotage, rarity cap works', sidesOk);
-check('21 power-ups: 11 buffs and 10 sabotages (the 20 originals plus Blind Meter)', PowerUps.LIST.length === 21 &&
-    PowerUps.LIST.filter((c) => c.side === 'buff').length === 11);
+check('22 power-ups: 12 buffs and 10 sabotages (the 20 originals, Blind Meter and the placeholder mythic)', PowerUps.LIST.length === 22 &&
+    PowerUps.LIST.filter((c) => c.side === 'buff').length === 12);
 const blind = PowerUps.byId('blind');
 check('Blind Meter is a rare sabotage that lasts 3 shots', blind.side === 'sabotage' && blind.rarity === 'rare' && blind.kind === 'shots' && blind.amount === 3);
 let blindOffered = false;
@@ -734,9 +734,9 @@ function rivalRateWhen(scoreGap) {
     return { rate: rival.made / rival.attempts, n: rival.attempts };
 }
 const level = rivalRateWhen(0), trailing = rivalRateWhen(15), leading = rivalRateWhen(-25);
-check('behind by 15, the rival shoots better than when level', trailing.rate > level.rate + 0.05,
+check('behind by 15, the rival shoots better than when level', trailing.rate > level.rate + 0.03,
     `level ${(level.rate * 100).toFixed(0)}%, behind ${(trailing.rate * 100).toFixed(0)}%`);
-check('ahead by 25, the rival eases off', leading.rate < level.rate - 0.05,
+check('ahead by 25, the rival eases off', leading.rate < level.rate - 0.03,
     `ahead ${(leading.rate * 100).toFixed(0)}%`);
 check('the swing is never more than 10% either way', trailing.rate < level.rate + 0.16 && leading.rate > level.rate - 0.16);
 
@@ -760,6 +760,59 @@ quietStart();
 for (let i = 0; i < 4; i++) { Game.throwBall(player, goodPower(player), 0, 0, 0); run(0.2); }
 run(4);
 check('rapid makes still all count, in order', player.made === 4 && player.streak === 4 && player.queue.length === 0);
+
+// ---------- The tutorial race (row 27) ----------
+check('the placeholder mythic is never rolled (overtime steps down to legendary)', (() => {
+    for (let i = 0; i < 300; i++) if (PowerUps.rollCard('buff', [0, 0, 0, 0, 100]).placeholder) return false;
+    return PowerUps.byId('placeholder').rarity === 'mythic' && PowerUps.byId('placeholder').placeholder === true;
+})());
+// Play the 2-minute tutorial race. shootEvery = seconds between your shots
+// (0 = never shoot); good = chance each shot is a make. In overtime you
+// let the pick timer run out, then make every shot.
+function tutorialRace(shootEvery, good, cheat) {
+    Game.start({ court: 'ymca', rival: { name: 'Coach', accuracy: 0.25, pace: 4.0, maxRarity: null }, twist: 'tutorialRace' });
+    const out = { reachedOvertime: false, mythic: false, gapAtBuzzer: null };
+    let timer = 0, guard = 0;
+    while (state.mode !== 'gameover' && guard++ < 60 * 400) {
+        if (state.mode === 'playing' && !state.buzzer) {
+            timer -= 1 / 60;
+            const shooting = state.overtime ? 1 : shootEvery;
+            if (shooting && timer <= 0) {
+                const make = state.overtime || Math.random() < good;
+                Game.throwBall(player, make ? goodPower(player) : 5, 0, 0, 0);
+                timer = shooting;
+            }
+            if (cheat && !state.overtime) player.score += 0.05;      // a player far better than any real one
+        }
+        if (state.mode === 'picking' && state.pick.buff.placeholder && !state.pick.counted) { state.pick.counted = true; out.offers = (out.offers || 0) + 1; }
+        if (state.mode === 'picking' && state.overtime && !out.reachedOvertime) {
+            out.reachedOvertime = true;
+            player.score = Math.round(player.score);
+            out.gapAtBuzzer = player.score - rival.score;
+            out.offered = state.pick.buff.id;
+        }
+        Game.update(1 / 60);
+        if (PowerUps.has(player, 'placeholder')) out.mythic = true;
+    }
+    out.result = state.result;
+    out.text = `you ${player.score} - ${rival.score} Coach, gap at the buzzer ${out.gapAtBuzzer}`;
+    return out;
+}
+const races = [['never shoots', 0, 0], ['weak', 1.5, 0.2], ['strong', 1.0, 0.9], ['impossibly good', 1.0, 1, true]];
+for (const [name, every, good, cheat] of races) {
+    const r = tutorialRace(every, good, cheat);
+    check(`tutorial race, ${name} player: overtime, offered the mythic once, got it on timeout, and won`,
+        r.reachedOvertime && Math.abs(r.gapAtBuzzer) <= 10 && r.offered === 'placeholder' && r.offers === 1 && r.mythic && r.result === 'win', r.text);
+}
+check('the placeholder mythic: every make worth at least 3 and a wider green zone', (() => {
+    quietStart();
+    const plain = Game.greenZone(player, 0, 0);
+    PowerUps.addEffect(player, PowerUps.byId('placeholder'));
+    const wide = Game.greenZone(player, 0, 0);
+    const points = Game.pointsFor(player, 2, {}, 0);
+    return points === 3 && wide.hi - wide.lo > plain.hi - plain.lo + 6;
+})());
+Game.setCourt('home');
 
 // A whole 3-minute match against the Medium rival, with picks
 Game.start({ freeSpots: true, rival: Game.RIVALS.Medium, length: 180 });

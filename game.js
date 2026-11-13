@@ -346,7 +346,7 @@ const Game = (function () {
     // Is the green zone drawn on a shooter's meter? Always, except on Hard
     // and while the Blind Meter sabotage is on them. The Sweet Spot card shows it anyway.
     function zoneVisible(shooter) {
-        if (PU.has(shooter, 'sweet')) return true;
+        if (PU.has(shooter, 'sweet') || PU.has(shooter, 'placeholder')) return true;
         return difficulty().name !== 'Hard' && !PU.has(shooter, 'blind');
     }
 
@@ -413,7 +413,8 @@ const Game = (function () {
         const zone = aimZone(shooter, aimX, aimY);
         if (!zone) return null;
         let lo = zone.lo, hi = zone.hi;
-        const bonus = Math.max(0, lean(shooter)) * SETTINGS.fans.zoneBonus;
+        let bonus = Math.max(0, lean(shooter)) * SETTINGS.fans.zoneBonus;
+        if (PU.has(shooter, 'placeholder')) bonus += 4;                 // the placeholder mythic
         lo -= bonus; hi += bonus;
         // the opponent's crowd On Fire (from a full meter) shrinks your zone for as long as it lasts
         if (opponentOf(shooter).crowdFire) {
@@ -445,6 +446,7 @@ const Game = (function () {
     function pointsFor(shooter, basePoints, info, spot) {
         let base = basePoints;
         if (PU.has(shooter, 'money')) base = Math.max(base, 3);         // Moneyball
+        if (PU.has(shooter, 'placeholder')) base = Math.max(base, 3);   // the placeholder mythic
         const tier = heatTier(shooter);
         let points = tier ? base * tier.multiplier + tier.bonus : base;
         if (info && info.bank) points += PU.level(shooter, 'glass');    // Glass Cleaner
@@ -679,6 +681,17 @@ const Game = (function () {
         return Math.max(0.03, Math.min(0.95, chance));
     }
 
+    // The tutorial race is scripted so it always goes to overtime: Coach
+    // makes shots when you lead and misses when Coach leads, so the score
+    // stays close. In overtime Coach misses everything, so you can win.
+    function tutorialRivalMakes() {
+        if (state.overtime) return false;
+        const lead = rival.score - player.score;
+        if (lead > 2) return false;
+        if (lead < -2) return true;
+        return Math.random() < 0.5;
+    }
+
     function updateRival(dt) {
         if (!rival.ai || state.practice || !canShoot(rival)) return;
         rival.ai.timer -= dt;
@@ -699,7 +712,9 @@ const Game = (function () {
         // on a normal rim in the current wind. Tiny Rim, Moving Hoop and
         // Slippery Ball still change the real result because the real throw
         // uses the real hoop.
-        const wantMake = Math.random() < rivalMakeChance();
+        const wantMake = state.twist === 'tutorialRace' ? tutorialRivalMakes() : Math.random() < rivalMakeChance();
+        // in the tutorial race Coach hurries when you pull away
+        if (state.twist === 'tutorialRace' && !state.overtime && player.score - rival.score > 4) rival.ai.timer = 0.6;
         const pos = spotPosition(rival.spot, rival);
         const test = { rimScale: normalRim.rimScale, wind: state.wind };
         let power = aim.best, aimX = windAim;
@@ -732,6 +747,8 @@ const Game = (function () {
             timeLeft: SETTINGS.pickChooseTime,
             row: row
         };
+        // the tutorial's first overtime pick always offers the (placeholder) mythic
+        if (state.twist === 'tutorialRace' && state.overtime && !PU.has(player, 'placeholder')) state.pick.buff = PU.byId('placeholder');
         if (state.twoPlayer) {
             // Player 2 gets their own two cards; the game waits for both players
             const row2 = PU.oddsRow(mode, state.pickNumber, state.overtime, rival.pickBoost);
@@ -978,6 +995,16 @@ const Game = (function () {
 
     // The clock reached 0 and every ball has landed
     function endOfClock() {
+        // the tutorial race must reach overtime: if you somehow pulled more than
+        // 10 ahead, Coach hits a deep buzzer-beater (or misses one) to stay close
+        if (state.twist === 'tutorialRace' && !state.overtime) {
+            const lead = player.score - rival.score;
+            if (Math.abs(lead) > SETTINGS.overtimeMargin) {
+                rival.score = player.score - Math.sign(lead) * (SETTINGS.overtimeMargin - 2);
+                if (lead > 0) hud('showToast', rival.name + ' drains a deep buzzer-beater!', 'sabotage');
+                showScores();
+            }
+        }
         const close = Math.abs(player.score - rival.score) <= SETTINGS.overtimeMargin;
         if (close && !state.overtime) {
             // a close game (within 10 points): one minute of overtime, starting with a power-up pick
@@ -1003,6 +1030,12 @@ const Game = (function () {
 
     // Sandbox and tutorial helpers
     function forcePick() { if (state.mode === 'playing') startPick(); }
+    // The tutorial makes the spot you are standing on your money spot, with 5 fresh shots there
+    function tutorialMoneySpot() {
+        player.moneySpot = player.spot;
+        player.spotShots = 0;
+        showSpot();
+    }
     function clearBalls() { player.balls = []; player.pending = []; player.queue = []; }
     // Leave the match and go back to the menus
     function quit() { state.mode = 'menu'; player.balls = []; rival.balls = []; player.queue = []; rival.queue = []; hud('updateEffects', []); }
@@ -1015,7 +1048,9 @@ const Game = (function () {
             hud('updatePickTimer', Math.max(0, state.pick.timeLeft / SETTINGS.pickChooseTime));
             if (state.pick.timeLeft <= 0) {
                 // time is up: anyone who has not chosen skips this pick
-                choosePick('skip', player);
+                // (the tutorial's overtime mythic is given to you anyway)
+                const tutorialMythic = state.twist === 'tutorialRace' && state.overtime && state.pick.buff.id === 'placeholder';
+                choosePick(tutorialMythic ? 'buff' : 'skip', player);
                 if (state.twoPlayer) choosePick('skip', rival);
             }
             return;
@@ -1106,7 +1141,7 @@ const Game = (function () {
         state, player, rival, SPOTS, SETTINGS, TIERS, RIVALS,
         start, shoot, shoot2, update, on,
         spotPosition, shotVelocity, makeWindow, tierFor, pointsFor, perfectAim, powerZone, aimZone, makeWindowFull, greenZone, zoneVisible, aimShake, lean, fanFavorite, heatTier, pullFans,
-        throwBall, applyCard, choosePick, opponentOf, setCourt, forcePick, clearBalls, quit
+        throwBall, applyCard, choosePick, opponentOf, setCourt, forcePick, clearBalls, quit, tutorialMoneySpot
     };
 })();
 

@@ -926,3 +926,10 @@ body {
     z-index: 100;
     pointer-events: none;
 }
+
+/* the tutorial points at a part of the HUD by making it pulse */
+.tutorial-glow { animation: tutorial-glow 0.8s ease-in-out infinite alternate; }
+@keyframes tutorial-glow {
+    from { box-shadow: 0 0 4px 2px rgba(127, 208, 255, 0.4); }
+    to   { box-shadow: 0 0 16px 6px rgba(127, 208, 255, 1); }
+}

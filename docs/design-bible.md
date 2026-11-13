@@ -18,10 +18,10 @@ Everything in this doc is a design. This table is the truth about the game on `m
 | Animations | Power meter pulse, ball dip while charging, camera push-in, ball trail, "+2" and confetti, SWISH / BANK / SO CLOSE / AIR BALL text, backboard flash, rim shake, net stretch, red timer in the last 10 seconds, slow-motion buzzer beater, squash on floor bounces, backspin | All sounds; swish zoom on the net; orbit camera on a buzzer beater; stats counting up on the game-over card; a ball rolling around the rim; wrist flick detail on the follow-through |
 | Heating up | The three tiers at 2, 4 and 7 makes with their scoring, banner, orange trail, fire on the ball and net, screen glow, red-orange lights and glowing rim, smoke when the streak ends | Announcer lines, faster music, crowd chants |
 | Casino feel | Hype meter, streak hint ("1 more for ON FIRE"), scores that count up, bigger celebrations for bigger shots, "SO CLOSE!", Money Rack, tier colors on the screen, a chime that rises with the streak, power-up cards that spin like slot reels (slow down, tease a higher rarity, land with a glow, flash and fanfare) | Court lights pulsing with hype, slow motion on every on-target shot, music layers |
-| Campaign | 7 stages, one boss race per court with its twist, stars, gold, chests, the tutorial | Rival personalities and habits, several matches per court, Archero-style runs, permanent upgrades bought with gold, daily challenge |
+| Campaign | 7 stages, one boss race per court with its twist, stars, gold, chests, the 8-step tutorial and a scripted tutorial race that always reaches overtime | Rival personalities and habits, several matches per court, Archero-style runs, permanent upgrades bought with gold, daily challenge |
 | Sandbox | Everything listed in the Sandbox section | |
 | Multiplayer | Two players on one computer, split screen | Online play |
-| Power-ups | The 21 cards in the list below | Mythic cards (overtime cards are legendary until they are designed) |
+| Power-ups | The 21 cards in the list below, plus a Placeholder Mythic used only in the tutorial race | Mythic cards (overtime cards are legendary until they are designed) |
 | Sound | Placeholder sounds made in code for every event (`audio.js`); real files dropped in `sounds/` replace them | Recorded sounds, announcer lines, music, crowd chants |
 | Playable link | A private preview artifact | GitHub Pages (needs the repo setting turned on) |
 
@@ -223,7 +223,7 @@ The goal is the constant energy of a casino floor: something is always moving, e
 
 ## Campaign (main mode)
 
-Campaign is the main game mode and multiplayer is a side mode. Every game runs 2 minutes, with a 1-minute overtime when the scores are within 10 points (the first stage is a 60-second practice race). The campaign gets its competition from AI rivals and Archero-style runs. Decided: every campaign match is a live race against an AI opponent. The rest are options to test.
+Campaign is the main game mode and multiplayer is a side mode. Every game runs 2 minutes, with a 1-minute overtime when the scores are within 10 points (the first stage's race is scripted to always reach overtime). The campaign gets its competition from AI rivals and Archero-style runs. Decided: every campaign match is a live race against an AI opponent. The rest are options to test.
 
 - **Every match is against an AI rival** who shoots at their own hoop, with their score shown live. Every match is a race, and the sabotage card has a real target in solo play.
 - **Rivals have personalities:** an accuracy level, a shooting speed, and a signature habit (always banks shots, sabotages often, gets hot late).
@@ -235,18 +235,20 @@ Campaign is the main game mode and multiplayer is a side mode. Every game runs 2
 
 **First map: the tutorial (YMCA Gym).** It walks through everything once before the real campaign starts:
 
-1. Aim with the mouse and charge power with Space.
-2. Switch spots with A/D and cameras with C.
-3. Shoot fast: the next ball is ready as soon as the last one leaves your hands.
-4. Make 2 in a row to see Heating Up.
-5. A guaranteed power-up pick: what the left buff and right sabotage cards do, and what rarity means.
-6. A short practice race against a slow rival.
+1. Aim the crosshair at the golden dot and charge power with Space; green always goes in.
+2. The green zone moves and changes size as you aim.
+3. 5 shots from each spot, then you move on; C changes the camera.
+4. Your money spot: makes there count double.
+5. Shoot fast (rapid fire) and build a streak.
+6. The fan meter.
+7. A power-up pick with the 5-second timer and the skip bonus.
+8. A normal 2-minute race against Coach, scripted to stay within 10 points so it always goes to overtime. The overtime pick offers a mythic card (a placeholder until the real mythics are designed) and Coach stops scoring, so you win.
 
 **Difficulty curve.** Courts go from easiest to hardest, and each one ends with a boss. Rival accuracy is the share of their shots that go in. All numbers are a first pass to tune in playtesting.
 
 | Stage | Court | Rival accuracy | Rival shot pace | Rival power-ups | Boss twist |
 | --- | --- | --- | --- | --- | --- |
-| 1 | YMCA Gym (tutorial) | 25% | 1 shot every 4 s | None | None (practice race) |
+| 1 | YMCA Gym (tutorial) | Scripted | 1 shot every 4 s (faster when behind) | None | Stays within 10 so the race always reaches overtime |
 | 2 | Home Gym | 35% | Every 3.5 s | Commons | Boss starts already Heating Up |
 | 3 | Neon Arcade | 42% | Every 3 s | Up to rare | Lights flicker in the last minute |
 | 4 | Pro Arena | 50% | Every 2.5 s | Up to epic | Crowd heckles every one of your shots |

@@ -12,7 +12,7 @@ const Campaign = (function () {
     // twist = the boss's special rule (handled in game.js)
     const STAGES = [
         { id: 'ymca', court: 'ymca', rival: { name: 'Coach', accuracy: 0.25, pace: 4.0, maxRarity: null },
-          twist: null, twistText: 'Tutorial and a practice race' },
+          twist: 'tutorialRace', twistText: 'Tutorial, then a 2-minute race that always goes to overtime' },
         { id: 'home', court: 'home', rival: { name: 'Captain', accuracy: 0.35, pace: 3.5, maxRarity: 'common' },
           twist: 'heatingStart', twistText: 'Boss starts already Heating Up' },
         { id: 'neon', court: 'neon', rival: { name: 'Synth', accuracy: 0.42, pace: 3.0, maxRarity: 'rare' },

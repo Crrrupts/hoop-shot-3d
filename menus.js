@@ -164,10 +164,8 @@ const Menus = (function () {
         Cards.previewBall = null;
         // the first stage begins with the tutorial until you have finished it once
         if (i === 0 && !Cards.getSave().tutorialDone) { startTutorial(); return; }
-        Game.start({
-            mode: 'campaign', stage: i, court: stage.court, rival: stage.rival, twist: stage.twist, moneySpot: moneySpot(),
-            length: i === 0 ? 60 : undefined        // stage 1 is a short practice race
-        });
+        // (stage 1's twist 'tutorialRace' keeps it close so it always reaches overtime)
+        Game.start({ mode: 'campaign', stage: i, court: stage.court, rival: stage.rival, twist: stage.twist, moneySpot: moneySpot() });
     }
     $('btn-next').addEventListener('click', () => startStage(Game.state.options.stage + 1));
     $('btn-tutorial').addEventListener('click', startTutorial);
@@ -262,49 +260,68 @@ const Menus = (function () {
     // ---------- Tutorial (first campaign stage) ----------
     // A list of steps. Each one shows a message and is done when its test is true.
     const tutorialBox = $('tutorial-box');
-    let tutorial = null;            // { step, startSpot, startCamera, picked } while it runs
+    let tutorial = null;            // { step, startCamera, ... } while the practice part runs
+    const made = () => Game.player.made;
     const TUTORIAL_STEPS = [
-        { text: 'Move the crosshair onto the golden dot at the rim. Hold Space to fill the power meter and let go in the green zone: green always goes in. The zone moves as you aim, and the crosshair jumps after every shot.',
-          done: (t) => Game.player.attempts >= 1 },
-        { text: 'You shoot 5 times from each spot, then the game moves you to the next one (corners are worth 3). Take 5 shots to move on, and press C to change the camera.',
-          done: (t) => {
-              // remember each change, so switching back still counts
-              if (Game.player.spot !== 1) t.movedSpot = true;
-              if (currentCamera !== t.startCamera) t.movedCamera = true;
-              return t.movedSpot && t.movedCamera;
-          } },
-        { text: 'Shoot fast: a new ball is ready as soon as the last one leaves your hands. Get 2 balls in the air at once.',
+        { text: 'Move the crosshair onto the golden dot at the rim. Hold Space to fill the power meter and let go while it is in the green zone: green always goes in. Make one shot.',
+          done: (t) => made() >= 1 },
+        { text: 'The green zone moves and changes size as you aim: it shows the power that scores from where your crosshair is. Off the dot it shrinks or disappears. The crosshair jumps after every shot, so aim again each time. Make 2 more.',
+          begin: (t) => { t.from = made(); },
+          done: (t) => made() >= t.from + 2 },
+        { text: 'You take 5 shots from each spot, then move to the next one (the corners are worth 3). The count is under the clock. Finish your shots here. Press C to try the other cameras.',
+          begin: (t) => { t.fromSpot = Game.player.spot; },
+          done: (t) => Game.player.spot !== t.fromSpot },
+        { text: 'This spot is now your MONEY SPOT (it says so at the top right; on the floor it is a wide green ring): makes from it count DOUBLE. Choose yours in the menus before a game. Make one from here.',
+          // the spot you are on becomes your money spot, with 5 fresh shots
+          begin: (t) => { Game.tutorialMoneySpot(); t.money = Game.player.spot; t.from = Game.player.spotStats[t.money - 1].made; },
+          // (if your 5 shots here run out, move on anyway)
+          done: (t) => Game.player.spotStats[t.money - 1].made > t.from || Game.player.spot !== t.money },
+        { text: 'Shoot fast: a new ball is ready as soon as the last one leaves your hands. Get 2 balls in the air at once. Makes in a row build a streak (Heating Up, On Fire) for bonus points.',
           done: (t) => Game.player.balls.filter((b) => !b.touchedFloor).length >= 2 },
-        { text: 'Make 2 in a row to start Heating Up. Streaks give bonus points; one miss resets them.',
-          done: (t) => Game.player.streak >= 2 },
-        { text: 'Power-up pick! The left card is a buff for you. The right card is a sabotage for your rival. Blue, purple and gold cards are rarer and stronger. Pick one.',
+        { text: 'The FAN METER (glowing, top of the screen) shows who the crowd backs. Runs of makes pull the fans your way: a crowd on your side widens your green zone, and a full meter puts you On Fire. It stays still in practice.',
+          begin: (t) => { t.until = performance.now() + 9000; $('fan-meter').classList.add('tutorial-glow'); },
+          done: (t) => performance.now() > t.until,
+          end: () => $('fan-meter').classList.remove('tutorial-glow') },
+        { text: 'Power-up pick! You have 5 seconds. Left = a buff for you, right = a sabotage on your rival. Rarer cards glow. Let the timer run out to SKIP: no card now, but better odds next pick. Pick or skip.',
           begin: () => Game.forcePick(),
-          done: (t) => t.picked },
-        { text: 'Last step: a 60-second practice race against Coach. Most points wins. Good luck!',
-          begin: (t) => { t.raceAt = performance.now() + 3500; },
-          done: (t) => performance.now() > t.raceAt }
+          done: (t) => Game.state.mode === 'playing' },
+        { text: 'Now the race: 2 minutes against Coach. Most points wins. If it is within 10 points at the buzzer, you play 1 minute of overtime. Good luck!',
+          begin: (t) => { t.until = performance.now() + 5000; },
+          done: (t) => performance.now() > t.until }
     ];
 
     function startTutorial() {
         Cards.previewBall = null;
-        Game.start({ mode: 'tutorial', court: 'ymca', practice: true, rival: { name: 'Coach', accuracy: 0, pace: 999, maxRarity: null } });
-        tutorial = { step: -1, startSpot: currentSpot, startCamera: currentCamera, picked: false };
+        Game.start({ mode: 'tutorial', court: 'ymca', practice: true,
+            rival: { name: 'Coach', accuracy: 0, pace: 999, maxRarity: null } });
+        tutorial = { step: -1, startCamera: currentCamera };
         tutorialBox.style.display = 'block';
+        $('tutorial-skip').style.display = '';
         nextTutorialStep();
     }
     function nextTutorialStep() {
+        const old = TUTORIAL_STEPS[tutorial.step];
+        if (old && old.end) old.end(tutorial);
         tutorial.step++;
         if (tutorial.step >= TUTORIAL_STEPS.length) { finishTutorial(); return; }
         const step = TUTORIAL_STEPS[tutorial.step];
-        $('tutorial-step').textContent = `Tutorial ${tutorial.step + 1} of ${TUTORIAL_STEPS.length}`;
-        $('tutorial-text').textContent = step.text;
+        showTutorialText(`Tutorial ${tutorial.step + 1} of ${TUTORIAL_STEPS.length}`, step.text);
         if (step.begin) step.begin(tutorial);
     }
+    function showTutorialText(title, text) {
+        // (only when it changes: the race hints are checked several times a second)
+        if ($('tutorial-step').textContent !== title) $('tutorial-step').textContent = title;
+        if ($('tutorial-text').textContent !== text) $('tutorial-text').textContent = text;
+    }
     function hideTutorial() {
+        if (tutorial) {
+            const step = TUTORIAL_STEPS[tutorial.step];
+            if (step && step.end) step.end(tutorial);
+        }
         tutorial = null;
         tutorialBox.style.display = 'none';
     }
-    // The tutorial ends with the practice race (campaign stage 1)
+    // The tutorial ends with the race (campaign stage 1)
     function finishTutorial() {
         hideTutorial();
         Cards.getSave().tutorialDone = true;
@@ -312,11 +329,36 @@ const Menus = (function () {
         startStage(0);
     }
     $('tutorial-skip').addEventListener('click', finishTutorial);
-    Game.on((name, data) => {
-        if (tutorial && name === 'powerup' && data.user === Game.player) tutorial.picked = true;
-    });
+
+    // Hints during the tutorial race (stage 1). The race itself is scripted in
+    // game.js (twist 'tutorialRace'): Coach stays within 10 so it always goes
+    // to overtime, the overtime pick offers a mythic card, and Coach stops scoring.
+    function raceHint() {
+        const s = Game.state;
+        if (s.mode === 'picking' && s.overtime && s.pick.buff && s.pick.buff.placeholder) {
+            return 'OVERTIME! It was within 10 points. Overtime picks are the rarest of all: take the MYTHIC card on the left (it is yours even if the timer runs out).';
+        }
+        if (s.mode === 'picking') return 'A pick: 5 seconds to choose. Skip it (let the timer run out) and your next pick has better odds.';
+        if (s.overtime && PowerUps.has(Game.player, 'placeholder')) {
+            return 'Mythic card: every make is worth at least 3 and your green zone is much wider. One minute left: win it!';
+        }
+        if (s.overtime) return 'Overtime: one more minute. Win it!';
+        return 'Race Coach for 2 minutes. Watch the race bar and the fan meter at the top. Makes from your money spot count double.';
+    }
+    function updateRaceHints() {
+        const racing = Game.state.twist === 'tutorialRace' && (Game.state.mode === 'playing' || Game.state.mode === 'picking');
+        if (!racing) {
+            if (tutorialBox.dataset.race) { tutorialBox.style.display = 'none'; delete tutorialBox.dataset.race; }
+            return;
+        }
+        tutorialBox.dataset.race = '1';
+        tutorialBox.style.display = 'block';
+        $('tutorial-skip').style.display = 'none';
+        showTutorialText('Tutorial race', raceHint());
+    }
+
     setInterval(() => {
-        if (!tutorial) return;
+        if (!tutorial) { updateRaceHints(); return; }
         if (Game.state.options.mode !== 'tutorial') { hideTutorial(); return; }
         // the golden aim dot stays on while you learn (the green zone is always on)
         if (Game.state.mode === 'playing') {
