@@ -80,6 +80,7 @@ The wind when you release is the wind that ball gets. The HUD shows it for the s
 ## Docs
 - [docs/how-it-works.md](docs/how-it-works.md): plain-language notes on rendering, physics, input and UI, so each teammate can explain their part.
 - [docs/next-steps.md](docs/next-steps.md): the current task list and decisions.
+- [docs/review-checklist.md](docs/review-checklist.md): what the team needs to check by playing, and the known gaps.
 - [docs/design-bible.md](docs/design-bible.md): the full design. Its "What is built" table says which parts are in the game.
 
 ## Graded requirements checklist
