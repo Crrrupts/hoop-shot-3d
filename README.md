@@ -19,6 +19,8 @@ Plain WebGL with our own GLSL shaders and MV.js (no 3D engine).
 Open index.html with a local web server (e.g. VS Code Live Server).
 
 ## Controls
+The game fills the browser window and keeps its 4:3 shape; the Fullscreen button under the game makes it fill the screen.
+
 Mouse: move the crosshair (on the rim = perfect aim; it jumps to a new place after every shot; the game keeps the mouse inside itself while you play, press Esc to free it, click the game to lock it again) | hold Space: charge power, release to shoot | C: change camera | R: restart | slider: difficulty. A / D change spot in the Sandbox only; in a match the game moves you. The Orbit camera swings in front of the hoop from corner to corner (never behind it); drag the mouse to turn it. On a power-up pick: click a card, or Left arrow / 1 for the left card and Right arrow / 2 for the right card.
 
 ## Modes
@@ -93,7 +95,7 @@ The 9 graded requirements, where each one is in the code, and how to see it in t
 | 3 | lookAt camera, 3 views | `camera.js` works out eye / at / up for the Shooter, Ball Follow and Orbit views; `renderer.js` `drawView` calls `lookAt` and `perspective` | Press C during a match to switch between the 3 views. In Orbit, drag the mouse |
 | 4 | Interaction | `input.js`: mouse (crosshair), Space (power), C (camera), R (restart), the difficulty slider, and A / D (spot) in the Sandbox | Use the mouse, Space, C, R and the slider in a Quick Match. Use A / D in the Sandbox (in a match the game moves you between spots) |
 | 5 | Animation | `main.js` frame loop (`requestAnimationFrame`); `physics.js` ball flight; `renderer.js` springs for the net, rim and backboard; `shooter.js` shooting motion; `game.js` `updateHoop` slides the hoop | Shoot and watch the ball fly, the net stretch on a make, and the rim and board shake on a hit. For the moving hoop open `index.html?test=moving`, or tick Moving Hoop in the Sandbox |
-| 6 | Lighting (Phong) | The fragment shader in `index.html`: ambient + diffuse + specular for up to 3 lights, with spotlight cones. Lights are set per court in `courts.js`; materials in `renderer.js` | Home Gym: the spotlight pool on the floor and the bright highlight on the rim. The Blackout card (Sandbox) leaves one spotlight on the hoop |
+| 6 | Lighting (Phong) | The fragment shader in `index.html`: ambient + diffuse + specular for up to 3 lights, with spotlight cones. Lights are set per court in `courts.js`; materials in `renderer.js`. Reflections are lit by mirrored lights (`drawReflection`) | Home Gym: the spotlight pool on the floor, the shine on the varnished floor and the bright highlight on the rim. The Blackout card (Sandbox) leaves one spotlight on the hoop |
 | 7 | Advanced: collisions and physics | `physics.js`: gravity with a fixed 240 Hz step, sphere against floor, backboard and pole (boxes) and rim (torus), basket detection. Checked by `tests/physics.test.js` | Miss on purpose: the ball bounces off the rim, the board and the floor. A make only counts when the ball drops through the rim |
 | 8 | Advanced: texture mapping | `textures.js` paints the images (ball, court floors, backboards, walls, skies, crowd); the texture coordinates come from `geometry.js`; `renderer.js` `makeTexture` uploads them | The ball's seams, the court lines and the backboard square. Change court on the menu to see different floors and skies |
 | 9 | Advanced: hierarchical modeling | `renderer.js`, drawn with a matrix stack (`pushMatrix` / `popMatrix`). `drawHoop`: pole → arm → backboard → rim → net. `drawShooter`: hips → thigh → shin → foot, and torso → head, and upper arm → forearm → hand; the joint angles come from `shooter.js` | A hard shot off the backboard wobbles the board, and the rim and net move with it. With Moving Hoop (`index.html?test=moving`) only the root moves and every part follows. Hold Space: the shooter's knees, elbows and shoulders bend, and each lower part follows the part above it (Orbit camera shows it best) |
@@ -116,9 +118,10 @@ The 9 graded requirements, where each one is in the code, and how to see it in t
 | audio.js, sounds/ | Bom | Every sound, made in code; real files in `sounds/` replace them |
 | camera.js | Justin | Shooter, Ball Follow and Orbit views (eye/at/up for lookAt), one camera rig per player, plus the fixed rival camera |
 | main.js | Justin | Frame loop; calls `window.renderScene(scene)` every frame |
+| layout.js | Bom | Scales the whole game (canvas, HUD, menus) to fit the window; the Fullscreen button |
 | geometry.js | Isaiah | Builds every mesh in code (positions, normals, texture coordinates, triangles) |
 | textures.js | Isaiah, Bom | Placeholder textures painted on 2D canvases (swap in real art here) |
-| renderer.js | Isaiah | WebGL setup, materials, lights, matrix stack, draws the main view and the small rival view, or a split screen for two players |
+| renderer.js | Isaiah | WebGL setup, materials, lights, matrix stack, draws the main view and the small rival view, or a split screen for two players; floor reflections, soft shadows |
 | tests/ | Amit | `physics.test.js`, `rules.test.js`, `cards.test.js`, `shooter.test.js` and `crowd.test.js`, run with node |
 
 Units are meters, y is up, the rim is above x = 0, z = 0 and the shooter is on +z. Sizes shared by physics and drawing are in `Physics` (`RIM_HEIGHT`, `RIM_RADIUS`, `BOARD`, `POLE`, ...).

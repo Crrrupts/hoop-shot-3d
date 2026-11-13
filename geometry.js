@@ -134,7 +134,7 @@ const Geometry = (function () {
     //   swayX, swayZ  how far the bottom of the net is pushed sideways (meters)
     //   stretch       extra length, as a fraction (0.2 = 20% longer)
     // Returns [x, y, z, ...] with 2 points per line, measured from the rim center.
-    const NET_STRANDS = 12, NET_ROWS = 5;
+    const NET_STRANDS = 16, NET_ROWS = 6;
     function netLines(rimRadius, depth, swayX, swayZ, stretch) {
         // Point number i on row j
         function point(i, j) {

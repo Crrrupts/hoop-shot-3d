@@ -1,6 +1,6 @@
 # Hoop Shot 3D — Review checklist and known gaps
 
-What the team needs to check by playing, and what is known to be missing or rough. Updated Nov 13, 2026, after work-list rows 1–17 of [next-steps.md](next-steps.md).
+What the team needs to check by playing, and what is known to be missing or rough. Updated Nov 13, 2026, after work-list rows 1–19 of [next-steps.md](next-steps.md).
 
 The game was only tested in a headless browser (no graphics card, no speakers, scripted key presses). It has never been played by a person at full speed. Everything under "Needs a playtest" needs a person; everything under "Known gaps" is already known and does not need reporting again.
 
@@ -30,6 +30,9 @@ When you check something, write your initials and what you found in the Result c
 | Two players | Are the split-screen halves readable (hoop size, both power meters)? | | |
 | Campaign | Can the later bosses be beaten? Are chest odds, upgrade costs and gear strength fair? | | |
 | Tutorial | Can a first-time player finish it? (It will be rebuilt in row 27) | 27 | |
+| Screen | Does the game fill your screen, stay sharp, and still aim correctly in fullscreen and at 125% browser zoom? Does the Fullscreen button work (it may be blocked inside the claude.ai preview)? | 18 | |
+| Graphics | Do the courts look clearly better (floor shine and reflections, soft shadows, ring spot markers, pole padding, ceiling lights)? Anything that looks wrong? | 19 | |
+| Graphics | Do the shiny courts (Home Gym, Pro Arena, Neon Arcade, Rooftop, Frozen Lake) still run at 60 fps on the slowest laptop? The reflection costs about one extra frame-step here in software rendering | 19, 25 | |
 | Preview link | In the claude.ai preview, does the mouse lock inside the game, and does saved progress (gold, cards, player look, money spot) survive a reload? | | |
 | Docs | Each teammate: read your section of [how-it-works.md](how-it-works.md) and say what is unclear | 3 | |
 
@@ -46,6 +49,11 @@ When you check something, write your initials and what you found in the Result c
 - **No walking between spots.** The figure slides to the next spot with the camera.
 - **The shooter's floor shadow is a plain disc.**
 - **C changes the camera for both players at once** in two-player.
+
+### Graphics
+- **Reflections show only the hoops, balls and players**, not the walls or the crowd (that would double the work). At the edge of an outdoor court a reflection can spill a little onto the ground.
+- **The game is never wider than 2560 pixels inside**, to keep slow laptops fast; on a very large screen it is slightly soft.
+- **Frame rates were only measured in software rendering** (no graphics card on the test machine), so they compare builds but say nothing about real speed.
 
 ### HUD and two-player
 - **The two-player HUD has no "Spot, shot 3 of 5" line and no money-spot text.** The floor markers and green rings are there.

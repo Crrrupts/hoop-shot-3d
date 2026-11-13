@@ -290,6 +290,8 @@
         uniform float uAlpha;               // 1 = solid, less = see-through
         uniform bool uLit;                  // false for lines and shadows (flat color)
         uniform bool uUseTexture;
+        uniform bool uSoftAlpha;            // true: the texture's see-through parts fade (soft shadows, rings)
+        uniform float uFade;                // fades everything drawn (the reflection in a shiny floor)
         uniform sampler2D uTexture;
         uniform float uFogDensity;          // 0 = no fog (Fog Machine power-up turns it on)
         uniform vec3 uFogColor;
@@ -307,7 +309,8 @@
             float alpha = uAlpha;
             if (uUseTexture) {
                 vec4 texel = texture2D(uTexture, fTexCoord);
-                if (texel.a < 0.5) discard;             // cut-out images (crowd fans)
+                if (uSoftAlpha) alpha *= texel.a;       // soft edges (shadows, spot rings)
+                else if (texel.a < 0.5) discard;        // cut-out images (crowd fans)
                 base *= texel.rgb;
             }
             if (uPointShape == 1) {
@@ -318,7 +321,7 @@
             }
 
             if (!uLit) {
-                gl_FragColor = vec4(addFog(base), alpha);
+                gl_FragColor = vec4(addFog(base), alpha * uFade);
                 return;
             }
 
@@ -339,7 +342,7 @@
                 }
                 color += spot * uLightColor[i] * (diffuse * base + specular * uSpecular);
             }
-            gl_FragColor = vec4(addFog(color), alpha);
+            gl_FragColor = vec4(addFog(color), alpha * uFade);
         }
     </script>
 

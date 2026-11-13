@@ -38,7 +38,7 @@
         'uModel', 'uView', 'uProjection', 'uNormalMatrix', 'uNormalSign', 'uTexScale', 'uPointSize',
         'uEye', 'uAmbientLight', 'uLightPosition', 'uLightColor', 'uSpotDirection', 'uSpotCone',
         'uColor', 'uSpecular', 'uShininess', 'uAlpha', 'uLit', 'uUseTexture', 'uTexture',
-        'uFogDensity', 'uFogColor', 'uPointShape', 'uTint'
+        'uFogDensity', 'uFogColor', 'uPointShape', 'uTint', 'uSoftAlpha', 'uFade'
     ];
     const uniform = {};
     uniformNames.forEach((name) => { uniform[name] = gl.getUniformLocation(program, name); });
@@ -73,8 +73,9 @@
     const SKY = { size: 100, height: 60 };      // the outdoor sky box
 
     const meshes = {
-        sphere: makeMesh(Geometry.sphere(32, 20)),
-        torus: makeMesh(Geometry.torus(Physics.RIM_RADIUS, Physics.RIM_TUBE * 1.3, 48, 10)),
+        sphere: makeMesh(Geometry.sphere(40, 28)),        // the ball: smooth, it is the star
+        smallSphere: makeMesh(Geometry.sphere(16, 12)),   // the player's head, hair and hands (small on screen)
+        torus: makeMesh(Geometry.torus(Physics.RIM_RADIUS, Physics.RIM_TUBE * 1.3, 64, 12)),
         cube: makeMesh(Geometry.cube()),
         floor: makeMesh(Geometry.plane(-COURT.width / 2, COURT.z0, COURT.width / 2, COURT.z1, 24)),
         disc: makeMesh(Geometry.disc(28))
@@ -99,6 +100,7 @@
         return t;
     }
     // These are rebuilt for each court
+    const softTextures = { disc: null, ring: null };      // made once, below (makeTexture keeps the see-through parts)
     const textures = { court: null, backboard: null, wall: null, sky: null };
 
     // ---------- Materials ----------
@@ -132,6 +134,7 @@
         gl.uniform1i(uniform.uLit, m.unlit ? 0 : 1);
         gl.uniform2fv(uniform.uTexScale, m.texScale || [1, 1]);
         gl.uniform1i(uniform.uPointShape, 0);
+        gl.uniform1i(uniform.uSoftAlpha, m.soft ? 1 : 0);
         if (m.texture) {
             gl.activeTexture(gl.TEXTURE0);
             gl.bindTexture(gl.TEXTURE_2D, m.texture);
@@ -145,6 +148,7 @@
     // ---------- Court look ----------
     // Rebuild the textures, materials and lights for a court from courts.js
     let look = null;
+    let reflection = 0;             // how strongly the floor reflects (0 = not at all)
     let lighting = null;
 
     // '#rrggbb' -> [r, g, b] from 0 to 1
@@ -164,6 +168,11 @@
 
         const gloss = look.floor.gloss;         // 0 = matte floor, higher = shinier (ice, wet asphalt)
         MATERIALS.court = { color: [1, 1, 1], specular: [gloss, gloss, gloss], shininess: 8 + gloss * 60, texture: textures.court };
+        // a shiny floor also shows a faded mirror image of the hoops, balls and
+        // players (see drawReflection); this is how strong it is
+        reflection = gloss >= 0.15 ? Math.min(0.4, gloss * 0.7) : 0;
+        MATERIALS.pad = { color: cssColor(look.board.pad), specular: [0.1, 0.1, 0.1], shininess: 10 };
+        MATERIALS.fixture = { color: [1, 0.97, 0.88], unlit: true };
         MATERIALS.board = { color: [1, 1, 1], specular: [0.3, 0.3, 0.3], shininess: 40, texture: textures.backboard };
         MATERIALS.rim = { color: look.rim, specular: [1, 0.9, 0.8], shininess: 90 };        // shiny metal
         MATERIALS.pole = { color: look.pole, specular: [0.5, 0.5, 0.5], shininess: 50 };
@@ -365,6 +374,17 @@
         transform(translate(0, poleSize[1] / 2, 0));
         drawBox(poleSize[0], poleSize[1], poleSize[2]);
         popMatrix();
+        // padding around the bottom of the pole, and a base plate on the floor
+        setMaterial(MATERIALS.pad);
+        pushMatrix();
+        transform(translate(0, 0.9, 0));
+        drawBox(poleSize[0] + 0.1, 1.8, poleSize[2] + 0.1);
+        popMatrix();
+        setMaterial(MATERIALS.pole);
+        pushMatrix();
+        transform(translate(0, 0.03, -0.1));
+        drawBox(0.7, 0.06, 0.9);
+        popMatrix();
 
         // ARM (origin where it joins the pole's front face)
         transform(translate(0, armY, poleSize[2] / 2));
@@ -447,7 +467,7 @@
         function ballShape(radius) {
             pushMatrix();
             transform(scalem(radius, radius, radius));
-            drawMesh(meshes.sphere);
+            drawMesh(meshes.smallSphere);
             popMatrix();
         }
 
@@ -501,7 +521,7 @@
             transform(scalem(part.size[0] * B.head, part.size[1] * B.head, part.size[2] * B.head));
             // the unit sphere has radius 1 but the unit cube has side 1, so a box needs half the size
             if (part.shape === 'box') { transform(scalem(0.5, 0.5, 0.5)); drawMesh(meshes.cube); }
-            else drawMesh(meshes.sphere);
+            else drawMesh(meshes.smallSphere);
             popMatrix();
         }
         popMatrix();
@@ -531,8 +551,8 @@
         const spot = Game.spotPosition(shooter.spot, shooter);
         pushMatrix();
         transform(translate(spot[0], 0.011, spot[2]));
-        transform(scalem(0.34, 1, 0.34));
-        setMaterial({ color: [0, 0, 0], unlit: true, alpha: 0.38 });
+        transform(scalem(0.42, 1, 0.42));
+        setMaterial({ color: [0, 0, 0], unlit: true, alpha: 0.55, texture: softTextures.disc, soft: true });
         drawMesh(meshes.disc);
         popMatrix();
     }
@@ -566,11 +586,12 @@
     // Dark see-through disc on the floor under a ball (fades as the ball goes up)
     function drawShadow(ball) {
         const h = Math.max(0, ball.pos[1] - Physics.BALL_RADIUS);
-        const size = Physics.BALL_RADIUS * (1 + h * 0.12);
+        // a soft shadow that spreads out and fades as the ball goes up
+        const size = Physics.BALL_RADIUS * (1.3 + h * 0.25);
         pushMatrix();
         transform(translate(ball.pos[0], 0.012, ball.pos[2]));
         transform(scalem(size, 1, size));
-        setMaterial({ color: [0, 0, 0], unlit: true, alpha: 0.5 / (1 + h * 0.45) });
+        setMaterial({ color: [0, 0, 0], unlit: true, alpha: 0.7 / (1 + h * 0.6), texture: softTextures.disc, soft: true });
         drawMesh(meshes.disc);
         popMatrix();
     }
@@ -585,8 +606,8 @@
                 // the money spot (makes count double): a wide green ring under the marker
                 pushMatrix();
                 transform(translate(p[0], 0.006, p[2]));
-                transform(scalem(0.5, 1, 0.5));
-                setMaterial({ color: [0.3, 1, 0.5], unlit: true, alpha: 0.6 });
+                transform(scalem(0.55, 1, 0.55));
+                setMaterial({ color: [0.3, 1, 0.5], unlit: true, alpha: 0.85, texture: softTextures.ring, soft: true });
                 drawMesh(meshes.disc);
                 popMatrix();
             }
@@ -596,7 +617,8 @@
             setMaterial({
                 color: current ? color : [1, 1, 1],
                 unlit: true,
-                alpha: current ? 0.75 : 0.22
+                alpha: current ? 0.9 : 0.35,
+                texture: softTextures.ring, soft: true          // a painted ring, not a flat disc
             });
             drawMesh(meshes.disc);
             popMatrix();
@@ -632,6 +654,17 @@
         gl.uniform1f(uniform.uNormalSign, 1);
         gl.cullFace(gl.BACK);
 
+        // indoor: a glowing light fixture in the ceiling over each spotlight
+        if (!look.outdoor) {
+            setMaterial(MATERIALS.fixture);
+            for (const light of look.lights) {
+                if (!light.cone) continue;
+                pushMatrix();
+                transform(translate(light.position[0], ARENA.height - 0.12, light.position[2]));
+                drawBox(1.6, 0.2, 1.0);
+                popMatrix();
+            }
+        }
         if (look.outdoor) {
             // wide ground around the courts (the top face of a flat cube)
             pushMatrix();
@@ -642,7 +675,11 @@
             popMatrix();
         }
 
-        // The same floor tile is drawn twice: your court and the rival's
+        drawFloor();
+    }
+
+    // The same floor tile is drawn twice: your court and the rival's
+    function drawFloor() {
         setMaterial(MATERIALS.court);
         for (const hoop of [Game.player.hoop, Game.rival.hoop]) {
             pushMatrix();
@@ -696,8 +733,7 @@
             popMatrix();
         }
         const hype = Effects.getHype(), cheer = Effects.getCheer(), stomp = Effects.intense();
-        pushMatrix();
-        modelMatrix = mat4();               // the corners below are already in world space
+        pushMatrix();                       // the corners below are in world space (or mirrored, for the reflection)
         sendModelMatrix();
         for (const batch of crowdBatches) {
             const p = batch.positions;
@@ -816,19 +852,29 @@
         setLights(lights, cam.eye);
         pointScale = (rect.height / 2) / Math.tan(radians(cam.fov) / 2);
 
-        modelMatrix = mat4();
         ballSkin = scene.ballSkin;
         const wind = scene.state.wind[0];
 
-        // 1. solid objects
+        gl.uniform1f(uniform.uFade, 1);
+        modelMatrix = mat4();
+
+        // 1. the arena (walls or sky, ground, floor). Everything else is inside
+        //    it, so it never hides anything and its depth is not needed later.
         drawArena();
+        // 2. on a shiny floor, a faded mirror image of the hoops, balls and players
+        if (reflection > 0) {
+            drawReflection(scene, lights, cam.eye, time);
+            modelMatrix = mat4();
+        }
+
+        // 3. solid objects
         drawCrowd(time);
         for (const hoop of scene.hoops) drawHoop(hoop, time);
         for (const ball of scene.balls) drawBall(ball);
         drawShooter(scene.state.player);
         drawShooter(scene.state.rival);
 
-        // 2. see-through things last, without writing depth
+        // 4. see-through things last, without writing depth
         gl.enable(gl.BLEND);
         gl.depthMask(false);
         drawSpots(scene.state.player, [1, 0.85, 0.2]);
@@ -864,6 +910,41 @@
         };
     };
 
+    // ---------- Reflections in a shiny floor ----------
+    // After the arena and floor are drawn, the hoops, balls and players are drawn again
+    // upside down under it (a mirror image: scale y by -1), lit by mirrored
+    // lights and faded (uFade), so they show on the floor like on polished
+    // wood or ice. Then the depth is cleared so the real scene draws normally.
+    // Mirroring turns triangles inside out, so the front-face winding is
+    // flipped while drawing it. The walls and crowd are not mirrored: that
+    // would double the work for the biggest things on screen.
+    function drawReflection(scene, lights, eye, time) {
+        const mirroredLights = {
+            ambient: lights.ambient,
+            lights: lights.lights.map((l) => ({
+                position: [l.position[0], -l.position[1], l.position[2]],
+                color: l.color,
+                direction: [l.direction[0], -l.direction[1], l.direction[2]],
+                cone: l.cone
+            }))
+        };
+        setLights(mirroredLights, eye);
+        gl.uniform1f(uniform.uFade, reflection);
+        gl.enable(gl.BLEND);
+        gl.frontFace(gl.CW);
+        gl.clear(gl.DEPTH_BUFFER_BIT);          // the floor must not hide what is under it
+        modelMatrix = scalem(1, -1, 1);
+        for (const hoop of scene.hoops) drawHoop(hoop, time);
+        for (const ball of scene.balls) drawBall(ball);
+        drawShooter(scene.state.player);
+        drawShooter(scene.state.rival);
+        gl.frontFace(gl.CCW);
+        gl.disable(gl.BLEND);
+        gl.uniform1f(uniform.uFade, 1);
+        setLights(lights, eye);
+        gl.clear(gl.DEPTH_BUFFER_BIT);
+    }
+
     // The small rival view sits inside the #rival-view box from index.html.
     // The box is measured in stage pixels; the canvas may have more pixels.
     const insetBox = document.getElementById('rival-view');
@@ -880,6 +961,8 @@
     // ---------- One frame ----------
     let lastTime = performance.now();
 
+    softTextures.disc = makeTexture(Textures.softDisc(), false);
+    softTextures.ring = makeTexture(Textures.ring(), false);
     loadCourt(Game.state.court);
 
     // The rectangle of the canvas for each kind of view (y measured from the bottom)

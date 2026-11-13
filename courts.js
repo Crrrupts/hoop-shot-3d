@@ -12,6 +12,8 @@
 //
 // look is read by textures.js and renderer.js (colors, lights, sky, weather).
 // look.crowd = { fans: how many, rows: bleacher rows (indoor), kind: 'people' or 'glow' }
+// look.floor.gloss = how shiny the floor is, 0 to 0.6: a brighter highlight, and from 0.15 up a
+// reflection of the hoops, players and crowd in the floor (stronger the shinier it is)
 // Colors are [red, green, blue] from 0 to 1, or CSS color text for painted images.
 // Light positions are in meters: your hoop is at x = 0, the rival's at x = 15.
 //
@@ -43,7 +45,7 @@ const Courts = (function () {
             rules: Object.assign({}, NORMAL_RULES, { rimScale: 1.06, rimBounce: 0.3 }),
             look: {
                 outdoor: false,
-                floor: { kind: 'wood', base: [222, 184, 126], paint: 'rgba(35,105,165,0.85)', line: '#ffffff', logo: 'HOOP SHOT', gloss: 0.06 },
+                floor: { kind: 'wood', base: [222, 184, 126], paint: 'rgba(35,105,165,0.85)', line: '#ffffff', logo: 'HOOP SHOT', gloss: 0.18 },
                 wall: { block: [214, 212, 202], mortar: '#a9a79c', band: 'rgba(35,105,165,0.9)', base: 'rgba(60,70,90,0.45)' },
                 ceiling: [0.3, 0.3, 0.32],
                 ambient: [0.62, 0.62, 0.64],
@@ -60,11 +62,11 @@ const Courts = (function () {
             rules: Object.assign({}, NORMAL_RULES),
             look: {
                 outdoor: false,
-                floor: { kind: 'wood', base: [203, 160, 100], paint: 'rgba(150,30,35,0.82)', line: '#f5f2ea', logo: 'HOOP SHOT', gloss: 0.06 },
+                floor: { kind: 'wood', base: [203, 160, 100], paint: 'rgba(150,30,35,0.82)', line: '#f5f2ea', logo: 'HOOP SHOT', gloss: 0.28 },
                 wall: { block: [196, 190, 176], mortar: '#8f897c', band: 'rgba(150,30,35,0.9)', base: 'rgba(40,45,60,0.55)' },
                 ceiling: [0.12, 0.12, 0.14],
-                ambient: [0.42, 0.42, 0.46],
-                lights: gymLights(1, [38, 62], 0.22),
+                ambient: [0.36, 0.35, 0.38],
+                lights: gymLights(1.08, [36, 60], 0.24),
                 board: { face: '#f2f2ee', line: '#c0281f', pad: '#26303f' },
                 rim: [0.95, 0.35, 0.08], pole: [0.2, 0.22, 0.27], net: [0.96, 0.96, 0.96],
                 weather: null,
@@ -77,7 +79,7 @@ const Courts = (function () {
             rules: Object.assign({}, NORMAL_RULES),
             look: {
                 outdoor: false,
-                floor: { kind: 'grid', base: [14, 12, 26], paint: 'rgba(255,60,190,0.28)', line: '#35e8ff', logo: 'HOOP SHOT', gloss: 0.5 },
+                floor: { kind: 'grid', base: [14, 12, 26], paint: 'rgba(255,60,190,0.28)', line: '#35e8ff', logo: 'HOOP SHOT', gloss: 0.55 },
                 wall: { block: [26, 22, 44], mortar: '#0d0b18', band: 'rgba(255,60,190,0.95)', base: 'rgba(53,232,255,0.5)' },
                 ceiling: [0.03, 0.02, 0.06],
                 ambient: [0.3, 0.22, 0.42],
@@ -98,11 +100,11 @@ const Courts = (function () {
             rules: Object.assign({}, NORMAL_RULES),
             look: {
                 outdoor: false,
-                floor: { kind: 'wood', base: [214, 168, 104], paint: 'rgba(20,40,110,0.85)', line: '#ffffff', logo: 'HOOP SHOT', gloss: 0.35 },
+                floor: { kind: 'wood', base: [214, 168, 104], paint: 'rgba(20,40,110,0.85)', line: '#ffffff', logo: 'HOOP SHOT', gloss: 0.5 },
                 wall: { block: [44, 46, 60], mortar: '#23242e', band: 'rgba(20,40,110,0.9)', base: 'rgba(10,10,20,0.6)' },
                 ceiling: [0.03, 0.03, 0.05],
-                ambient: [0.26, 0.26, 0.3],
-                lights: gymLights(1.2, [30, 52], 0.18),
+                ambient: [0.22, 0.22, 0.27],
+                lights: gymLights(1.3, [30, 50], 0.2),
                 board: { face: '#e9eef2', line: '#14286e', pad: '#14286e' },
                 rim: [0.98, 0.38, 0.08], pole: [0.1, 0.11, 0.14], net: [1, 1, 1],
                 weather: null,
@@ -135,7 +137,7 @@ const Courts = (function () {
             rules: Object.assign({}, NORMAL_RULES, DOUBLE_RIM, { floorBounce: 0.45, slip: 0.02 }),
             look: {
                 outdoor: true,
-                floor: { kind: 'asphalt', base: [70, 72, 78], paint: 'rgba(200,120,40,0.35)', line: '#d9d4c2', logo: 'ROOFTOP', gloss: 0.3 },
+                floor: { kind: 'asphalt', base: [70, 72, 78], paint: 'rgba(200,120,40,0.35)', line: '#d9d4c2', logo: 'ROOFTOP', gloss: 0.42 },
                 sky: { top: '#262a5c', horizon: '#e8824a', ground: '#15161f', scene: 'city' },
                 ground: [0.13, 0.13, 0.16],
                 ambient: [0.4, 0.36, 0.4],

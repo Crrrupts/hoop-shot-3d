@@ -44,6 +44,10 @@ Files: `geometry.js`, `textures.js`, `renderer.js`, `shooter.js`, `camera.js`, a
 
 **Views.** One frame can draw the scene more than once. `drawView` sets a rectangle of the canvas (`gl.viewport` and `gl.scissor`) and draws everything from one camera. In one-player there are two views: your camera on the whole canvas, then a small box with a fixed camera on the rival's hoop. In two-player there are two halves. Solid objects are drawn first, then see-through things (shadows, spot markers, weather, confetti) with blending on.
 
+**Reflections and soft shadows.** On a shiny floor (`gloss` of 0.15 or more in `courts.js`), `drawReflection` draws the hoops, balls and players again, upside down under the floor: the model matrix starts as `scale(1, -1, 1)`, the lights are mirrored too, and a `uFade` uniform makes it see-through. Because a mirror image turns every triangle inside out, `gl.frontFace(gl.CW)` is used while it is drawn. Shadows and spot markers are flat discs with a soft see-through texture (`softDisc`, `ring` in `textures.js`); the shader's `uSoftAlpha` lets their edges fade instead of cutting off.
+
+**Filling the window.** Everything over the canvas (HUD, menus, pick screens) is laid out at 800 × 600 inside one `#stage` element. `layout.js` scales the stage with a CSS transform to fit the window and gives the canvas as many real pixels as it covers, so the 3D picture stays sharp. Code that works in screen positions (crosshair, floating text, the rival view box) keeps using 800 × 600 "stage pixels"; `Layout.scale()` and `Layout.canvasScale()` convert.
+
 **Questions you might get.**
 - *Why is the lighting done in the fragment shader?* So the highlight is worked out per pixel (Phong shading), not per corner, which looks smooth on big flat triangles like the floor.
 - *What is the normal matrix for?* Normals must be rotated with the object but not moved or stretched the same way as points, so they get their own matrix (the inverse transpose of the model matrix).

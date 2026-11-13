@@ -392,5 +392,29 @@ const Textures = (function () {
         return c;
     }
 
-    return { ball, court, backboard, wall, sky, fan, HORIZON };
+    // ---------- Soft shapes for the floor (white, see-through at the edges) ----------
+    // A round blob that fades out toward its edge: soft shadows.
+    function softDisc() {
+        const S = 128, c = makeCanvas(S, S), g = c.getContext('2d');
+        const grad = g.createRadialGradient(S / 2, S / 2, 0, S / 2, S / 2, S / 2);
+        grad.addColorStop(0, 'rgba(255,255,255,1)');
+        grad.addColorStop(0.45, 'rgba(255,255,255,0.75)');
+        grad.addColorStop(1, 'rgba(255,255,255,0)');
+        g.fillStyle = grad;
+        g.fillRect(0, 0, S, S);
+        return c;
+    }
+    // A painted ring with a faint inside: the shooting-spot markers.
+    function ring() {
+        const S = 128, c = makeCanvas(S, S), g = c.getContext('2d');
+        g.clearRect(0, 0, S, S);
+        g.fillStyle = 'rgba(255,255,255,0.25)';
+        g.beginPath(); g.arc(S / 2, S / 2, S * 0.42, 0, 2 * Math.PI); g.fill();
+        g.strokeStyle = 'rgba(255,255,255,1)';
+        g.lineWidth = S * 0.09;
+        g.beginPath(); g.arc(S / 2, S / 2, S * 0.43, 0, 2 * Math.PI); g.stroke();
+        return c;
+    }
+
+    return { ball, court, backboard, wall, sky, fan, softDisc, ring, HORIZON };
 })();
