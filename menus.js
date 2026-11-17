@@ -16,6 +16,7 @@ const Menus = (function () {
         for (const el of document.querySelectorAll('.gold-amount')) el.textContent = Cards.getSave().gold;
         if (name === 'campaign') fillCampaign();
         if (name === 'cards') fillCards();
+        if (name === 'boards') fillBoards();
         if (name !== 'result') { $('sandbox-panel').style.display = 'none'; hideTutorial(); }
     }
     // game.js calls this when a match starts
@@ -26,6 +27,7 @@ const Menus = (function () {
     $('btn-versus').addEventListener('click', () => show('versus'));
     $('btn-cards').addEventListener('click', () => show('cards'));
     $('btn-player').addEventListener('click', () => { show('player'); fillPlayer(); });
+    $('btn-boards').addEventListener('click', () => show('boards'));
     $('btn-sandbox').addEventListener('click', startSandbox);
     for (const b of document.querySelectorAll('.back-btn')) b.addEventListener('click', () => show('main'));
     $('btn-menu').addEventListener('click', () => show(Game.state.options.mode === 'campaign' ? 'campaign' : 'main'));
@@ -211,8 +213,94 @@ const Menus = (function () {
             const next = options.stage + 1;
             if (next < Campaign.STAGES.length && Campaign.unlocked(next)) $('btn-next').style.display = '';
         }
+        showBoardResults(Leaderboards.recordGame(s, player));
         show('result');
     };
+
+    // ---------- Leaderboards on the result screen ----------
+    // "New high score! #3 on Home Gym (Medium)". The first time a score makes
+    // a board, ask for a name; the new entries get it when it is saved.
+    let unnamed = [];               // entries added before the player gave a name
+    function showBoardResults(made) {
+        const s = Game.state;
+        const where = s.options.mode === 'campaign' ? `the stage ${s.options.stage + 1} board` : `${s.court.name} (${s.difficulty})`;
+        $('result-boards').textContent = made.map((m) => `${m.label} #${m.rank} on ${where}`).join('\n');      // one per line (style.css keeps the line breaks)
+        unnamed = Leaderboards.getName() ? [] : made.map((m) => m.entry);
+        $('result-name').style.display = unnamed.length ? '' : 'none';
+        if (unnamed.length) $('result-name-input').value = '';
+    }
+    $('result-name').addEventListener('submit', (e) => {
+        e.preventDefault();             // (a form would reload the page)
+        if (!Leaderboards.setName($('result-name-input').value, unnamed)) return;
+        unnamed = [];
+        $('result-name').style.display = 'none';
+        $('result-boards').textContent += `\nSaved as ${Leaderboards.getName()}.`;
+    });
+    // While typing a name, keys must not shoot, restart (R) or change the camera (C)
+    for (const type of ['keydown', 'keyup']) $('result-name-input').addEventListener(type, (e) => e.stopPropagation());
+
+    // ---------- Leaderboards screen ----------
+    const boardView = { mode: 'quick', difficulty: 'Medium' };
+
+    // Fill one board table: rank, name, value, date (or a line saying it is empty)
+    function fillBoard(table, entries) {
+        table.innerHTML = '';
+        if (!entries.length) {
+            const row = table.insertRow();
+            const cell = row.insertCell();
+            cell.className = 'empty';
+            cell.textContent = 'No scores yet';
+            return;
+        }
+        entries.forEach((entry, i) => {
+            const row = table.insertRow();
+            const cells = [i + 1, entry.name, entry.value, entry.date];
+            ['rank', 'name', 'value', 'date'].forEach((cls, j) => {
+                const cell = row.insertCell();
+                cell.className = cls;
+                cell.textContent = cells[j];        // textContent: a name can never become page code
+            });
+        });
+    }
+    function fillBoards() {
+        // the court and stage lists come from courts.js and campaign.js, so new ones appear on their own
+        const courtSelect = $('board-court'), stageSelect = $('board-stage');
+        if (courtSelect.options.length !== Leaderboards.courts().length) {
+            const keep = courtSelect.value;
+            courtSelect.innerHTML = '';
+            for (const court of Leaderboards.courts()) courtSelect.add(new Option(court.name, court.id));
+            courtSelect.value = keep || Game.state.court.id;
+        }
+        if (stageSelect.options.length !== Leaderboards.stages().length) {
+            stageSelect.innerHTML = '';
+            Leaderboards.stages().forEach((stage, i) => stageSelect.add(new Option(`${i + 1}. ${Courts.byId(stage.court).name}`, stage.id)));
+        }
+        if (!$('board-diff-tabs').children.length) {
+            for (const diff of Leaderboards.DIFFICULTIES) {
+                const tab = document.createElement('button');
+                tab.className = 'tab';
+                tab.dataset.diff = diff;
+                tab.textContent = diff;
+                tab.addEventListener('click', () => { boardView.difficulty = diff; fillBoards(); });
+                $('board-diff-tabs').appendChild(tab);
+            }
+        }
+        for (const tab of $('board-mode-tabs').children) tab.classList.toggle('on', tab.dataset.mode === boardView.mode);
+        for (const tab of $('board-diff-tabs').children) tab.classList.toggle('on', tab.dataset.diff === boardView.difficulty);
+        $('board-quick').style.display = boardView.mode === 'quick' ? '' : 'none';
+        $('board-campaign').style.display = boardView.mode === 'campaign' ? '' : 'none';
+        const court = courtSelect.value, diff = boardView.difficulty;
+        fillBoard($('board-score'), Leaderboards.top(Leaderboards.quickKey(court, diff, 'score')));
+        fillBoard($('board-combo'), Leaderboards.top(Leaderboards.quickKey(court, diff, 'combo')));
+        fillBoard($('board-stage-score'), Leaderboards.top(Leaderboards.campaignKey(stageSelect.value)));
+        const name = Leaderboards.getName();
+        $('board-name-line').textContent = name ? `Your name: ${name}` : 'You will be asked for a name the first time a score makes a board.';
+    }
+    for (const tab of $('board-mode-tabs').children) {
+        tab.addEventListener('click', () => { boardView.mode = tab.dataset.mode; fillBoards(); });
+    }
+    $('board-court').addEventListener('change', fillBoards);
+    $('board-stage').addEventListener('change', fillBoards);
 
     // ---------- Card collection ----------
     // One card as a page element. withButtons adds Upgrade and Equip.

@@ -38,6 +38,7 @@ When you check something, write your initials and what you found in the Result c
 | Screen | Does the game fill your screen, stay sharp, and still aim correctly in fullscreen and at 125% browser zoom? Does the Fullscreen button work (it may be blocked inside the claude.ai preview)? | 18 | |
 | Graphics | Do the courts look clearly better (floor shine and reflections, soft shadows, ring spot markers, pole padding, ceiling lights)? Anything that looks wrong? | 19 | |
 | Graphics | Do the shiny courts (Home Gym, Pro Arena, Neon Arcade, Rooftop, Frozen Lake) still run at 60 fps on the slowest laptop? The reflection costs about one extra frame-step here in software rendering | 19, 25 | |
+| Leaderboards | After a Quick Match, does the result screen show "New high score!" and ask for your name once? Are the boards easy to read (court picker, difficulty tabs, campaign tab)? | Stage 3 | |
 | Preview link | In the claude.ai preview, does the mouse lock inside the game, and does saved progress (gold, cards, player look, money spot) survive a reload? | | |
 | Docs | Each teammate: read your section of [how-it-works.md](how-it-works.md) and say what is unclear | 3 | |
 
@@ -83,6 +84,12 @@ When you check something, write your initials and what you found in the Result c
 - **In the tutorial race the hint box covers the bottom of the court.**
 - **AI rival:** it never skips a pick.
 - **The score cap is a plain cut-off at 12.** Bonuses past it are lost; the popup shows +12.
+
+### Leaderboards
+- **Boards are on one computer only**, with no way to share them yet.
+- **The name can only be set once from the result screen**; there is no "change name" button yet (`Leaderboards.setName` in the console works).
+- **The tutorial race (campaign stage 1) counts on its stage board**, though it is scripted.
+- **Easy and Hard boards depend on the slider at the start of the match**; moving the slider mid-game does not move the score to another board.
 
 ### Project
 - **No GitHub Pages link yet.** The repo is private; turning Pages on needs GitHub Pro (free with the student pack) or a public repo.

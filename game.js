@@ -109,6 +109,7 @@ const Game = (function () {
             name: id === 'player' ? 'You' : 'Rival',
             hoop: hoop,
             score: 0, streak: 0, bestStreak: 0, made: 0, attempts: 0,
+            combo: 0, bestCombo: 0,     // real makes in a row (for the combo leaderboard; cards cannot change it)
             spot: 3,
             balls: [],                  // balls in the air or bouncing
             queue: [],                  // balls waiting to be counted, in throw order (see settle)
@@ -143,6 +144,7 @@ const Game = (function () {
         home: null,                     // the home team: you against the AI; the coin-flip winner in two-player
         fans: 0,                        // the fan meter, -1..1 (see SETTINGS.fans)
         twist: null,                    // a campaign boss's special rule (see campaign.js)
+        difficulty: 'Medium',           // the difficulty this match started on (leaderboards)
         options: {},                    // what the current match was started with (R restarts it)
         followBall: null,               // your newest ball (for the Ball Follow camera)
         shotDir: [0, 0, -1],            // which way it was thrown
@@ -522,6 +524,8 @@ const Game = (function () {
         shooter.made++;
         if (ball.spot) shooter.spotStats[ball.spot - 1].made++;
         setStreak(shooter, shooter.streak + 1);
+        shooter.combo++;
+        shooter.bestCombo = Math.max(shooter.bestCombo, shooter.combo);
         const points = pointsFor(shooter, ball.points, info, ball.spot);
         PU.useOne(shooter, 'golden');
         shooter.score += points;
@@ -541,6 +545,7 @@ const Game = (function () {
     function miss(ball) {
         const shooter = ball.owner;
         if (ball.bonus) return;                     // Double Ball's extra ball can only help
+        shooter.combo = 0;                          // the combo counts real makes in a row: any miss ends it
         if (shooter.streak > 0 && PU.useOne(shooter, 'second')) return;     // Second Chance
         // Wristband gear: once a game, a miss may keep your streak
         if (shooter === player && tierFor(player.streak) && !player.freeMissUsed &&
@@ -887,6 +892,7 @@ const Game = (function () {
         state.twoPlayer = !!options.twoPlayer;
         state.home = player;
         state.twist = options.twist || null;
+        state.difficulty = difficulty().name;   // for the leaderboards: the difficulty the match started on
         if (options.court && options.court !== state.court.id) setCourt(options.court);
         player.sabotagesUsed = 0;
         player.skippedLast = false;     // skipped the last pick (better odds next time)
@@ -894,7 +900,7 @@ const Game = (function () {
         player.freeMissUsed = false;
         for (const s of [player, rival]) {
             s.spotStats = SPOTS.map(() => ({ made: 0, attempts: 0 }));
-            s.score = 0; s.streak = 0; s.bestStreak = 0; s.made = 0; s.attempts = 0;
+            s.score = 0; s.streak = 0; s.bestStreak = 0; s.made = 0; s.attempts = 0; s.combo = 0; s.bestCombo = 0;
             s.balls = []; s.pending = []; s.effects = {}; s.queue = [];
             s.hoopClock = 0; s.cooldown = 0;
             s.hoop.offset[0] = 0; s.hoop.slippery = false;

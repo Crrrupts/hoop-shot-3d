@@ -147,6 +147,7 @@
             <button id="btn-sandbox">Sandbox</button>
             <button id="btn-cards">Cards</button>
             <button id="btn-player">Player</button>
+            <button id="btn-boards">Leaderboards</button>
             <p class="gold-line">Gold: <span class="gold-amount">0</span></p>
         </div>
 
@@ -204,12 +205,40 @@
             <button class="back-btn">Back</button>
         </div>
 
+        <div class="screen" id="screen-boards">
+            <h2>Leaderboards</h2>
+            <p class="small">Saved on this computer. Quick Match boards are per court and difficulty; each campaign stage has its own board.</p>
+            <div class="tabs" id="board-mode-tabs">
+                <button data-mode="quick" class="tab">Quick Match</button>
+                <button data-mode="campaign" class="tab">Campaign</button>
+            </div>
+            <div id="board-quick">
+                <label>Court <select id="board-court"></select></label>
+                <div class="tabs" id="board-diff-tabs"></div>
+                <div class="board-pair">
+                    <div><h3>High score</h3><table class="board" id="board-score"></table></div>
+                    <div><h3>Best combo (makes in a row)</h3><table class="board" id="board-combo"></table></div>
+                </div>
+            </div>
+            <div id="board-campaign">
+                <label>Stage <select id="board-stage"></select></label>
+                <div class="board-pair"><div><h3>High score</h3><table class="board" id="board-stage-score"></table></div></div>
+            </div>
+            <p class="small" id="board-name-line"></p>
+            <button class="back-btn">Back</button>
+        </div>
+
         <div class="screen" id="screen-result">
             <h1 id="result-title"></h1>
             <p id="result-score"></p>
             <p id="result-stars"></p>
             <p id="result-reward"></p>
             <div id="result-cards"></div>
+            <div id="result-boards"></div>
+            <form id="result-name" style="display: none">
+                <label>Your name for the leaderboards <input id="result-name-input" maxlength="12" autocomplete="off"></label>
+                <button type="submit">Save</button>
+            </form>
             <div id="result-buttons">
                 <button id="btn-next" class="big">Next stage</button>
                 <button id="btn-again">Play Again</button>
@@ -366,6 +395,7 @@
     <script src="powerups.js"></script>
     <script src="cards.js"></script>
     <script src="campaign.js"></script>
+    <script src="leaderboards.js"></script>
     <script src="game.js"></script>
     <script src="shooter.js"></script>
     <script src="sounds/list.js"></script>

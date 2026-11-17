@@ -34,6 +34,7 @@ Mouse: move the crosshair (on the rim = perfect aim; it jumps to a new place aft
   | Pick a card | 1 / 2 | Left / Right arrow |
 
   Each player gets their own two cards at a pick and the game waits for both. It uses the same pick odds as the other modes, power-ups reset every match, gear cards are off, and a coin flip gives one player home court (the crowd cheers that player's makes).
+- **Leaderboards** (main menu): saved on this computer. Every court has two Quick Match boards per difficulty (Easy, Medium, Hard): high score (most points in one game, overtime included) and best combo (most real makes in a row). Each campaign stage has its own high-score board. Top 10, with name, score and date. The result screen says "New high score!" or "Top 10 score!", and asks for a name the first time a score makes a board. A new court added to `courts.js` gets its boards automatically. Two-player, the sandbox and the tutorial steps do not count.
 - **Sandbox**: free shootaround with no clock and no rival. A panel under the game lets you change court and ball, switch any power-up or sabotage on yourself and set its level, show the golden aim dot and the power zones, use slow motion, reset the balls, and see makes/attempts per spot.
 - **Player**: pick your player's skin tone (6) and hair style (short, buzz cut, afro, flat top, ponytail, bald), with a preview. Saved with your progress. Shirt, shorts and shoes are fixed for now.
 - **Cards**: chests give ball skins (looks only) and gear. Duplicates plus gold level a card up (max level 5). Gear: Headband (steadier aim), Shooting Sleeve (slightly bigger rim for you), Wristband (once a game a miss may keep your streak). Progress is saved in the browser on this computer.
@@ -116,6 +117,7 @@ The 9 graded requirements, where each one is in the code, and how to see it in t
 | crowd.js | Bom | Where the fans stand (size and rows per court, gaps behind the hoops) and how high each one jumps |
 | cards.js | Justin, Bom | Ball and gear cards, chests, upgrades, saved progress |
 | campaign.js | Justin | The 7 campaign stages (rival numbers, boss twists), stars and rewards |
+| leaderboards.js | Justin | Local high-score and combo boards (top 10, saved in the browser) |
 | menus.js | Bom | Menu screens, result and chest opening, tutorial steps, sandbox panel |
 | shooter.js | Isaiah | The 3D player's pose (joint angles for the shooting motion, driven by the power bar), skin tones and hair styles |
 | audio.js, sounds/ | Bom | Every sound, made in code; real files in `sounds/` replace them |
@@ -140,8 +142,9 @@ node tests/rules.test.js
 node tests/cards.test.js
 node tests/shooter.test.js
 node tests/crowd.test.js
+node tests/leaderboards.test.js
 ```
-The first checks that every spot can be scored, the collisions, and frame-rate independence. The second checks the match rules: streak tiers, rapid fire, power-up odds and effects, the rival's accuracy, the buzzer, overtime, the court rules (soft rim, double rim, rain, wind), practice mode, boss twists, two-player rules and a whole simulated match. The third checks chests, upgrades, gear and campaign stars and unlocks.
+The first checks that every spot can be scored, the collisions, and frame-rate independence. The second checks the match rules: streak tiers, rapid fire, power-up odds and effects, the rival's accuracy, the buzzer, overtime, the court rules (soft rim, double rim, rain, wind), practice mode, boss twists, two-player rules and a whole simulated match. The third checks chests, upgrades, gear and campaign stars and unlocks. The last checks the leaderboards: top-10 order and ties, names, which games count, the combo count, and that a new court gets boards on its own.
 
 To check speed on a laptop, add `?stats` to the page address: the top-left corner shows frames per second, the slowest frame, how long the game's own code takes per frame, and how many objects are drawn.
 

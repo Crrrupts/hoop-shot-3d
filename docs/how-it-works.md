@@ -132,6 +132,11 @@ Files: `index.html`, `style.css`, `ui.js`, `menus.js`, plus `effects.js` and `cr
 
 **Menus.** `menus.js` shows one screen at a time inside `#menu-overlay`: main menu, Quick Match, 2 Players, Campaign map, Cards, and the result screen with stars and chest cards. It also runs the tutorial (a list of 8 steps, each with a message and a test for "done") and the Sandbox panel under the game.
 
+**Leaderboards.** `leaderboards.js` keeps every board in one localStorage entry. A board is a list of up to 10 `{ name, value, date }` under a key such as `quick:home:Medium:score` or `campaign:ymca:score`, made from the court or stage id, so a new court needs no code change. At game over `menus.js` calls `Leaderboards.recordGame`, which only counts one-player Quick Match and campaign games, and shows what made a board. The combo board uses `bestCombo` from game.js: real makes in a row, which cards like Hot Hand or Second Chance cannot change (the streak can). The difficulty is the one the match started on (`state.difficulty`).
+
+- *Q: Can a teammate's scores be seen?* No, the boards are only on the computer they were played on. A shared online board can come with the online 2-player work.
+- *Q: How do I clear the boards?* In the browser console: `Leaderboards.reset()`.
+
 **The tutorial race.** After the steps, campaign stage 1 is a normal 2-minute race with the boss twist `tutorialRace` (game.js). Coach makes shots when you lead by more than 2 and misses when Coach leads by more than 2, and shoots faster when you are more than 4 ahead. If you are still more than 10 ahead at the buzzer, Coach "drains a deep buzzer-beater" that sets the score within 10, so the race always goes to overtime. The first overtime pick offers the Placeholder Mythic (powerups.js; normal rolls never land on it), which you also get if the timer runs out, and Coach misses everything in overtime. menus.js shows a hint box during the race.
 
 - *Q: Is the tutorial race fair?* No, on purpose: it shows overtime and a mythic card to every new player. Later stages are not scripted.
