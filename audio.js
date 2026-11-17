@@ -13,6 +13,7 @@ const GameAudio = (function () {
     let context = null;             // the Web Audio "sound card", made at the first sound
     let master = null;              // volume control everything passes through
     let muted = false;
+    let volume = 0.5;               // 0 to 1, set by the settings slider
     const files = {};               // name -> decoded sound file (when the team supplies one)
     const lastPlayed = {};          // name -> when it last played (to skip pile-ups)
     let played = 0;                 // how many sounds have started (used by the tests)
@@ -23,7 +24,7 @@ const GameAudio = (function () {
         if (!AudioContext) return false;
         context = new AudioContext();
         master = context.createGain();
-        master.gain.value = muted ? 0 : 0.5;
+        master.gain.value = muted ? 0 : volume;
         master.connect(context.destination);
         makeNoise();
         loadFiles();
@@ -169,11 +170,18 @@ const GameAudio = (function () {
 
     function setMuted(on) {
         muted = on;
-        if (master) master.gain.value = muted ? 0 : 0.5;
+        if (master) master.gain.value = muted ? 0 : volume;
+    }
+
+    // 0 (silent) to 1 (loudest); the settings button calls this
+    function setVolume(level) {
+        volume = Math.max(0, Math.min(1, level));
+        if (master) master.gain.value = muted ? 0 : volume;
     }
 
     return {
-        SOUNDS, playSound, setMuted,
+        SOUNDS, playSound, setMuted, setVolume,
+        getVolume: function () { return volume; },
         isMuted: function () { return muted; },
         playedCount: function () { return played; },
         hasFile: function (name) { return !!files[name]; },
