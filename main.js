@@ -8,7 +8,8 @@
 //   scene.views      the pictures to draw this frame. One player: your view
 //                    on the whole canvas plus the small rival view. Two
 //                    players: split screen, Player 1 left and Player 2 right.
-//                    Each view = { camera, rect, fog, blackout, hoopX }
+//                    Each view = { camera, rect, fog, blackout, hoopX, balls }
+//                      balls    (optional) draw these balls in this view instead (instant replays)
 //                      camera   { eye, at, up, fov, near, far } for lookAt/perspective
 //                      rect     'full', 'left', 'right' or 'inset'
 //                      fog / blackout   power-ups used on that view's player
@@ -131,6 +132,8 @@
         last = now;
 
         Game.update(dt);
+        Replay.record(dt);              // remember where the balls are, for instant replays
+        Replay.update(dt);
         if (Game.state.mode !== 'picking') Effects.update(dt);
         Camera.update(dt);
 
@@ -161,9 +164,17 @@
                 fog: PowerUps.has(shooter, 'fog'), blackout: PowerUps.has(shooter, 'blackout')
             };
         }
-        const views = two
+        let views = two
             ? [viewOf(player, Camera.rigs[0], 'left'), viewOf(rival, Camera.rigs[1], 'right')]
             : [viewOf(player, Camera.rigs[0], 'full'), { camera: Camera.rivalView(), rect: 'inset', hoopX: rival.hoop.base[0] }];
+        // an instant replay: full screen after the buzzer, or in the small view
+        // during the game. Its view draws only the replay ball (view.balls).
+        const replay = Replay.view();
+        if (replay) {
+            const replayView = { camera: replay.camera, rect: replay.full ? 'full' : 'inset', hoopX: replay.hoopX, balls: replay.balls };
+            if (replay.full) views = [replayView];
+            else views[1] = replayView;
+        }
 
         window.renderScene({
             balls: balls,

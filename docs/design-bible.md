@@ -18,8 +18,11 @@ Everything in this doc is a design. This table is the truth about the game on `m
 | Animations | Power meter pulse, ball dip while charging, camera push-in, ball trail, "+2" and confetti, SWISH / BANK / SO CLOSE / AIR BALL text, backboard flash, rim shake, net stretch, red timer in the last 10 seconds, slow-motion buzzer beater, squash on floor bounces, backspin | All sounds; swish zoom on the net; orbit camera on a buzzer beater; stats counting up on the game-over card; a ball rolling around the rim; wrist flick detail on the follow-through |
 | Heating up | The three tiers at 2, 4 and 7 makes with their scoring, banner, orange trail, fire on the ball and net, screen glow, red-orange lights and glowing rim, smoke when the streak ends | Announcer lines, faster music, crowd chants |
 | Casino feel | Hype meter, streak hint ("1 more for ON FIRE"), scores that count up, bigger celebrations for bigger shots, "SO CLOSE!", Money Rack, tier colors on the screen, a chime that rises with the streak, power-up cards that spin like slot reels (slow down, tease a higher rarity, land with a glow, flash and fanfare) | Court lights pulsing with hype, slow motion on every on-target shot, music layers |
-| Campaign | 7 stages, one boss race per court with its twist, stars, gold, chests, the 8-step tutorial and a scripted tutorial race that always reaches overtime | Rival personalities and habits, several matches per court, Archero-style runs, permanent upgrades bought with gold, daily challenge |
+| Campaign | 7 stages, one boss race per court with its twist, stars, gold, chests, the 8-step tutorial and a scripted tutorial race that always reaches overtime | Rival personalities and habits, several matches per court, Archero-style runs, permanent upgrades bought with gold |
 | Leaderboards | Local Quick Match boards per court and difficulty (high score and best combo) and a high-score board per campaign stage, top 10 with name and date | A shared online board |
+| Daily challenge and challenge codes | Date-based court, difficulty and power-up seed with a daily board; shareable codes with a score to beat | Shared online daily board |
+| Instant replay and post-game stats | Slow-motion replays of buzzer-beaters, late game-winners and swished corner threes; shot chart, %, best streak, power-ups used | Replays of the shooter's motion |
+| Match modifier | The third roll: secret pick, third reel, on-screen text, one placeholder | The real modifiers (Justin), weekly modifiers |
 | Sandbox | Everything listed in the Sandbox section | |
 | Multiplayer | Two players on one computer, split screen | Online play |
 | Power-ups | The 21 cards in the list below, plus a Placeholder Mythic used only in the tutorial race | Mythic cards (overtime cards are legendary until they are designed) |
@@ -232,7 +235,7 @@ Campaign is the main game mode and multiplayer is a side mode. Every game runs 2
 - **Runs like Archero:** a tour is a set of matches back to back, and your power-ups carry across the whole run. Lose once and the run ends, but you keep the gold you earned.
 - **Gold buys permanent upgrades between runs**, like a slower meter, a starting perk, or a third power-up card to choose from.
 - **Stars per match** (win, win by 10+, win without sabotage) give a reason to replay courts.
-- **Daily challenge** (later idea): one court with fixed modifiers and a high-score board.
+- **Daily challenge**: built (see the Stage 3 plan): one court, difficulty and power-up order per day, with a daily board.
 
 **First map: the tutorial (YMCA Gym).** It walks through everything once before the real campaign starts:
 

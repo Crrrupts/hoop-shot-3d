@@ -1047,7 +1047,9 @@
             // fog fades in and out so it does not pop
             fogAmounts[i] += ((view.fog ? 1 : 0) - fogAmounts[i]) * Math.min(1, dt * 3);
             const rect = rectFor(view.rect);
-            drawView(scene, view.camera, rect,
+            // a view can draw its own balls (an instant replay draws only the replay ball)
+            const viewScene = view.balls ? Object.assign({}, scene, { balls: view.balls }) : scene;
+            drawView(viewScene, view.camera, rect,
                 view.blackout ? blackoutLighting(view.hoopX) : lighting, fogAmounts[i] * 0.16, time);
             screens[i] = { view: lastView, projection: lastProjection, rect: rect };
         });

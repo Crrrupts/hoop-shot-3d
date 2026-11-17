@@ -457,3 +457,55 @@ function updateRace(left, right, leftName, rightName) {
     else if (left > right) { lead.textContent = `${leftName} +${left - right}`; lead.className = 'left'; }
     else { lead.textContent = `${rightName.toUpperCase()} +${right - left}`; lead.className = 'right'; }
 }
+
+// ---------- Match modifier (the third reel) ----------
+// At one pick per match a third reel spins above the cards, lands on the
+// modifier, and then its name and effect stay at the bottom of the screen.
+// It keeps spinning even if a card is picked first. There is nothing to choose.
+const modifierReel = document.getElementById('modifier-reel');
+const modifierChip = document.getElementById('modifier-chip');
+const MODIFIER_LAND = 2.2;              // seconds: after both cards have landed
+let modifierTimers = [];
+function showModifierReel(modifier) {
+    modifierTimers.forEach(clearTimeout);
+    modifierTimers = [];
+    const name = document.getElementById('modifier-reel-name');
+    const text = document.getElementById('modifier-reel-text');
+    modifierReel.className = 'spinning';
+    modifierReel.style.display = 'block';
+    text.textContent = '';
+    // flick through '???' and the modifier names, slowing down, like the cards
+    const names = Modifiers.LIST.map((m) => m.name).concat(['???']);
+    let at = 0, gap = 0.06, i = 0;
+    while (at < MODIFIER_LAND - 0.25) {
+        const shown = names[i++ % names.length];
+        modifierTimers.push(setTimeout(() => { name.textContent = shown; playSound('reel'); }, at * 1000));
+        at += gap;
+        gap *= 1.18;
+    }
+    modifierTimers.push(setTimeout(() => {
+        modifierReel.className = 'landed';
+        name.textContent = modifier.name;
+        text.textContent = modifier.text;
+        playSound('land');
+        playSound('fanfare', { rarity: 'epic' });
+        flashScreen('purple');
+    }, MODIFIER_LAND * 1000));
+    // after a few seconds the big reel goes and the small line stays
+    modifierTimers.push(setTimeout(() => {
+        modifierReel.style.display = 'none';
+        showModifier(modifier);
+    }, (MODIFIER_LAND + 3.5) * 1000));
+}
+// The line at the bottom of the screen (null hides it, e.g. at a new match)
+function showModifier(modifier) {
+    if (!modifier) {
+        modifierTimers.forEach(clearTimeout);
+        modifierTimers = [];
+        modifierReel.style.display = 'none';
+        modifierChip.style.display = 'none';
+        return;
+    }
+    modifierChip.textContent = `MODIFIER: ${modifier.name} - ${modifier.text}`;
+    modifierChip.style.display = 'block';
+}

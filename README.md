@@ -34,7 +34,12 @@ Mouse: move the crosshair (on the rim = perfect aim; it jumps to a new place aft
   | Pick a card | 1 / 2 | Left / Right arrow |
 
   Each player gets their own two cards at a pick and the game waits for both. It uses the same pick odds as the other modes, power-ups reset every match, gear cards are off, and a coin flip gives one player home court (the crowd cheers that player's makes).
-- **Leaderboards** (main menu): saved on this computer. Every court has two Quick Match boards per difficulty (Easy, Medium, Hard): high score (most points in one game, overtime included) and best combo (most real makes in a row). Each campaign stage has its own high-score board. Top 10, with name, score and date. The result screen says "New high score!" or "Top 10 score!", and asks for a name the first time a score makes a board. A new court added to `courts.js` gets its boards automatically. Two-player, the sandbox and the tutorial steps do not count.
+- **Leaderboards** (main menu): saved on this computer. Every court has two Quick Match boards per difficulty (Easy, Medium, Hard): high score (most points in one game, overtime included) and best combo (most real makes in a row). Each campaign stage has its own high-score board. Top 10, with name, score and date. The result screen says "New high score!" or "Top 10 score!", and asks for a name the first time a score makes a board. A new court added to `courts.js` gets its boards automatically. Two-player, the sandbox, the tutorial steps and challenge-code games do not count.
+- **Daily Challenge** (main menu): today's date picks the court, the difficulty and the seed for the power-up rolls, so everyone who plays that day gets the same cards at each pick (and the same match modifier). The difficulty slider is locked during it. It has its own daily board (on this computer for now).
+- **Challenge codes**: after a one-player Quick Match or daily challenge the result screen shows a code like `3M-0K9F2A-1D7` (court, difficulty, roll seed and your score, with a check letter for typos). A friend enters it with **Enter a challenge code** on the main menu, plays the same court, difficulty and power-up cards, and the result screen shows the score to beat. No server: only the rolls are shared, so the rival's shots and the wind still differ.
+- **Post-game stats**: the result screen shows a shot chart (makes/attempts at each spot, colored by how well you shot there), shooting %, best streak and the power-ups you picked; both players in two-player.
+- **Instant replay**: a buzzer-beater or a late game-winner replays full screen in slow motion from a low camera beside the hoop before the result screen (any key or click skips). A swished corner three replays in the small view in the corner while the game goes on (X skips), so replays never pause the game or use up the clock.
+- **Match modifier** (Quick Match and 2 Players, never the campaign): at one of the first four picks (chosen secretly at the start: pick 1 15%, pick 2 20%, pick 3 50%, pick 4 15%) a third reel spins above the cards and lands on a modifier that applies to both players for the rest of the game; its name and effect stay at the bottom of the screen. The real modifiers are not designed yet: `modifiers.js` has one clearly marked placeholder that changes nothing.
 - **Sandbox**: free shootaround with no clock and no rival. A panel under the game lets you change court and ball, switch any power-up or sabotage on yourself and set its level, show the golden aim dot and the power zones, use slow motion, reset the balls, and see makes/attempts per spot.
 - **Player**: pick your player's skin tone (6) and hair style (short, buzz cut, afro, flat top, ponytail, bald), with a preview. Saved with your progress. Shirt, shorts and shoes are fixed for now.
 - **Cards**: chests give ball skins (looks only) and gear. Duplicates plus gold level a card up (max level 5). Gear: Headband (steadier aim), Shooting Sleeve (slightly bigger rim for you), Wristband (once a game a miss may keep your streak). Progress is saved in the browser on this computer.
@@ -118,6 +123,9 @@ The 9 graded requirements, where each one is in the code, and how to see it in t
 | cards.js | Justin, Bom | Ball and gear cards, chests, upgrades, saved progress |
 | campaign.js | Justin | The 7 campaign stages (rival numbers, boss twists), stars and rewards |
 | leaderboards.js | Justin | Local high-score and combo boards (top 10, saved in the browser) |
+| challenges.js | Justin | Daily challenge (date to court, difficulty and seed) and challenge codes |
+| modifiers.js | Justin | Match modifiers (the third roll): the list, and which pick it shows up at |
+| replay.js | Justin | Instant replays: records ball flights, picks the big shots, the replay camera |
 | menus.js | Bom | Menu screens, result and chest opening, tutorial steps, sandbox panel |
 | shooter.js | Isaiah | The 3D player's pose (joint angles for the shooting motion, driven by the power bar), skin tones and hair styles |
 | audio.js, sounds/ | Bom | Every sound, made in code; real files in `sounds/` replace them |
@@ -143,8 +151,9 @@ node tests/cards.test.js
 node tests/shooter.test.js
 node tests/crowd.test.js
 node tests/leaderboards.test.js
+node tests/challenges.test.js
 ```
-The first checks that every spot can be scored, the collisions, and frame-rate independence. The second checks the match rules: streak tiers, rapid fire, power-up odds and effects, the rival's accuracy, the buzzer, overtime, the court rules (soft rim, double rim, rain, wind), practice mode, boss twists, two-player rules and a whole simulated match. The third checks chests, upgrades, gear and campaign stars and unlocks. The last checks the leaderboards: top-10 order and ties, names, which games count, the combo count, and that a new court gets boards on its own.
+The first checks that every spot can be scored, the collisions, and frame-rate independence. The second checks the match rules: streak tiers, rapid fire, power-up odds and effects, the rival's accuracy, the buzzer, overtime, the court rules (soft rim, double rim, rain, wind), practice mode, boss twists, two-player rules and a whole simulated match. The third checks chests, upgrades, gear and campaign stars and unlocks. The last checks the leaderboards: top-10 order and ties, names, which games count, the combo count, and that a new court gets boards on its own. `challenges.test.js` checks the seeded rolls, the daily challenge, challenge codes, the match modifier and the cards-used record.
 
 To check speed on a laptop, add `?stats` to the page address: the top-left corner shows frames per second, the slowest frame, how long the game's own code takes per frame, and how many objects are drawn.
 

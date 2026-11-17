@@ -39,6 +39,10 @@ When you check something, write your initials and what you found in the Result c
 | Graphics | Do the courts look clearly better (floor shine and reflections, soft shadows, ring spot markers, pole padding, ceiling lights)? Anything that looks wrong? | 19 | |
 | Graphics | Do the shiny courts (Home Gym, Pro Arena, Neon Arcade, Rooftop, Frozen Lake) still run at 60 fps on the slowest laptop? The reflection costs about one extra frame-step here in software rendering | 19, 25 | |
 | Leaderboards | After a Quick Match, does the result screen show "New high score!" and ask for your name once? Are the boards easy to read (court picker, difficulty tabs, campaign tab)? | Stage 3 | |
+| Daily and codes | Two teammates play today's Daily Challenge: do you get the same cards at each pick? Send a challenge code to a teammate: does it load and show your score to beat? | Stage 3 | |
+| Replay | Does the slow-motion replay look good, and is it too often or too rare? Does the small corner replay distract you mid-game? | Stage 3 | |
+| Stats | Is the shot chart easy to read? Anything missing from the post-game stats? | Stage 3 | |
+| Modifier | Does the third reel read well above the cards? Is the line at the bottom in the way? | Stage 3 | |
 | Preview link | In the claude.ai preview, does the mouse lock inside the game, and does saved progress (gold, cards, player look, money spot) survive a reload? | | |
 | Docs | Each teammate: read your section of [how-it-works.md](how-it-works.md) and say what is unclear | 3 | |
 
@@ -90,6 +94,15 @@ When you check something, write your initials and what you found in the Result c
 - **The name can only be set once from the result screen**; there is no "change name" button yet (`Leaderboards.setName` in the console works).
 - **The tutorial race (campaign stage 1) counts on its stage board**, though it is scripted.
 - **Easy and Hard boards depend on the slider at the start of the match**; moving the slider mid-game does not move the score to another board.
+
+### Daily challenge, codes, replay, modifier
+- **Only the power-up cards are shared** by the daily challenge and codes. The rival's shots and the wind are still random, and a skipped pick uses other odds, so scores are not perfectly fair to compare.
+- **Challenge codes depend on the order of courts in `courts.js`.** Add new courts at the end.
+- **The daily board is on one computer only.**
+- **Replays show the ball only**: the shooter does not replay its motion, and the hoop's net does not move in the replay.
+- **A deep-three replay needs a swish** (about a third of made corner threes) and waits 15 s between replays; a pick or the end of the game stops it.
+- **The rival AI's shots never get a replay**, even a game-winner.
+- **The only match modifier is a placeholder that changes nothing.**
 
 ### Project
 - **No GitHub Pages link yet.** The repo is private; turning Pages on needs GitHub Pro (free with the student pack) or a public repo.

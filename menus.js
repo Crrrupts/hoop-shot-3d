@@ -17,6 +17,7 @@ const Menus = (function () {
         if (name === 'campaign') fillCampaign();
         if (name === 'cards') fillCards();
         if (name === 'boards') fillBoards();
+        if (name === 'daily') fillDaily();
         if (name !== 'result') { $('sandbox-panel').style.display = 'none'; hideTutorial(); }
     }
     // game.js calls this when a match starts
@@ -28,9 +29,14 @@ const Menus = (function () {
     $('btn-cards').addEventListener('click', () => show('cards'));
     $('btn-player').addEventListener('click', () => { show('player'); fillPlayer(); });
     $('btn-boards').addEventListener('click', () => show('boards'));
+    $('btn-daily').addEventListener('click', () => show('daily'));
+    $('btn-code').addEventListener('click', () => { show('code'); $('code-info').textContent = ''; $('code-input').focus(); });
     $('btn-sandbox').addEventListener('click', startSandbox);
     for (const b of document.querySelectorAll('.back-btn')) b.addEventListener('click', () => show('main'));
-    $('btn-menu').addEventListener('click', () => show(Game.state.options.mode === 'campaign' ? 'campaign' : 'main'));
+    $('btn-menu').addEventListener('click', () => {
+        const mode = Game.state.options.mode;
+        show(mode === 'campaign' ? 'campaign' : mode === 'daily' ? 'daily' : 'main');
+    });
     $('btn-again').addEventListener('click', () => Game.start());
     // "Start" under the game restarts whatever is being played
     $('start-btn').addEventListener('click', () => { Game.start(); $('start-btn').blur(); });
@@ -173,7 +179,13 @@ const Menus = (function () {
     $('btn-tutorial').addEventListener('click', startTutorial);
 
     // ---------- Result screen (and chest opening for campaign wins) ----------
+    // A buzzer-beater or game-winner first gets an instant replay (replay.js);
+    // the results come when it ends or is skipped.
     window.showGameOver = function () {
+        if (!Replay.playFinal(showResults)) showResults();
+    };
+    function showResults() {
+        if (Game.state.mode !== 'gameover') return;        // a new game started during the replay
         const s = Game.state, player = Game.player, rival = Game.rival, options = s.options;
         const pct = player.attempts ? Math.round(100 * player.made / player.attempts) : 0;
         $('result-title').textContent = { win: 'You Win!', lose: 'You Lose', tie: 'Tie Game' }[s.result];
@@ -214,8 +226,115 @@ const Menus = (function () {
             if (next < Campaign.STAGES.length && Campaign.unlocked(next)) $('btn-next').style.display = '';
         }
         showBoardResults(Leaderboards.recordGame(s, player));
+        showStats();
+        showChallenge();
         show('result');
-    };
+    }
+
+    // ---------- Post-game stats ----------
+    // A shot chart (makes / attempts at each spot, around the arc as seen from
+    // above, colored by how well you shot there), your shooting %, best streak
+    // and the power-up cards you picked. Two-player shows both players.
+    const SPOT_LABELS = ['Left corner', 'Left wing', 'Top', 'Right wing', 'Right corner'];
+    function shotChart(shooter, title) {
+        const box = document.createElement('div');
+        box.className = 'stats-box';
+        const pct = shooter.attempts ? Math.round(100 * shooter.made / shooter.attempts) : 0;
+        const heading = document.createElement('div');
+        heading.className = 'stats-title';
+        heading.textContent = `${title}: ${shooter.made}/${shooter.attempts} (${pct}%), best streak ${shooter.bestStreak}`;
+        box.appendChild(heading);
+        // the half court: the hoop at the top middle, the spots around it
+        const court = document.createElement('div');
+        court.className = 'shot-chart';
+        const hoop = document.createElement('div');
+        hoop.className = 'chart-hoop';
+        court.appendChild(hoop);
+        Game.SPOTS.forEach((spot, i) => {
+            const stat = shooter.spotStats[i];
+            const a = spot.angle * Math.PI / 180, r = spot.dist * 17;       // 17 pixels per meter
+            const dot = document.createElement('div');
+            const rate = stat.attempts ? stat.made / stat.attempts : -1;
+            dot.className = 'chart-spot ' + (rate < 0 ? 'none' : rate >= 0.5 ? 'hot' : rate >= 0.25 ? 'warm' : 'cold');
+            dot.style.left = (110 + Math.sin(a) * r) + 'px';
+            dot.style.top = (14 + Math.cos(a) * r) + 'px';
+            dot.textContent = `${stat.made}/${stat.attempts}`;
+            dot.title = `${SPOT_LABELS[i]} (${spot.points} pts)`;
+            court.appendChild(dot);
+        });
+        box.appendChild(court);
+        const cards = document.createElement('div');
+        cards.className = 'stats-cards';
+        // grouped: "Double Ball x2, Wide Rim" in the order first picked
+        const counts = new Map();
+        for (const card of shooter.cardsUsed) counts.set(card.name, (counts.get(card.name) || 0) + 1);
+        cards.textContent = 'Power-ups used: ' + (counts.size
+            ? [...counts].map(([name, n]) => n > 1 ? `${name} x${n}` : name).join(', ') : 'none');
+        box.appendChild(cards);
+        return box;
+    }
+    function showStats() {
+        const box = $('result-stats');
+        box.innerHTML = '';
+        if (Game.state.twoPlayer) {
+            box.appendChild(shotChart(Game.player, 'P1'));
+            box.appendChild(shotChart(Game.rival, 'P2'));
+        } else {
+            box.appendChild(shotChart(Game.player, 'You'));
+        }
+    }
+
+    // ---------- Daily challenge and challenge codes ----------
+    function fillDaily() {
+        const today = Challenges.daily();
+        $('daily-info').textContent = `Today (${today.date}): ${Courts.byId(today.court).name}, ${today.difficulty}`;
+        fillBoard($('daily-board'), Leaderboards.top(Leaderboards.dailyKey(today.date)).slice(0, 5));
+    }
+    $('daily-play').addEventListener('click', () => {
+        const today = Challenges.daily();       // read again: the date may have changed since the screen opened
+        Game.start({ mode: 'daily', date: today.date, court: today.court, difficulty: today.difficulty,
+            seed: today.seed, moneySpot: moneySpot() });
+    });
+    $('code-form').addEventListener('submit', (e) => {
+        e.preventDefault();             // (a form would reload the page)
+        const game = Challenges.decode($('code-input').value);
+        if (!game) { $('code-info').textContent = 'That code is not valid. Check it for typos.'; return; }
+        $('code-input').blur();
+        Game.start({ mode: 'challenge', court: game.court, difficulty: game.difficulty, seed: game.seed,
+            scoreToBeat: game.score, code: $('code-input').value.trim().toUpperCase(), moneySpot: moneySpot() });
+    });
+    // While typing a code, keys must not shoot, restart (R) or change the camera (C)
+    for (const type of ['keydown', 'keyup']) $('code-input').addEventListener(type, (e) => e.stopPropagation());
+
+    // On the result screen: the score to beat (challenge games) and a code for
+    // this game, so a friend can try to beat it (one-player games outside the campaign)
+    function showChallenge() {
+        const s = Game.state, opt = s.options;
+        $('result-beat').textContent = '';
+        $('result-code').innerHTML = '';
+        if (opt.mode === 'challenge') {
+            const beat = Game.player.score > opt.scoreToBeat;
+            $('result-beat').textContent = `Score to beat: ${opt.scoreToBeat}. ` +
+                (beat ? 'You beat it!' : Game.player.score === opt.scoreToBeat ? 'You tied it.' : 'Not this time.');
+            $('result-beat').className = beat ? 'beat' : '';
+        }
+        if (s.twoPlayer || s.practice || ['quick', 'daily', 'challenge'].indexOf(opt.mode) < 0) return;
+        const code = Challenges.encode({ court: s.court.id, difficulty: s.difficulty, seed: s.seed, score: Game.player.score });
+        if (!code) return;
+        const label = document.createElement('span');
+        label.textContent = 'Challenge a friend with this code: ';
+        const value = document.createElement('code');
+        value.id = 'result-code-value';
+        value.textContent = code;
+        const copy = document.createElement('button');
+        copy.textContent = 'Copy';
+        copy.addEventListener('click', () => {
+            const done = () => { copy.textContent = 'Copied'; };
+            if (navigator.clipboard) navigator.clipboard.writeText(code).then(done, () => { copy.textContent = 'Select and copy it'; });
+            else copy.textContent = 'Select and copy it';
+        });
+        $('result-code').append(label, value, ' ', copy);
+    }
 
     // ---------- Leaderboards on the result screen ----------
     // "New high score! #3 on Home Gym (Medium)". The first time a score makes
@@ -223,7 +342,8 @@ const Menus = (function () {
     let unnamed = [];               // entries added before the player gave a name
     function showBoardResults(made) {
         const s = Game.state;
-        const where = s.options.mode === 'campaign' ? `the stage ${s.options.stage + 1} board` : `${s.court.name} (${s.difficulty})`;
+        const where = s.options.mode === 'campaign' ? `the stage ${s.options.stage + 1} board`
+            : s.options.mode === 'daily' ? `the daily board (${s.options.date})` : `${s.court.name} (${s.difficulty})`;
         $('result-boards').textContent = made.map((m) => `${m.label} #${m.rank} on ${where}`).join('\n');      // one per line (style.css keeps the line breaks)
         unnamed = Leaderboards.getName() ? [] : made.map((m) => m.entry);
         $('result-name').style.display = unnamed.length ? '' : 'none';
@@ -289,6 +409,10 @@ const Menus = (function () {
         for (const tab of $('board-diff-tabs').children) tab.classList.toggle('on', tab.dataset.diff === boardView.difficulty);
         $('board-quick').style.display = boardView.mode === 'quick' ? '' : 'none';
         $('board-campaign').style.display = boardView.mode === 'campaign' ? '' : 'none';
+        $('board-daily').style.display = boardView.mode === 'daily' ? '' : 'none';
+        const today = Challenges.daily();
+        $('board-daily-info').textContent = `${today.date}: ${Courts.byId(today.court).name}, ${today.difficulty}`;
+        fillBoard($('board-daily-score'), Leaderboards.top(Leaderboards.dailyKey(today.date)));
         const court = courtSelect.value, diff = boardView.difficulty;
         fillBoard($('board-score'), Leaderboards.top(Leaderboards.quickKey(court, diff, 'score')));
         fillBoard($('board-combo'), Leaderboards.top(Leaderboards.quickKey(court, diff, 'combo')));

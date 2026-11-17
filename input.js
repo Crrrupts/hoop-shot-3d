@@ -104,6 +104,29 @@ diffSlider.addEventListener('input', (e) => {
     diffSlider.blur(); // so Space and A/D keep working after using the slider
 });
 
+// The daily challenge and challenge codes play on a fixed difficulty: set the
+// slider to it and lock it for the match. null puts back the player's own choice.
+let ownDifficulty = null;           // the slider value before it was fixed
+function setFixedDifficulty(name) {
+    if (name) {
+        const key = Object.keys(DIFFICULTY_SETTINGS).find((k) => DIFFICULTY_SETTINGS[k].name === name);
+        if (!key) return;
+        if (ownDifficulty === null) ownDifficulty = difficulty;
+        showDifficulty(Number(key));
+        diffSlider.disabled = true;
+    } else if (ownDifficulty !== null) {
+        showDifficulty(ownDifficulty);
+        ownDifficulty = null;
+        diffSlider.disabled = false;
+    }
+}
+function showDifficulty(value) {
+    difficulty = value;
+    diffSlider.value = value;
+    diffSlider.dispatchEvent(new Event('input'));      // ui.js updates the label
+    diffSlider.blur();
+}
+
 // ---------- Restart ----------
 function restartGame() {
     // Input state

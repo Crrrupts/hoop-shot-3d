@@ -62,6 +62,11 @@
 
         <!-- Big text for streak tiers and overtime -->
         <div id="banner"></div>
+        <!-- The match modifier: a third reel at one pick, then its name and effect stay on screen (modifiers.js) -->
+        <div id="modifier-reel"><div class="mod-label">MATCH MODIFIER</div><div id="modifier-reel-name"></div><div id="modifier-reel-text"></div></div>
+        <div id="modifier-chip"></div>
+        <!-- "REPLAY" over an instant replay (replay.js) -->
+        <div id="replay-label"></div>
         <!-- Small message when the rival picks a card -->
         <div id="toast"></div>
         <!-- Floating text like +2, SWISH!, SO CLOSE! (added by ui.js) -->
@@ -143,6 +148,8 @@
             <p class="small">Mouse: put the crosshair on the rim | Hold Space: power | C: camera | R: restart</p>
             <button id="btn-campaign" class="big">Campaign</button>
             <button id="btn-quick">Quick Match</button>
+            <button id="btn-daily">Daily Challenge</button>
+            <button id="btn-code">Enter a challenge code</button>
             <button id="btn-versus">2 Players</button>
             <button id="btn-sandbox">Sandbox</button>
             <button id="btn-cards">Cards</button>
@@ -205,12 +212,36 @@
             <button class="back-btn">Back</button>
         </div>
 
+        <div class="screen" id="screen-daily">
+            <h2>Daily Challenge</h2>
+            <p id="daily-info"></p>
+            <p class="small">Everyone gets the same court, difficulty and power-up cards today. A new one at midnight.</p>
+            <label>Money spot (your makes there count double) <select class="money-spot"></select></label>
+            <button id="daily-play" class="big">Play today's challenge</button>
+            <h3>Today's best (this computer)</h3>
+            <table class="board" id="daily-board"></table>
+            <button class="back-btn">Back</button>
+        </div>
+
+        <div class="screen" id="screen-code">
+            <h2>Challenge code</h2>
+            <p class="small">A friend's code gives you their court, difficulty and power-up cards. Try to beat their score.</p>
+            <form id="code-form">
+                <input id="code-input" maxlength="20" autocomplete="off" placeholder="e.g. 3M-0K9F2A-1D7">
+                <button type="submit" class="big">Play</button>
+            </form>
+            <p id="code-info"></p>
+            <label>Money spot (your makes there count double) <select class="money-spot"></select></label>
+            <button class="back-btn">Back</button>
+        </div>
+
         <div class="screen" id="screen-boards">
             <h2>Leaderboards</h2>
             <p class="small">Saved on this computer. Quick Match boards are per court and difficulty; each campaign stage has its own board.</p>
             <div class="tabs" id="board-mode-tabs">
                 <button data-mode="quick" class="tab">Quick Match</button>
                 <button data-mode="campaign" class="tab">Campaign</button>
+                <button data-mode="daily" class="tab">Daily</button>
             </div>
             <div id="board-quick">
                 <label>Court <select id="board-court"></select></label>
@@ -219,6 +250,10 @@
                     <div><h3>High score</h3><table class="board" id="board-score"></table></div>
                     <div><h3>Best combo (makes in a row)</h3><table class="board" id="board-combo"></table></div>
                 </div>
+            </div>
+            <div id="board-daily">
+                <p id="board-daily-info"></p>
+                <div class="board-pair"><div><h3>Today's high score</h3><table class="board" id="board-daily-score"></table></div></div>
             </div>
             <div id="board-campaign">
                 <label>Stage <select id="board-stage"></select></label>
@@ -234,11 +269,14 @@
             <p id="result-stars"></p>
             <p id="result-reward"></p>
             <div id="result-cards"></div>
+            <div id="result-beat"></div>
+            <div id="result-stats"></div>
             <div id="result-boards"></div>
             <form id="result-name" style="display: none">
                 <label>Your name for the leaderboards <input id="result-name-input" maxlength="12" autocomplete="off"></label>
                 <button type="submit">Save</button>
             </form>
+            <div id="result-code"></div>
             <div id="result-buttons">
                 <button id="btn-next" class="big">Next stage</button>
                 <button id="btn-again">Play Again</button>
@@ -396,6 +434,8 @@
     <script src="cards.js"></script>
     <script src="campaign.js"></script>
     <script src="leaderboards.js"></script>
+    <script src="challenges.js"></script>
+    <script src="modifiers.js"></script>
     <script src="game.js"></script>
     <script src="shooter.js"></script>
     <script src="sounds/list.js"></script>
@@ -406,6 +446,7 @@
     <script src="geometry.js"></script>
     <script src="textures.js"></script>
     <script src="renderer.js"></script>
+    <script src="replay.js"></script>
     <script src="menus.js"></script>
     <script src="main.js"></script>
 </body>

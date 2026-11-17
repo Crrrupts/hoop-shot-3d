@@ -13,6 +13,7 @@ const Game = (function () {
     // In the browser PowerUps is already loaded; the node tests load it here
     const PU = (typeof PowerUps !== 'undefined') ? PowerUps : require('./powerups.js');
     const CourtList = (typeof Courts !== 'undefined') ? Courts : require('./courts.js');
+    const Mods = (typeof Modifiers !== 'undefined') ? Modifiers : require('./modifiers.js');
 
     // ---------- Settings (starting values, easy to change) ----------
     const SETTINGS = {
@@ -110,6 +111,7 @@ const Game = (function () {
             hoop: hoop,
             score: 0, streak: 0, bestStreak: 0, made: 0, attempts: 0,
             combo: 0, bestCombo: 0,     // real makes in a row (for the combo leaderboard; cards cannot change it)
+            cardsUsed: [],              // the power-up cards this shooter picked this match (post-game stats)
             spot: 3,
             balls: [],                  // balls in the air or bouncing
             queue: [],                  // balls waiting to be counted, in throw order (see settle)
@@ -145,6 +147,9 @@ const Game = (function () {
         fans: 0,                        // the fan meter, -1..1 (see SETTINGS.fans)
         twist: null,                    // a campaign boss's special rule (see campaign.js)
         difficulty: 'Medium',           // the difficulty this match started on (leaderboards)
+        seed: 0,                        // the match's seed for power-up rolls (daily challenge, challenge codes)
+        modifierAt: 0,                  // which pick the match modifier shows up at (0 = no modifier this match)
+        modifier: null,                 // the match modifier, once it has shown up (modifiers.js)
         options: {},                    // what the current match was started with (R restarts it)
         followBall: null,               // your newest ball (for the Ball Follow camera)
         shotDir: [0, 0, -1],            // which way it was thrown
@@ -185,6 +190,24 @@ const Game = (function () {
         return (typeof currentSpot !== 'undefined') ? currentSpot : player.spot;
     }
     function randomBetween(a, b) { return a + Math.random() * (b - a); }
+
+    // ---------- Seeded rolls (daily challenge and challenge codes) ----------
+    // A seeded random number generator ("mulberry32"): the same seed always
+    // gives the same list of numbers between 0 and 1.
+    function seededRandom(seed) {
+        let a = seed >>> 0;
+        return function () {
+            a = (a + 0x6D2B79F5) >>> 0;
+            let t = a;
+            t = Math.imul(t ^ (t >>> 15), t | 1);
+            t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+            return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+        };
+    }
+    // Each pick gets its own stream from the match seed and the pick number,
+    // so pick 3 of a seed always rolls the same cards, whatever happened before
+    function pickRandom() { return seededRandom(state.seed + state.pickNumber * 7919); }
+    const SEED_RANGE = 2176782336;      // 36^6: a seed fits in 6 letters or digits (challenge codes)
     // What your gear cards do (cards.js). No gear in the node tests.
     function gear() {
         if (typeof Cards !== 'undefined' && !state.twoPlayer) return Cards.gearBonus();    // no gear in two-player
@@ -744,9 +767,11 @@ const Game = (function () {
         // Every mode uses the same odds (powerups.js). A player who skipped
         // their last pick gets the better "after a skip" odds this time.
         const row = PU.oddsRow(state.pickNumber, state.overtime, player.skippedLast);
+        const random = pickRandom();
         state.pick = {
-            buff: PU.rollCard('buff', row),
-            sabotage: PU.rollCard('sabotage', row),
+            buff: PU.rollCard('buff', row, null, random),
+            sabotage: PU.rollCard('sabotage', row, null, random),
+            random: random,             // the rival's card at this pick comes from the same stream
             timeLeft: SETTINGS.pickChooseTime,
             row: row
         };
@@ -755,8 +780,15 @@ const Game = (function () {
         if (state.twoPlayer) {
             // Player 2 gets their own two cards; the game waits for both players
             const row2 = PU.oddsRow(state.pickNumber, state.overtime, rival.skippedLast);
-            state.pick.p2 = { buff: PU.rollCard('buff', row2), sabotage: PU.rollCard('sabotage', row2) };
+            state.pick.p2 = { buff: PU.rollCard('buff', row2, null, random), sabotage: PU.rollCard('sabotage', row2, null, random) };
             state.pick.chosen = { player: null, rival: null };
+        }
+        // the match modifier rolls once, at the pick chosen at the start (Quick Match and 2 Players)
+        if (state.modifierAt && state.pickNumber === state.modifierAt && !state.modifier) {
+            state.modifier = Mods.roll(seededRandom(state.seed + 104729));
+            state.pick.modifier = state.modifier;
+            if (state.modifier.start) state.modifier.start(api);
+            emit('modifier', { modifier: state.modifier });
         }
         state.mode = 'picking';         // the game pauses until a card is chosen
         // let go of the power meters (input.js variables)
@@ -764,6 +796,7 @@ const Game = (function () {
         hud('updatePowerMeter', 0);
         hud('updatePowerMeter2', 0);
         hud(state.twoPlayer ? 'showPick2' : 'showPick', state.pick, choosePick);
+        if (state.pick.modifier) hud('showModifierReel', state.pick.modifier);
     }
 
     // side is 'buff' (left card), 'sabotage' (right card) or 'skip' (the
@@ -786,8 +819,9 @@ const Game = (function () {
             // the rival picks a card at the same time
             if (rival.ai && rival.ai.maxRarity) {
                 // the final boss uses a sabotage every pick
-                const rivalSide = state.twist === 'sabotageEveryPick' || Math.random() < 0.5 ? 'sabotage' : 'buff';
-                const card = PU.rollCard(rivalSide, row, rival.ai.maxRarity);
+                const random = state.pick.random;
+                const rivalSide = state.twist === 'sabotageEveryPick' || random() < 0.5 ? 'sabotage' : 'buff';
+                const card = PU.rollCard(rivalSide, row, rival.ai.maxRarity, random);
                 applyCard(card, rival);
                 hud('showToast', rival.name + ' picked ' + card.name + (card.side === 'sabotage' ? ' on you!' : ''), card.side);
             }
@@ -805,6 +839,7 @@ const Game = (function () {
             if (shooter === player && !state.twoPlayer) hud('showToast', 'No pick: better odds next time', 'buff');
         } else {
             shooter.skippedLast = false;
+            shooter.cardsUsed.push(cards[side]);        // for the post-game stats
             applyCard(cards[side], shooter);
         }
     }
@@ -892,7 +927,18 @@ const Game = (function () {
         state.twoPlayer = !!options.twoPlayer;
         state.home = player;
         state.twist = options.twist || null;
+        // the daily challenge and challenge codes fix the difficulty (input.js locks the slider)
+        if (typeof setFixedDifficulty === 'function') setFixedDifficulty(options.difficulty || null);
         state.difficulty = difficulty().name;   // for the leaderboards: the difficulty the match started on
+        // every match has a seed for its power-up rolls; the daily challenge and challenge codes choose it
+        state.seed = options.seed !== undefined ? options.seed : Math.floor(Math.random() * SEED_RANGE);
+        // the match modifier: Quick Match and 2 Players only (and the daily challenge and challenge
+        // codes, which are Quick Matches). Which pick it shows up at is chosen now, in secret.
+        const modifierModes = ['quick', 'versus', 'daily', 'challenge'];
+        state.modifier = null;
+        state.modifierAt = modifierModes.indexOf(options.mode) >= 0 && !options.practice
+            ? Mods.rollShowAt(seededRandom(state.seed + 15485863)) : 0;
+        hud('showModifier', null);
         if (options.court && options.court !== state.court.id) setCourt(options.court);
         player.sabotagesUsed = 0;
         player.skippedLast = false;     // skipped the last pick (better odds next time)
@@ -900,7 +946,7 @@ const Game = (function () {
         player.freeMissUsed = false;
         for (const s of [player, rival]) {
             s.spotStats = SPOTS.map(() => ({ made: 0, attempts: 0 }));
-            s.score = 0; s.streak = 0; s.bestStreak = 0; s.made = 0; s.attempts = 0; s.combo = 0; s.bestCombo = 0;
+            s.score = 0; s.streak = 0; s.bestStreak = 0; s.made = 0; s.attempts = 0; s.combo = 0; s.bestCombo = 0; s.cardsUsed = [];
             s.balls = []; s.pending = []; s.effects = {}; s.queue = [];
             s.hoopClock = 0; s.cooldown = 0;
             s.hoop.offset[0] = 0; s.hoop.slippery = false;
@@ -1141,12 +1187,14 @@ const Game = (function () {
         window.gameInstance = { start, setCourt };
     }
 
-    return {
-        state, player, rival, SPOTS, SETTINGS, TIERS, RIVALS,
+    // (a match modifier's start() gets this object, so it can change anything the game exposes)
+    const api = {
+        state, player, rival, SPOTS, SETTINGS, TIERS, RIVALS, SEED_RANGE,
         start, shoot, shoot2, update, on,
         spotPosition, shotVelocity, makeWindow, tierFor, pointsFor, perfectAim, powerZone, aimZone, makeWindowFull, greenZone, zoneVisible, aimShake, lean, fanFavorite, heatTier, pullFans,
-        throwBall, applyCard, choosePick, opponentOf, setCourt, forcePick, clearBalls, quit, tutorialMoneySpot
+        throwBall, applyCard, choosePick, opponentOf, setCourt, forcePick, clearBalls, quit, tutorialMoneySpot, seededRandom
     };
+    return api;
 })();
 
 if (typeof module !== 'undefined') module.exports = Game;

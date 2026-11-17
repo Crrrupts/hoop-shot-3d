@@ -4,6 +4,7 @@
 //   'score'  most points in one game (overtime points count)
 //   'combo'  most makes in a row in one game
 // Campaign: one high-score board per stage.
+// Daily challenge: one high-score board per day.
 // Each board keeps the top 10, each entry { name, value, date }.
 //
 // Boards are saved in the browser's localStorage (this computer only), the
@@ -36,6 +37,7 @@ const Leaderboards = (function () {
     // ---------- Board names ----------
     function quickKey(courtId, difficulty, kind) { return `quick:${courtId}:${difficulty}:${kind}`; }
     function campaignKey(stageId) { return `campaign:${stageId}:score`; }
+    function dailyKey(date) { return `daily:${date}:score`; }
 
     // The courts and campaign stages that have boards, read from courts.js and
     // campaign.js each time, so new ones show up on their own
@@ -95,7 +97,8 @@ const Leaderboards = (function () {
     // ---------- After a game ----------
     // What a finished match puts on the boards. Returns a list of
     // { label, rank, entry } for every board it made (empty if none).
-    // Only Quick Match (one player) and campaign games count.
+    // Only Quick Match (one player), daily challenge and campaign games count
+    // (a challenge-code game is compared with the code's score instead).
     function recordGame(state, player) {
         const made = [];
         const opt = state.options || {};
@@ -106,6 +109,8 @@ const Leaderboards = (function () {
             const court = state.court.id, diff = state.difficulty;
             note(add(quickKey(court, diff, 'score'), player.score), 'New high score!', 'Top 10 score!');
             note(add(quickKey(court, diff, 'combo'), player.bestCombo), 'New best combo!', 'Top 10 combo!');
+        } else if (opt.mode === 'daily') {
+            note(add(dailyKey(opt.date), player.score), 'New best today!', 'Top 10 today!');
         } else if (opt.mode === 'campaign') {
             const stage = stages()[opt.stage];
             if (stage) note(add(campaignKey(stage.id), player.score), 'New stage high score!', 'Top 10 stage score!');
@@ -118,7 +123,7 @@ const Leaderboards = (function () {
 
     return {
         TOP, DIFFICULTIES, KINDS, NAME_LENGTH,
-        quickKey, campaignKey, courts, stages, top, rankFor, add, getName, setName, recordGame, reset
+        quickKey, campaignKey, dailyKey, courts, stages, top, rankFor, add, getName, setName, recordGame, reset
     };
 })();
 

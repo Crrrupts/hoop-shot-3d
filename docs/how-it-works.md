@@ -137,6 +137,17 @@ Files: `index.html`, `style.css`, `ui.js`, `menus.js`, plus `effects.js` and `cr
 - *Q: Can a teammate's scores be seen?* No, the boards are only on the computer they were played on. A shared online board can come with the online 2-player work.
 - *Q: How do I clear the boards?* In the browser console: `Leaderboards.reset()`.
 
+**Seeds, the daily challenge and challenge codes.** Every match has a seed (`state.seed`). Each pick makes its own random-number stream from the seed and the pick number (`pickRandom` in game.js, a small "mulberry32" generator), and both cards, Player 2's cards and the rival's card at that pick come from it. So pick 3 of a seed always rolls the same cards, whatever else happened (rival shots, wind and your own shots still use `Math.random`). `challenges.js` turns today's date into a court, difficulty and seed with a text hash, and packs court, difficulty, seed and score into a short code and back. `setFixedDifficulty` in input.js sets and locks the slider for those games and puts the player's own choice back at the next normal game.
+
+- *Q: Why do two people with the same code get different results?* Only the cards are the same. The rival AI, the wind and every shot are still live, and a skipped pick uses different odds.
+- *Q: What happens to old codes if a court is added?* New courts go at the end of `courts.js`, so old codes still work. Reordering the list would break them.
+
+**Match modifier.** At the start of a Quick Match or 2 Players game, `Modifiers.rollShowAt` secretly picks which of the first four picks it appears at. At that pick game.js rolls the modifier (`Modifiers.roll`), runs its optional `start(game)`, and ui.js spins a third reel above the cards (`showModifierReel`), then keeps a line at the bottom of the screen (`showModifier`). Each modifier is an object in `modifiers.js`; there is only a placeholder until Justin designs the real ones.
+
+**Instant replay.** `replay.js` saves every ball's position each frame (`Replay.record`). On a make it decides whether the shot deserves a replay and plays the saved path back at 0.35x speed through a camera beside the hoop. main.js swaps that camera into the full view (after the final buzzer, before `showResults` in menus.js) or the small corner view (during the game). A view can carry its own `balls` list, so the replay view draws only the replay ball.
+
+**Post-game stats.** `showStats` in menus.js draws the shot chart from `shooter.spotStats` (placed around the arc using each spot's angle and distance) and lists `shooter.cardsUsed`, filled in game.js when a card is picked.
+
 **The tutorial race.** After the steps, campaign stage 1 is a normal 2-minute race with the boss twist `tutorialRace` (game.js). Coach makes shots when you lead by more than 2 and misses when Coach leads by more than 2, and shoots faster when you are more than 4 ahead. If you are still more than 10 ahead at the buzzer, Coach "drains a deep buzzer-beater" that sets the score within 10, so the race always goes to overtime. The first overtime pick offers the Placeholder Mythic (powerups.js; normal rolls never land on it), which you also get if the timer runs out, and Coach misses everything in overtime. menus.js shows a hint box during the race.
 
 - *Q: Is the tutorial race fair?* No, on purpose: it shows overtime and a mythic card to every new player. Later stages are not scripted.
