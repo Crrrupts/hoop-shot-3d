@@ -47,3 +47,7 @@ Keep this file throughout the project and submit the updated log with GA2 and GA
 ## Current disclosure
 
 ChatGPT assisted with brainstorming and drafting the GA1 planning materials. With the instructor's permission to use AI for code, the game code is AI-generated with Claude (Anthropic): Claude Code sessions wrote the code, and claude.ai chat sessions helped with design docs, planning and reports. Justin directs and reviews the work; Isaiah, Amit and Bom contributed brainstorming, design and early code (Amit's input code, Bom's first UI). As of November 17, 2026, all four members have played full games, and playtest findings go into docs/review-checklist.md. The team is responsible for reviewing the submission, understanding the application, verifying that it meets the rubric, and keeping this log accurate.
+
+## Note on team roles and credit
+
+All four members currently share revolving roles: each person takes on whatever suits them best for the situation and the task at hand, rather than staying in one fixed area. Because the AI sessions are run from Justin's laptop, this log may not always credit every teammate who took part in a session. Most of these gaps have been corrected, but please keep in mind that all group members are contributing to the project.
