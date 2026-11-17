@@ -23,7 +23,6 @@ const Game = (function () {
         pickGapMax: 30,
         earlyPickMakes: 2,          // ...but the first one comes early, at your 2nd make
         pickChooseTime: 5,          // seconds to choose; after that you get no card (but better odds next time)
-        oddsMode: 'campaign',       // which rarity odds table to use (see powerups.js)
         courtGap: 15,               // the rival's hoop stands this far to the right (meters)
         shotCooldown: 0.15,         // shortest time between two of your shots
         maxBalls: 12,               // most balls one shooter can have in the air
@@ -737,10 +736,9 @@ const Game = (function () {
     // ---------- Power-up picks ----------
     function startPick() {
         state.pickNumber++;
-        // two-player is the fast-paced mode: it uses the better multiplayer odds.
-        // A player who skipped their last pick gets better odds this time.
-        const mode = state.twoPlayer ? 'multiplayer' : SETTINGS.oddsMode;
-        const row = PU.oddsRow(mode, state.pickNumber, state.overtime, player.pickBoost);
+        // Every mode uses the same odds (powerups.js). A player who skipped
+        // their last pick gets the better "after a skip" odds this time.
+        const row = PU.oddsRow(state.pickNumber, state.overtime, player.skippedLast);
         state.pick = {
             buff: PU.rollCard('buff', row),
             sabotage: PU.rollCard('sabotage', row),
@@ -751,7 +749,7 @@ const Game = (function () {
         if (state.twist === 'tutorialRace' && state.overtime && !PU.has(player, 'placeholder')) state.pick.buff = PU.byId('placeholder');
         if (state.twoPlayer) {
             // Player 2 gets their own two cards; the game waits for both players
-            const row2 = PU.oddsRow(mode, state.pickNumber, state.overtime, rival.pickBoost);
+            const row2 = PU.oddsRow(state.pickNumber, state.overtime, rival.skippedLast);
             state.pick.p2 = { buff: PU.rollCard('buff', row2), sabotage: PU.rollCard('sabotage', row2) };
             state.pick.chosen = { player: null, rival: null };
         }
@@ -798,10 +796,10 @@ const Game = (function () {
     // Give a shooter the card they chose, or the skip bonus if they chose nothing
     function takeCard(shooter, cards, side) {
         if (side === 'skip') {
-            shooter.pickBoost++;                // next pick: odds one step toward rarer cards
+            shooter.skippedLast = true;         // next pick only: the "after a skip" odds
             if (shooter === player && !state.twoPlayer) hud('showToast', 'No pick: better odds next time', 'buff');
         } else {
-            shooter.pickBoost = 0;
+            shooter.skippedLast = false;
             applyCard(cards[side], shooter);
         }
     }
@@ -891,8 +889,8 @@ const Game = (function () {
         state.twist = options.twist || null;
         if (options.court && options.court !== state.court.id) setCourt(options.court);
         player.sabotagesUsed = 0;
-        player.pickBoost = 0;           // skipped picks in a row (better odds next time)
-        rival.pickBoost = 0;
+        player.skippedLast = false;     // skipped the last pick (better odds next time)
+        rival.skippedLast = false;
         player.freeMissUsed = false;
         for (const s of [player, rival]) {
             s.spotStats = SPOTS.map(() => ({ made: 0, attempts: 0 }));

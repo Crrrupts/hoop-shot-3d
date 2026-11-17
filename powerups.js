@@ -70,38 +70,36 @@ const PowerUps = (function () {
     ];
 
     // ---------- Rarity odds (percent): common, rare, epic, legendary, mythic ----------
-    // The odds get better with every pick: each mode has 4 steps, used in order.
-    // Campaign odds are lower; multiplayer is the fast-paced mode with better odds.
-    // Mythic cards only appear in overtime.
+    // Each pick has its own row, and the odds climb fast. Every mode uses
+    // the same table (for now). Mythic cards only appear in overtime.
+    // Pick 4's 15% common / 5% rare is on purpose: a late common is a real risk.
     const ODDS = {
-        campaign: {
-            steps: [
-                [80, 16, 4, 0, 0],      // pick 1
-                [70, 21, 8, 1, 0],      // picks 2-3
-                [62, 24, 11, 3, 0],     // pick 4 or later
-                [58, 25, 12, 5, 0]      // the best step: only reached with a skip bonus
-            ],
-            overtime: [0, 0, 0, 0, 100]
-        },
-        multiplayer: {
-            steps: [
-                [70, 22, 7, 1, 0],
-                [58, 27, 12, 3, 0],
-                [48, 30, 16, 6, 0],
-                [42, 30, 17, 11, 0]
-            ],
-            overtime: [0, 0, 0, 0, 100]
-        }
+        picks: [
+            [50, 40, 7, 3, 0],          // pick 1
+            [35, 50, 10, 5, 0],         // pick 2
+            [15, 25, 50, 10, 0],        // pick 3
+            [15, 5, 30, 50, 0]          // pick 4 and later
+        ],
+        // Used instead when you skipped your previous pick (let the timer run out).
+        // Common and rare are cut to 30% of normal; 80% of what they lose goes to
+        // epic (up to 50%) and the rest to legendary. Pick 1 has none: nothing comes before it.
+        afterSkip: [
+            null,                       // pick 1
+            [10.5, 15, 50, 24.5, 0],    // pick 2 after a skip
+            [4.5, 7.5, 50, 38, 0],      // pick 3 after a skip
+            [4.5, 1.5, 41.2, 52.8, 0]   // pick 4 and later after a skip
+        ],
+        overtime: [0, 0, 0, 0, 100]
     };
 
     // Which odds row applies. pickNumber starts at 1.
-    // boost: how many picks in a row this player skipped (let the timer run
-    // out). Each skip moves their next pick one step toward rarer cards.
-    function oddsRow(mode, pickNumber, overtime, boost) {
-        const table = ODDS[mode] || ODDS.campaign;
-        if (overtime) return table.overtime;
-        const step = (pickNumber <= 1 ? 0 : pickNumber <= 3 ? 1 : 2) + (boost || 0);
-        return table.steps[Math.min(step, table.steps.length - 1)];
+    // skipped: true if this player skipped their previous pick. Only the very
+    // next pick uses the "after a skip" row; the one after goes back to normal.
+    function oddsRow(pickNumber, overtime, skipped) {
+        if (overtime) return ODDS.overtime;
+        const index = Math.min(Math.max(pickNumber, 1), ODDS.picks.length) - 1;
+        if (skipped && ODDS.afterSkip[index]) return ODDS.afterSkip[index];
+        return ODDS.picks[index];
     }
 
     // Roll a rarity from an odds row. rand is a number from 0 to 1.

@@ -73,7 +73,7 @@ These are the decided rules for how a match plays.
 - **Moving hoop is a power-up**, not a difficulty setting.
 - **Game length:** 2 minutes, with a 1-minute overtime when the scores are within 10 points at the end. After overtime whoever is ahead wins.
 
-**Multiplayer** is local only: two players on the same computer, split screen. There is no online play. Multiplayer is the fast-paced mode, with better power-up odds than campaign.
+**Multiplayer** is local only: two players on the same computer, split screen. There is no online play. For now every mode uses the same power-up odds.
 
 ## Courts and fan atmosphere
 
@@ -275,7 +275,7 @@ A power-up pick comes every 20–30 seconds: the game pauses and you choose one 
 
 1. Every 20–30 seconds (or at your 2nd make, for the first pick) the clock freezes and two cards spin up, slot-machine style, before landing on their rarity.
 2. The left card is a **buff** for you; the right card is a **sabotage** for your opponent.
-3. You have 5 seconds to choose. If you do not, you get no card, but your next pick's odds move one step toward rarer cards.
+3. You have 5 seconds to choose. If you do not, you get no card, but your next pick uses the better "after a skip" odds.
 4. Picking a power-up you already have levels it up (stronger or longer), like Archero.
 5. The clock restarts.
 
@@ -289,25 +289,23 @@ A power-up pick comes every 20–30 seconds: the game pauses and you choose one 
 | Legendary | Gold | Game-swinging, with a big flashy reveal |
 | Mythic | Red with a rainbow shimmer | Game-deciding; overtime only. None are designed yet |
 
-**Odds get better every pick.** Each pick shifts the chances toward rarer cards, and a skipped pick moves your next one a step further. Mythics only appear in overtime, where both cards are mythic for both players; none are designed yet, so overtime cards are legendary for now. This first table is for multiplayer, the fast-paced mode. Campaign uses lower odds (second table). All numbers are a starting point to tune in testing:
+**Odds get better every pick** (decided Nov 15; the same table for campaign, Quick Match and 2 Players for now). Mythics only appear in overtime, where both cards are mythic for both players; none are designed yet, so overtime cards are legendary for now. Pick 4's 15% common / 5% rare is on purpose: a common late in the game should be a real risk.
 
-| When | Common | Rare | Epic | Legendary | Mythic |
+| Pick | Common | Rare | Epic | Legendary | Mythic |
 | --- | --- | --- | --- | --- | --- |
-| Pick 1 | 70% | 22% | 7% | 1% | 0% |
-| Pick 2–3 | 58% | 27% | 12% | 3% | 0% |
-| Pick 4 or later | 48% | 30% | 16% | 6% | 0% |
-| Best step (pick 4 or later after a skip) | 42% | 30% | 17% | 11% | 0% |
-| Overtime | — | — | — | — | 100% (both cards) |
+| Pick 1 | 50% | 40% | 7% | 3% | 0% |
+| Pick 2 | 35% | 50% | 10% | 5% | 0% |
+| Pick 3 | 15% | 25% | 50% | 10% | 0% |
+| Pick 4 and later | 15% | 5% | 30% | 50% | 0% |
+| Overtime | 0% | 0% | 0% | 0% | 100% (both cards) |
 
-**Campaign odds (lower):**
+**After a skip.** If you skipped your previous pick, your next pick uses this row instead; the pick after goes back to normal. Common and rare are cut to 30% of normal; 80% of what they lose goes to epic (which stops at 50%) and the rest to legendary. Pick 1 has no skip row.
 
-| When | Common | Rare | Epic | Legendary | Mythic |
+| Pick | Common | Rare | Epic | Legendary | Mythic |
 | --- | --- | --- | --- | --- | --- |
-| Pick 1 | 80% | 16% | 4% | 0% | 0% |
-| Pick 2–3 | 70% | 21% | 8% | 1% | 0% |
-| Pick 4 or later | 62% | 24% | 11% | 3% | 0% |
-| Best step (pick 4 or later after a skip) | 58% | 25% | 12% | 5% | 0% |
-| Overtime | — | — | — | — | 100% (both cards) |
+| Pick 2 after a skip | 10.5% | 15% | 50% | 24.5% | 0% |
+| Pick 3 after a skip | 4.5% | 7.5% | 50% | 38% | 0% |
+| Pick 4+ after a skip | 4.5% | 1.5% | 41.2% | 52.8% | 0% |
 
 **Durations:** each power-up is one of three kinds:
 

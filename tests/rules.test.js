@@ -175,34 +175,34 @@ check('three balls in the air at once', player.balls.filter((b) => b.inFlight).l
 run(4);
 check('all three rapid-fire shots count', player.made === 3 && player.balls.length === 0, 'made ' + player.made);
 
-// ---------- Power-up odds ----------
-let sums = true;
-let noMythic = true;
-for (const mode in PowerUps.ODDS) {
-    for (const row of PowerUps.ODDS[mode].steps.concat([PowerUps.ODDS[mode].overtime])) {
-        if (row.reduce((x, y) => x + y) !== 100) sums = false;
-    }
-    for (const row of PowerUps.ODDS[mode].steps) if (row[4] !== 0) noMythic = false;
+// ---------- Power-up odds (Stage 3 table) ----------
+const ODDS = PowerUps.ODDS;
+const allRows = ODDS.picks.concat(ODDS.afterSkip.filter((r) => r), [ODDS.overtime]);
+// (decimals like 41.2 + 52.8 can come out a hair off 100 in floating point)
+check('every odds row adds up to 100%', allRows.every((row) => Math.abs(row.reduce((x, y) => x + y) - 100) < 1e-9));
+check('the rows are exactly the plan\'s numbers',
+    JSON.stringify(ODDS.picks) === JSON.stringify([[50, 40, 7, 3, 0], [35, 50, 10, 5, 0], [15, 25, 50, 10, 0], [15, 5, 30, 50, 0]]) &&
+    JSON.stringify(ODDS.afterSkip) === JSON.stringify([null, [10.5, 15, 50, 24.5, 0], [4.5, 7.5, 50, 38, 0], [4.5, 1.5, 41.2, 52.8, 0]]));
+check('mythic cards only appear in overtime', ODDS.picks.concat(ODDS.afterSkip.filter((r) => r)).every((row) => row[4] === 0));
+let rowsOk = true;
+for (let pick = 1; pick <= 6; pick++) {
+    const i = Math.min(pick, 4) - 1;
+    if (PowerUps.oddsRow(pick, false, false) !== ODDS.picks[i]) rowsOk = false;
+    // after a skip: pick 1 has no skip row (nothing comes before it), so it stays normal
+    if (PowerUps.oddsRow(pick, false, true) !== (pick === 1 ? ODDS.picks[0] : ODDS.afterSkip[i])) rowsOk = false;
+    if (PowerUps.oddsRow(pick, true, false) !== ODDS.overtime || PowerUps.oddsRow(pick, true, true) !== ODDS.overtime) rowsOk = false;
 }
-check('every odds row adds up to 100%', sums);
-check('mythic cards only appear in overtime', noMythic &&
-    PowerUps.oddsRow('campaign', 9, false, 5)[4] === 0 && PowerUps.oddsRow('multiplayer', 9, false, 5)[4] === 0);
-check('overtime cards are always mythic', PowerUps.oddsRow('campaign', 9, true, 0)[4] === 100);
-const steps = PowerUps.ODDS.campaign.steps;
-check('odds improve with the pick number: pick 1, picks 2-3, pick 4 or later',
-    PowerUps.oddsRow('campaign', 1, false, 0) === steps[0] && PowerUps.oddsRow('campaign', 3, false, 0) === steps[1] &&
-    PowerUps.oddsRow('campaign', 4, false, 0) === steps[2] && steps[0][0] > steps[1][0] && steps[1][0] > steps[2][0] && steps[2][0] > steps[3][0]);
-check('a skipped pick moves the next pick one step toward rarer cards',
-    PowerUps.oddsRow('campaign', 1, false, 1) === steps[1] && PowerUps.oddsRow('campaign', 4, false, 1) === steps[3] &&
-    PowerUps.oddsRow('campaign', 4, false, 3) === steps[3]);
+check('oddsRow: picks 1-6, with and without a skip, and overtime (always 100% mythic)', rowsOk);
+check('overtime still steps down to legendary while no real mythics exist',
+    PowerUps.rollCard('buff', ODDS.overtime).rarity === 'legendary' && PowerUps.rollCard('sabotage', ODDS.overtime).rarity === 'legendary');
 const tally = { common: 0, rare: 0, epic: 0, legendary: 0, mythic: 0 };
-for (let i = 0; i < 20000; i++) tally[PowerUps.rollRarity(PowerUps.ODDS.campaign.steps[0], Math.random())]++;
-check('rolled rarities match the table (pick 1: 80/16/4/0/0)',
-    Math.abs(tally.common / 200 - 80) < 2 && Math.abs(tally.rare / 200 - 16) < 2 && tally.legendary === 0 && tally.mythic === 0,
-    `common ${tally.common / 200}%, rare ${tally.rare / 200}%, epic ${tally.epic / 200}%`);
+for (let i = 0; i < 20000; i++) tally[PowerUps.rollRarity(ODDS.picks[0], Math.random())]++;
+check('rolled rarities match the table (pick 1: 50/40/7/3/0)',
+    Math.abs(tally.common / 200 - 50) < 2 && Math.abs(tally.rare / 200 - 40) < 2 && Math.abs(tally.epic / 200 - 7) < 1 && tally.mythic === 0,
+    `common ${tally.common / 200}%, rare ${tally.rare / 200}%, epic ${tally.epic / 200}%, legendary ${tally.legendary / 200}%`);
 let sidesOk = true;
 for (let i = 0; i < 500; i++) {
-    const row = PowerUps.ODDS.multiplayer.steps[3];
+    const row = PowerUps.ODDS.picks[3];
     const buff = PowerUps.rollCard('buff', row), sab = PowerUps.rollCard('sabotage', row);
     if (!buff || !sab || buff.side !== 'buff' || sab.side !== 'sabotage') sidesOk = false;
     if (PowerUps.rollCard('buff', row, 'rare').rarity === 'epic') sidesOk = false;
@@ -338,14 +338,22 @@ while (state.mode === 'picking' && waited < 20) { Game.update(1 / 60); waited +=
 check('the pick ends after 5 seconds at most', state.mode === 'playing' && state.pick === null && waited < 5.1,
     'ended after at most ' + waited.toFixed(1) + ' s');
 check('skipping a pick gives no card, but a bonus for the next pick',
-    Object.keys(player.effects).length === 0 && player.streak === 2 && player.pickBoost === 1);
+    Object.keys(player.effects).length === 0 && player.streak === 2 && player.skippedLast === true);
 const gap = state.nextPickAt - state.elapsed;
 check('next pick is 20-30 seconds later', gap >= 19.9 && gap <= 30, gap.toFixed(1) + ' s');
 Game.forcePick();
-check('the pick after a skip uses the next odds step', state.pick.row === PowerUps.ODDS.campaign.steps[2],
-    'pick 2 with a skip bonus -> step for pick 4 or later');
+check('the pick after a skip uses that pick\'s "after a skip" row', state.pick.row === PowerUps.ODDS.afterSkip[1],
+    'pick 2 after skipping pick 1');
 Game.choosePick('buff');
-check('choosing a card uses up the skip bonus', player.pickBoost === 0);
+check('choosing a card uses up the skip bonus', player.skippedLast === false);
+Game.forcePick();
+check('the pick after that is back to normal odds', state.pick.row === PowerUps.ODDS.picks[2], 'pick 3');
+Game.choosePick('skip');
+Game.forcePick();
+Game.choosePick('skip');
+Game.forcePick();
+check('skipping twice in a row: still the "after a skip" row, not a bigger bonus', state.pick.row === PowerUps.ODDS.afterSkip[3] && player.skippedLast === true);
+Game.choosePick('buff');
 
 Game.start({ freeSpots: true, rival: noCards });
 check('a game is 2 minutes', state.timeLeft === 120 && Game.SETTINGS.gameLength === 120);
@@ -551,17 +559,17 @@ let multiOdds = true;
 for (let i = 0; i < 4; i++) {
     Game.start({ freeSpots: true, twoPlayer: true, court: 'home', length: 180 });
     Game.forcePick();
-    if (state.pick.row !== PowerUps.ODDS.multiplayer.steps[0]) multiOdds = false;
+    if (state.pick.row !== PowerUps.ODDS.picks[0]) multiOdds = false;
     run(6);         // nobody picks: after 5 seconds both players skip
-    if (state.mode !== 'playing' || player.pickBoost !== 1 || rival.pickBoost !== 1) multiOdds = false;
+    if (state.mode !== 'playing' || !player.skippedLast || !rival.skippedLast) multiOdds = false;
     if (Object.keys(player.effects).length || Object.keys(rival.effects).length) multiOdds = false;
 }
-check('two-player uses the multiplayer odds; when the timer runs out both players skip and get the bonus', multiOdds);
+check('two-player uses the same odds table; when the timer runs out both players skip and get the bonus', multiOdds);
 Game.start({ freeSpots: true, twoPlayer: true, court: 'home', length: 180 });
 Game.forcePick();
 Game.choosePick('buff', player);
 run(6);
-check('two-player: one player can pick while the other skips', state.mode === 'playing' && player.pickBoost === 0 && rival.pickBoost === 1);
+check('two-player: one player can pick while the other skips', state.mode === 'playing' && !player.skippedLast && rival.skippedLast);
 Game.start({ freeSpots: true, rival: noCards, court: 'home', length: 60 });
 check('a normal match after two-player has an AI rival again', !state.twoPlayer && rival.ai !== null && player.name === 'You');
 Game.shoot2(50, 0, 0);
